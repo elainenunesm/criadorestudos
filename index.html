@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Construtor de Aulas — Design System</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#7B3FF2">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/conteudo.css">
 </head>
@@ -469,5 +473,12 @@
 <script src="js/conteudo.js"></script>
 <script src="js/config.js"></script>
 <script src="js/script.js"></script>
+<script>
+  // Service worker só funciona em http(s)/localhost — abrindo o index.html
+  // direto do disco (file://) ele falha em silêncio, sem quebrar o app.
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
+</script>
 </body>
 </html>
