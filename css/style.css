@@ -28,6 +28,7 @@ body {
   justify-content: center;
   align-items: flex-start;
   min-height: 100vh;
+  min-height: 100dvh; /* no Chrome mobile, 100vh conta a barra de endereço como se estivesse escondida */
 }
 
 /* Mobile frame */
@@ -35,6 +36,7 @@ body {
   width: 100%;
   max-width: 420px;
   height: 100vh;
+  height: 100dvh; /* acompanha a altura visível de verdade, senão o bottom-nav fica empurrado pra fora da tela */
   background: var(--bg);
   box-shadow: 0 24px 60px rgba(30,27,46,0.12);
   position: relative;
