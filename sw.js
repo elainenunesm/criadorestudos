@@ -1,12 +1,14 @@
 'use strict';
 
 /**
- * SW.JS — Service worker do Construtor de Aulas (PWA). Cache-first pro app
- * shell, pra abrir instalado/offline. Sobe a versão do cache quando algum
- * arquivo listado abaixo mudar, senão o navegador continua servindo a
- * versão antiga do cache.
+ * SW.JS — Service worker do Construtor de Aulas (PWA). Estratégia
+ * network-first: sempre busca a versão mais nova na rede primeiro (importante
+ * porque o app muda com frequência) e só cai pro cache quando estiver
+ * offline. O cache existe pra permitir abrir sem internet, não pra acelerar
+ * quando já tem rede. Sobe a versão do cache (CACHE) quando mudar essa
+ * lista, só pra forçar uma limpeza do cache antigo.
  */
-const CACHE = 'construtor-aulas-v2';
+const CACHE = 'construtor-aulas-v3';
 const ARQUIVOS = [
   './',
   './index.html',
@@ -27,7 +29,12 @@ const ARQUIVOS = [
 ];
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ARQUIVOS)));
+  // {cache:'reload'} ignora o cache HTTP do navegador — sem isso, um deploy
+  // recente podia ser "pré-cacheado" com bytes antigos que o navegador ainda
+  // tinha guardados, e a atualização nunca aparecia de verdade.
+  event.waitUntil(
+    caches.open(CACHE).then(cache => cache.addAll(ARQUIVOS.map(url => new Request(url, { cache: 'reload' }))))
+  );
   self.skipWaiting();
 });
 
@@ -44,15 +51,12 @@ self.addEventListener('fetch', event => {
   if (url.origin !== location.origin) return;
 
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached;
-      return fetch(event.request)
-        .then(resposta => {
-          const copia = resposta.clone();
-          caches.open(CACHE).then(cache => cache.put(event.request, copia));
-          return resposta;
-        })
-        .catch(() => (event.request.mode === 'navigate' ? caches.match('./index.html') : undefined));
-    })
+    fetch(event.request)
+      .then(resposta => {
+        const copia = resposta.clone();
+        caches.open(CACHE).then(cache => cache.put(event.request, copia));
+        return resposta;
+      })
+      .catch(() => caches.match(event.request).then(cached => cached || (event.request.mode === 'navigate' ? caches.match('./index.html') : undefined)))
   );
 });

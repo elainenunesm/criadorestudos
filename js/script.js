@@ -22,7 +22,8 @@ function mostrarPainel(painel) {
   document.getElementById('painelEstrutura').classList.toggle('ativo', painel === 'estrutura');
   document.getElementById('painelConteudo').classList.toggle('ativo', painel === 'conteudo');
   document.getElementById('painelConfig').classList.toggle('ativo', painel === 'config');
-  document.getElementById('tabsNav').style.display = painel === 'config' ? 'none' : '';
+  document.getElementById('painelEstatistica').classList.toggle('ativo', painel === 'estatistica');
+  document.getElementById('tabsNav').style.display = (painel === 'config' || painel === 'estatistica') ? 'none' : '';
   if (painel === 'conteudo' && !conteudoInicializado) {
     conteudoInicializado = true;
     inicializarConteudo();
@@ -46,6 +47,13 @@ function abrirConfig() {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.querySelector('.bottom-nav .nav-item:last-child').classList.add('active');
   mostrarPainel('config');
+}
+
+function abrirEstatistica() {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('navEstatistica').classList.add('active');
+  mostrarPainel('estatistica');
 }
 
 // Menu "..." de ciclo/matéria/aula (renomear / excluir) — genérico
