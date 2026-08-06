@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Construtor de Aulas — Design System</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/conteudo.css">
+</head>
+<body>
+
+<div class="app" role="application" aria-label="Construtor de Aulas">
+
+  <header id="headerApp">
+    <div class="logo-wrap" aria-label="Ir para o início" role="button" tabindex="0" style="cursor:pointer" onclick="abrirInicio()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();abrirInicio();}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+    </div>
+
+    <div class="header-text">
+      <h1>Construtor de Aulas</h1>
+      <p>Organize ciclos, etapas e aulas</p>
+    </div>
+
+    <button class="icon-btn" aria-label="Arquivos" title="Arquivos">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F08A2A" stroke-width="2.2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+    </button>
+
+    <button class="more-btn" aria-label="Mais opções">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2D2A3E" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+    </button>
+  </header>
+
+  <main>
+    <!-- Tabs -->
+    <nav class="tabs" id="tabsNav" aria-label="Seções do curso">
+      <button class="tab active" id="tabEstrutura" onclick="switchTab(this,'estrutura')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        Estrutura
+      </button>
+      <button class="tab" id="tabConteudo" onclick="switchTab(this,'conteudo')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Conteúdo da aula
+      </button>
+    </nav>
+
+    <div id="painelEstrutura" class="painel ativo">
+    <!-- Resumo -->
+    <section aria-label="Resumo do curso">
+      <div class="section-header">
+        <h2 class="section-title">Resumo do curso</h2>
+        <a href="#" class="link">Ver detalhes <span aria-hidden="true">›</span></a>
+      </div>
+
+      <div class="stats" role="list" aria-label="Estatísticas">
+        <article class="card-stat" role="listitem">
+          <div class="num purple">3</div>
+          <div class="label">Ciclos</div>
+          <div class="icon-circle" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7B3FF2" stroke-width="2.2"><path d="M3 3v18h18"/><path d="M7 16l4-6 3 4 4-6"/></svg>
+          </div>
+        </article>
+
+        <article class="card-stat" role="listitem">
+          <div class="num blue">12</div>
+          <div class="label">Etapas</div>
+          <div class="icon-circle" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4A7AEA" stroke-width="2.2"><line x1="4" y1="10" x2="20" y2="10"/><line x1="4" y1="14" x2="20" y2="14"/><line x1="4" y1="6" x2="10" y2="6"/></svg>
+          </div>
+        </article>
+
+        <article class="card-stat" role="listitem">
+          <div class="num green">89</div>
+          <div class="label">Aulas</div>
+          <div class="icon-circle" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1FAA6B" stroke-width="2.2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          </div>
+        </article>
+
+        <article class="card-stat" role="listitem">
+          <div class="num orange">—</div>
+          <div class="label">Trilhas</div>
+          <div class="icon-circle" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F08A2A" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- Search -->
+    <div class="search-bar" role="search" aria-label="Buscar na estrutura">
+      <span aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6E6A7A" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </span>
+      <input type="text" placeholder="Buscar na estrutura..." aria-label="Buscar na estrutura" />
+      <button class="filter-btn" aria-label="Filtrar" title="Filtrar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7B3FF2" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+      </button>
+    </div>
+
+    <!-- Tree -->
+    <div class="tree-wrap" role="tree" aria-label="Estrutura de ciclos">
+      <!-- Ciclo 1 -->
+      <div class="node collapsed" role="treeitem" aria-expanded="false" aria-label="Ciclo 1" data-ciclo-id="1">
+        <div class="node-header" onclick="toggleNode(this)" role="button" tabindex="0" aria-label="Expandir ou recolher Ciclo 1">
+          <span class="arrow" aria-hidden="true">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 2 6 6 3 10"/></svg>
+          </span>
+          <span class="folder-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="#7B3FF2" stroke="none"><path d="M20 6h-8l-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2z"/></svg>
+          </span>
+          <span class="node-label">Ciclo 1 – Base Jurídica</span>
+          <button class="more" aria-label="Opções do ciclo" onclick="abrirMenuCiclo(event, 1)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6E6A7A" stroke-width="2.2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+          </button>
+        </div>
+
+        <div class="children" role="group">
+          <!-- Português -->
+          <div class="node" role="treeitem" aria-expanded="true" aria-label="Português" data-materia-id="1">
+            <div class="node-header" onclick="toggleNode(this)" role="button" tabindex="0" aria-label="Expandir ou recolher Português">
+              <span class="arrow rotated" aria-hidden="true">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 2 6 6 3 10"/></svg>
+              </span>
+              <span class="folder-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="#4A7AEA" stroke="none"><path d="M20 6h-8l-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2z"/></svg>
+              </span>
+              <span class="node-label">Português</span>
+              <button class="more" aria-label="Opções da matéria" onclick="abrirMenuMateria(event, 1, 1)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6E6A7A" stroke-width="2.2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+              </button>
+            </div>
+
+            <div class="children" role="group">
+              <a href="#" class="lesson-row" data-aula-id="1" role="treeitem" aria-label="Aula 1 - Verbos" onclick="abrirConteudoAula(1,1,1); return false;">
+                <span aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6E6A7A" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                </span>
+                <span class="lesson-label">Aula 1 – Verbos</span>
+                <button type="button" class="more-aula" aria-label="Opções da aula" onclick="abrirMenuAula(event, 1, 1, 1)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6E6A7A" stroke-width="2.2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                </button>
+              </a>
+              <a href="#" class="lesson-row" data-aula-id="2" role="treeitem" aria-label="Aula 2 - Sujeito" onclick="abrirConteudoAula(1,1,2); return false;">
+                <span aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6E6A7A" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                </span>
+                <span class="lesson-label">Aula 2 – Sujeito</span>
+                <button type="button" class="more-aula" aria-label="Opções da aula" onclick="abrirMenuAula(event, 1, 1, 2)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6E6A7A" stroke-width="2.2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                </button>
+              </a>
+              <a href="#" class="lesson-row" data-aula-id="3" role="treeitem" aria-label="Aula 3 - Predicado" onclick="abrirConteudoAula(1,1,3); return false;">
+                <span aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6E6A7A" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                </span>
+                <span class="lesson-label">Aula 3 – Predicado</span>
+                <button type="button" class="more-aula" aria-label="Opções da aula" onclick="abrirMenuAula(event, 1, 1, 3)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6E6A7A" stroke-width="2.2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                </button>
+              </a>
+              <a href="#" class="add-lesson" aria-label="Adicionar aula" onclick="novaAulaEm(1,1); return false;">
+                <span aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7B3FF2" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                </span>
+                Adicionar aula
+              </a>
+            </div>
+          </div>
+
+          <!-- Direito Administrativo -->
+          <div class="node" role="treeitem" aria-expanded="true" aria-label="Direito Administrativo" data-materia-id="2">
+            <div class="node-header" onclick="toggleNode(this)" role="button" tabindex="0" aria-label="Expandir ou recolher Direito Administrativo">
+              <span class="arrow rotated" aria-hidden="true">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 2 6 6 3 10"/></svg>
+              </span>
+              <span class="folder-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="#4A7AEA" stroke="none"><path d="M20 6h-8l-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2z"/></svg>
+              </span>
+              <span class="node-label">Direito Administrativo</span>
+              <button class="more" aria-label="Opções da matéria" onclick="abrirMenuMateria(event, 1, 2)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6E6A7A" stroke-width="2.2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+              </button>
+            </div>
+
+            <div class="children" role="group">
+              <a href="#" class="lesson-row" data-aula-id="4" role="treeitem" aria-label="Aula 1 - Conceitos" onclick="abrirConteudoAula(1,2,4); return false;">
+                <span aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6E6A7A" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                </span>
+                <span class="lesson-label">Aula 1 – Conceitos</span>
+                <button type="button" class="more-aula" aria-label="Opções da aula" onclick="abrirMenuAula(event, 1, 2, 4)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6E6A7A" stroke-width="2.2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                </button>
+              </a>
+              <a href="#" class="lesson-row" data-aula-id="5" role="treeitem" aria-label="Aula 2 - Princípios" onclick="abrirConteudoAula(1,2,5); return false;">
+                <span aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6E6A7A" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                </span>
+                <span class="lesson-label">Aula 2 – Princípios</span>
+                <button type="button" class="more-aula" aria-label="Opções da aula" onclick="abrirMenuAula(event, 1, 2, 5)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6E6A7A" stroke-width="2.2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                </button>
+              </a>
+              <a href="#" class="lesson-row" data-aula-id="6" role="treeitem" aria-label="Aula 3 - Atos administrativos" onclick="abrirConteudoAula(1,2,6); return false;">
+                <span aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6E6A7A" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                </span>
+                <span class="lesson-label">Aula 3 – Atos administrativos</span>
+                <button type="button" class="more-aula" aria-label="Opções da aula" onclick="abrirMenuAula(event, 1, 2, 6)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6E6A7A" stroke-width="2.2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                </button>
+              </a>
+              <a href="#" class="add-lesson" aria-label="Adicionar aula" onclick="novaAulaEm(1,2); return false;">
+                <span aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7B3FF2" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                </span>
+                Adicionar aula
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ciclo 2 -->
+      <div class="node collapsed" role="treeitem" aria-expanded="false" aria-label="Ciclo 2" data-ciclo-id="2">
+        <div class="node-header" onclick="toggleNode(this)" role="button" tabindex="0" aria-label="Expandir ou recolher Ciclo 2">
+          <span class="arrow" aria-hidden="true">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 2 6 6 3 10"/></svg>
+          </span>
+          <span class="folder-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="#7B3FF2" stroke="none"><path d="M20 6h-8l-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2z"/></svg>
+          </span>
+          <span class="node-label">Ciclo 2 – Específica</span>
+          <button class="more" aria-label="Opções do ciclo" onclick="abrirMenuCiclo(event, 2)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6E6A7A" stroke-width="2.2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Ciclo 3 -->
+      <div class="node collapsed" role="treeitem" aria-expanded="false" aria-label="Ciclo 3" data-ciclo-id="3">
+        <div class="node-header" onclick="toggleNode(this)" role="button" tabindex="0" aria-label="Expandir ou recolher Ciclo 3">
+          <span class="arrow" aria-hidden="true">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 2 6 6 3 10"/></svg>
+          </span>
+          <span class="folder-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="#7B3FF2" stroke="none"><path d="M20 6h-8l-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2z"/></svg>
+          </span>
+          <span class="node-label">Ciclo 3 – Avançada</span>
+          <button class="more" aria-label="Opções do ciclo" onclick="abrirMenuCiclo(event, 3)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6E6A7A" stroke-width="2.2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-outline" onclick="novoCiclo()" aria-label="Novo ciclo">
+      <span aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </span>
+      Novo ciclo
+    </button>
+
+    <div class="actions-row" aria-label="Ações rápidas">
+      <button class="action-card" onclick="novaEtapa()" aria-label="Nova etapa">
+        <span aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7B3FF2" stroke-width="2.2" stroke-linecap="round"><path d="M3 3v18h18"/><path d="M7 16l4-6 3 4 4-6"/></svg>
+        </span>
+        Nova etapa
+      </button>
+    </div>
+
+    <button class="btn-primary" onclick="exportarProjeto()" aria-label="Exportar projeto">
+      <span aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      </span>
+      Exportar projeto (.zip)
+    </button>
+    </div>
+
+    <div id="painelConteudo" class="painel">
+      <div class="aula-picker">
+        <label for="seletorAula">Editando a aula</label>
+        <select id="seletorAula"></select>
+      </div>
+
+      <div class="subtabs-conteudo" id="subtabsConteudo">
+        <button type="button" class="subtab-conteudo active" data-subtab="estrutura" onclick="switchSubtabConteudo(this,'estrutura')">
+          Estrutura das telas
+        </button>
+        <button type="button" class="subtab-conteudo" data-subtab="editor" onclick="switchSubtabConteudo(this,'editor')">
+          Conteúdo da aula
+        </button>
+      </div>
+
+      <div id="subpainelEstrutura" class="subpainel-conteudo ativo">
+        <div class="tela-lista" id="telaLista"></div>
+        <div class="add-cards" id="telaListaAddCards" style="margin-top: 12px;"></div>
+      </div>
+
+      <div id="subpainelEditor" class="subpainel-conteudo">
+      <div class="stepper">
+        <button class="step-nav-btn" id="passoAnterior" aria-label="Passo anterior">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <div class="step-info">
+          <span class="step-count" id="passoContagem">Passo 1 de 1</span>
+          <span class="step-titulo" id="passoTitulo">—</span>
+          <div class="step-dots" id="stepDots"></div>
+        </div>
+        <button class="step-nav-btn" id="passoProximo" aria-label="Próximo passo">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+      <div class="step-add-remove" id="stepAddRemove"></div>
+
+      <div id="formPasso"></div>
+
+      <div class="preview-wrap">
+        <span class="preview-label">Pré-visualizador da tela atual</span>
+        <div class="player-preview">
+          <div class="pp-header">
+            <span class="pp-info" id="previewInfo">—</span>
+            <div class="pp-progress" id="previewProgress"></div>
+          </div>
+          <div class="pp-body" id="previewBody"></div>
+          <div class="pp-feedback" id="previewFeedback" style="display:none"></div>
+        </div>
+        <div class="preview-toggle" id="previewToggle">
+          <button data-resp="padrao" class="ativo">Padrão</button>
+          <button data-resp="acerto">Ver acerto</button>
+          <button data-resp="erro">Ver erro</button>
+        </div>
+      </div>
+
+      <div class="preview-wrap">
+        <div class="preview-nav">
+          <span class="preview-label">Pré-visualizador da aula</span>
+          <div class="preview-nav-botoes">
+            <button type="button" class="preview-nav-btn" id="previewAulaAnterior" aria-label="Tela anterior da aula">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <span class="preview-nav-contagem" id="previewAulaContagem">1/1</span>
+            <button type="button" class="preview-nav-btn" id="previewAulaProximo" aria-label="Próxima tela da aula">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="player-preview">
+          <div class="pp-header">
+            <span class="pp-info" id="previewAulaInfo">—</span>
+            <div class="pp-progress" id="previewAulaProgress"></div>
+          </div>
+          <div class="pp-body" id="previewAulaBody"></div>
+          <div class="pp-feedback" id="previewAulaFeedback" style="display:none"></div>
+        </div>
+        <div class="preview-toggle" id="previewAulaToggle">
+          <button data-resp="padrao" class="ativo">Padrão</button>
+          <button data-resp="acerto">Ver acerto</button>
+          <button data-resp="erro">Ver erro</button>
+        </div>
+      </div>
+      </div>
+    </div>
+
+    <div id="painelConfig" class="painel">
+      <div class="form-secao">
+        <div class="campo"><label>Título do app</label><input type="text" id="configTitulo" maxlength="40"></div>
+        <div class="campo"><label>Subtítulo</label><input type="text" id="configSubtitulo" maxlength="60"></div>
+
+        <div class="secao-titulo-editor">Ícone do cabeçalho</div>
+        <div class="preview-toggle" id="tipoLogoToggle">
+          <button type="button" data-tipo="icone" class="ativo">Ícone</button>
+          <button type="button" data-tipo="imagem">Imagem (link)</button>
+        </div>
+        <div class="icones-grade" id="gradeIcones"></div>
+        <div class="campo" id="campoImagemUrl" style="display:none">
+          <label>Link da imagem (URL)</label>
+          <input type="text" id="configImagemUrl" placeholder="https://exemplo.com/logo.png">
+        </div>
+
+        <div class="secao-titulo-editor">Cor de marca</div>
+        <div class="campo-linha">
+          <input type="color" id="configCor">
+          <input type="text" id="configCorTexto" maxlength="7" style="flex:1">
+        </div>
+      </div>
+
+      <div class="preview-wrap">
+        <span class="preview-label">Como vai ficar a página que você baixa</span>
+        <div class="pagina-preview" id="previewPagina">
+          <div class="pg-header">
+            <div class="pv-logo"></div>
+            <div class="pg-header-textos">
+              <div class="pv-titulo"></div>
+              <div class="pv-subtitulo"></div>
+            </div>
+          </div>
+          <div class="pg-hero-card">
+            <div class="pg-hero-materia"></div>
+            <div class="pg-hero-titulo"></div>
+            <div class="pg-hero-segmentos"></div>
+          </div>
+          <div class="pg-aulas"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Navegação inferior">
+    <a href="#" class="nav-item active" onclick="abrirInicio(); return false;">
+      <span class="nav-icon" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>
+      </span>
+      <span>Início</span>
+    </a>
+
+    <a href="#" class="nav-item">
+      <span class="nav-icon" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      </span>
+      <span>Conteúdo</span>
+    </a>
+
+    <button class="nav-fab" onclick="alert('Criar')" aria-label="Criar">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+
+    <a href="#" class="nav-item">
+      <span class="nav-icon" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      </span>
+      <span>Arquivos</span>
+    </a>
+
+    <a href="#" class="nav-item" onclick="abrirConfig(); return false;">
+      <span class="nav-icon" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+      </span>
+      <span>Layout</span>
+    </a>
+  </nav>
+
+  <div class="modal-overlay" id="modalConfirmar">
+    <div class="modal-card">
+      <div class="modal-icone">🗑️</div>
+      <p class="modal-texto" id="modalConfirmarTexto"></p>
+      <div class="modal-botoes">
+        <button type="button" class="modal-btn-cancelar" id="modalConfirmarCancelar">Cancelar</button>
+        <button type="button" class="modal-btn-excluir" id="modalConfirmarOk">Excluir</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modalEscolher">
+    <div class="modal-card modal-card-lista">
+      <p class="modal-titulo-lista" id="modalEscolherTitulo"></p>
+      <div class="modal-lista" id="modalEscolherLista"></div>
+      <button type="button" class="modal-btn-cancelar" id="modalEscolherCancelar">Cancelar</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/zip.js"></script>
+<script src="js/vendor-embutido.js"></script>
+<script src="js/export.js"></script>
+<script src="js/conteudo.js"></script>
+<script src="js/config.js"></script>
+<script src="js/script.js"></script>
+</body>
+</html>

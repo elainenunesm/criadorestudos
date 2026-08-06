@@ -1,0 +1,227 @@
+'use strict';
+
+/**
+ * EXPORT.JS — Gera um projeto de aulas (html/css/js/images) a partir da
+ * árvore de ciclos (js/data.js), no formato de dados usado pelo "estudos"
+ * (js/data/modulos.mjs + um arquivo por aula em js/data/questoes/), com o
+ * conteúdo real preenchido na aba "Conteúdo da aula" (js/conteudo.js).
+ * Os arquivos gerados usam extensão .mjs (não .js) de propósito — o Windows
+ * trata .js solto como script "perigoso" (mesma extensão usada por vírus via
+ * Windows Script Host) e bloqueia/quarentena ao extrair um .zip baixado.
+ * .mjs funciona idêntico no navegador (a extensão não importa pra <script
+ * src>) e não entra nessa lista de bloqueio.
+ */
+
+function formatarValorJs(valor) {
+  return JSON.stringify(valor);
+}
+
+/** Serializa qualquer valor (string/number/boolean/array/objeto) como literal JS legível. */
+function paraJs(valor, nivel) {
+  nivel = nivel || 1;
+  const indent = '  '.repeat(nivel);
+  const indentFechar = '  '.repeat(nivel - 1);
+
+  if (valor === null || valor === undefined) return "''";
+  if (typeof valor === 'string') return formatarValorJs(valor);
+  if (typeof valor === 'number' || typeof valor === 'boolean') return String(valor);
+
+  if (Array.isArray(valor)) {
+    if (valor.length === 0) return '[]';
+    const itens = valor.map(v => `${indent}${paraJs(v, nivel + 1)}`).join(',\n');
+    return `[\n${itens}\n${indentFechar}]`;
+  }
+
+  const chaves = Object.keys(valor).filter(k => !k.startsWith('_'));
+  if (chaves.length === 0) return '{}';
+  const itens = chaves.map(k => `${indent}${k}: ${paraJs(valor[k], nivel + 1)}`).join(',\n');
+  return `{\n${itens}\n${indentFechar}}`;
+}
+
+/** licao.html é HTML cru multi-linha — sai como template literal, igual ao estudos. */
+function paraJsLicao(licao) {
+  const html = String((licao && licao.html) || '').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
+  return `{
+    titulo: ${formatarValorJs((licao && licao.titulo) || '')},
+    html: \`${html}\`,
+  }`;
+}
+
+function construirPlano(ciclos) {
+  const etapas = [];
+  const niveis = [];
+
+  ciclos.forEach(ciclo => {
+    const etapaIds = [];
+
+    ciclo.materias.forEach(materia => {
+      etapas.push({
+        id: materia.id,
+        titulo: materia.titulo,
+        materia: materia.titulo,
+        aulas: materia.aulas,
+      });
+      etapaIds.push(materia.id);
+    });
+
+    niveis.push({
+      id: ciclo.id,
+      titulo: ciclo.titulo,
+      etapas: etapaIds,
+    });
+  });
+
+  return { etapas, niveis };
+}
+
+function gerarModulosJs(plano) {
+  const etapasTexto = plano.etapas.map(etapa => {
+    const aulasTexto = etapa.aulas.map(aula => `      {
+        id:      ${aula.id},
+        titulo:  ${formatarValorJs(aula.titulo)},
+        arquivo: ${formatarValorJs('aula-' + aula.id)},
+        icone:   'padrao',
+      }`).join(',\n');
+
+    return `  {
+    id:      ${etapa.id},
+    titulo:  ${formatarValorJs(etapa.titulo)},
+    materia: ${formatarValorJs(etapa.materia)},
+    aulas: [
+${aulasTexto}
+    ],
+  }`;
+  }).join(',\n');
+
+  const niveisTexto = plano.niveis.map(nivel => `  {
+    id:     ${nivel.id},
+    titulo: ${formatarValorJs(nivel.titulo)},
+    etapas: [${nivel.etapas.join(', ')}],
+  }`).join(',\n');
+
+  return `'use strict';
+
+/**
+ * MODULOS.MJS — Gerado pelo Construtor de Aulas.
+ * Estrutura de módulos e aulas. O conteúdo de cada aula (exemplos,
+ * exercícios, resumo) fica em js/data/questoes/aula-N.mjs.
+ */
+const MODULOS = [
+${etapasTexto}
+];
+
+/**
+ * NIVEIS.JS — Agrupa etapas em ciclos.
+ */
+const NIVEIS = [
+${niveisTexto}
+];
+`;
+}
+
+/** Ordem final de exibição das telas, como tokens simples ('antesComecar', 'exemplo0', 'checagem1', 'resumo', 'licao')
+ * — reaproveita montarPassos() (js/conteudo.js) pra garantir que os índices batem exatamente com os arrays exportados abaixo. */
+function serializarOrdem(conteudo) {
+  return montarPassos(conteudo).map(p => (p.tipo === 'exemplo' || p.tipo === 'checagem') ? `${p.tipo}${p.idx}` : p.tipo);
+}
+
+function gerarAulaJs(aula, tituloEtapa) {
+  const c = aula.conteudo;
+  return `'use strict';
+
+/**
+ * AULA-${aula.id}.MJS — ${aula.titulo}
+ * Gerado pelo Construtor de Aulas (aba "Conteúdo da aula").
+ */
+window.AULA_DATA = {
+  id:     ${aula.id},
+  modulo: ${formatarValorJs(tituloEtapa)},
+  titulo: ${formatarValorJs(aula.titulo)},
+
+  // Ordem das telas na sequência de estudo — definida em "Estrutura das telas".
+  ordem: ${paraJs(serializarOrdem(c))},
+
+  antesComecar: ${paraJs(c.antesComecar)},
+
+  exemplo: ${paraJs(c.exemplo)},
+
+  checagem: ${paraJs(c.checagem)},
+
+  resumo: ${paraJs(c.resumo)},
+
+  licao: ${paraJsLicao(c.licao)},
+
+  questoes: [],
+};
+`;
+}
+
+function gerarLeiaMeImages() {
+  return `Coloque aqui as imagens usadas nas aulas (ex: aula-3-diagrama.png).
+Referencie o caminho "images/nome-do-arquivo" no conteúdo da aula.
+`;
+}
+
+/**
+ * Arquivos "motor" (tela inicial com trilha/trava/estrelas + tela de estudo)
+ * — não dependem do curso específico, então vêm prontos em vez de serem
+ * gerados. O conteúdo vem embutido em js/vendor-embutido.js (VENDOR_ARQUIVOS)
+ * em vez de fetch(), porque fetch() de arquivo local é bloqueado pelo
+ * navegador quando o index.html é aberto direto (file://) — se mudar algo em
+ * vendor/estudo/, regenere js/vendor-embutido.js.
+ */
+function carregarArquivosVendor() {
+  return { ...VENDOR_ARQUIVOS };
+}
+
+/** Troca os placeholders {{APP_...}} do cabeçalho pelos valores definidos na aba "Mais". */
+function aplicarIdentidadeVisual(arquivos) {
+  const logoHtml = logoHtmlInterno(); // js/config.js — mesma lógica ícone/imagem do preview
+  const faviconHref = gerarFaviconHref(); // js/config.js
+  ['index.html', 'estudo.html'].forEach(caminho => {
+    arquivos[caminho] = arquivos[caminho]
+      .replaceAll('{{APP_TITULO}}', escaparHtmlExport(CONFIG_APP.titulo || 'Minhas Aulas'))
+      .replaceAll('{{APP_SUBTITULO}}', escaparHtmlExport(CONFIG_APP.subtitulo || ''))
+      .replaceAll('{{APP_LOGO_HTML}}', logoHtml)
+      .replaceAll('{{APP_FAVICON_HREF}}', faviconHref)
+      .replaceAll('{{APP_COR}}', CONFIG_APP.cor);
+  });
+
+  // Sobrescreve as variáveis de cor (:root padrão já está no topo do arquivo,
+  // esse bloco extra vem depois e vence a cascata — ver comentário em
+  // vendor/estudo/css/inicio.css).
+  const paleta = gerarPaletaCss(CONFIG_APP.cor);
+  const blocoRoot = ':root {\n' + Object.entries(paleta).map(([k, v]) => `  ${k}: ${v};`).join('\n') + '\n}\n';
+  ['css/inicio.css', 'css/estudo.css'].forEach(caminho => {
+    arquivos[caminho] = arquivos[caminho] + '\n' + blocoRoot;
+  });
+}
+
+function escaparHtmlExport(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function exportarProjeto() {
+  const plano = construirPlano(CICLOS);
+  const arquivos = carregarArquivosVendor();
+  aplicarIdentidadeVisual(arquivos);
+
+  arquivos['js/data/modulos.mjs'] = gerarModulosJs(plano);
+  arquivos['images/LEIA-ME.txt'] = gerarLeiaMeImages();
+
+  plano.etapas.forEach(etapa => {
+    etapa.aulas.forEach(aula => {
+      arquivos[`js/data/questoes/aula-${aula.id}.mjs`] = gerarAulaJs(aula, etapa.titulo);
+    });
+  });
+
+  const blob = criarZip(arquivos);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'construtor-aulas-export.zip';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}

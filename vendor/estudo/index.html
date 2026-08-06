@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>{{APP_TITULO}}</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/inicio.css">
+<link rel="icon" href="{{APP_FAVICON_HREF}}">
+<meta name="theme-color" content="{{APP_COR}}">
+</head>
+<body>
+
+<div class="app-wrapper">
+
+  <header class="header">
+    <div class="header-left">
+      <div class="logo">{{APP_LOGO_HTML}}</div>
+      <div class="header-title">
+        <h1>{{APP_TITULO}}</h1>
+        <p>{{APP_SUBTITULO}}</p>
+      </div>
+    </div>
+  </header>
+
+  <div class="view-inicio" id="viewInicio">
+    <div id="etapasWrap"></div>
+  </div>
+
+  <div class="view-erros" id="viewErros" style="display:none">
+    <div class="erros-header">
+      <h2>Cadernos</h2>
+      <p>Suas questões erradas, aulas favoritas e telas marcadas para revisão.</p>
+    </div>
+    <div class="cadernos-tabs" id="cadernosTabs">
+      <button type="button" class="caderno-tab active" data-tab="erros">Erros</button>
+      <button type="button" class="caderno-tab" data-tab="favoritos">Favoritos</button>
+      <button type="button" class="caderno-tab" data-tab="revisao">Revisão</button>
+    </div>
+    <div class="cadernos-subtabs" id="cadernosSubtabs">
+      <button type="button" class="caderno-subtab active" data-subtab="aula">Por aula</button>
+      <button type="button" class="caderno-subtab" data-subtab="geral">Geral</button>
+    </div>
+    <div class="erros-list" id="errosList"></div>
+  </div>
+
+  <div class="view-placeholder" id="viewDesempenho" style="display:none">
+    <h2>Desempenho</h2>
+    <p>Insígnias por nível aparecem aqui em uma próxima versão.</p>
+  </div>
+
+  <div class="view-niveis" id="viewNiveis" style="display:none">
+    <div class="erros-header">
+      <h2>Estudos</h2>
+      <p>Cada nível reúne várias etapas — conclua todas as aulas para desbloquear o próximo.</p>
+    </div>
+    <div class="niveis-lista" id="niveisLista"></div>
+  </div>
+
+  <nav class="bottom-nav">
+    <div class="nav-item active" data-view="inicio">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"></path></svg>
+      <span>Início</span>
+    </div>
+    <div class="nav-item" data-view="erros">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+      <span>Cadernos</span>
+    </div>
+    <div class="nav-item" data-view="desempenho">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+      <span>Desempenho</span>
+    </div>
+    <div class="nav-item" data-view="niveis">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+      <span>Estudos</span>
+    </div>
+  </nav>
+
+</div>
+
+<script src="js/progresso.mjs"></script>
+<script src="js/data/modulos.mjs"></script>
+<script src="js/inicio.mjs"></script>
+<script src="js/cadernos.mjs"></script>
+<script src="js/niveis.mjs"></script>
+</body>
+</html>

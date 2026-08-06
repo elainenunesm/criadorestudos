@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>{{APP_TITULO}}</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/estudo.css">
+<link rel="icon" href="{{APP_FAVICON_HREF}}">
+<meta name="theme-color" content="{{APP_COR}}">
+</head>
+<body>
+
+<div class="app-wrapper">
+
+  <!-- HEADER -->
+  <header class="estudo-header">
+    <button class="btn-fechar" id="btnFechar" title="Sair">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    </button>
+    <div class="header-info">
+      <span class="questao-info" id="questaoInfo">Questão 1 de 5 • Aula 1: Aprenda o que é o verbo</span>
+      <div class="progress-segmentos" id="progressSegmentos"></div>
+    </div>
+  </header>
+
+  <!-- QUESTÃO -->
+  <div class="questao-wrap">
+    <main class="questao-area" id="questaoArea">
+      <h2 class="questao-titulo" id="questaoTitulo"></h2>
+      <p class="questao-subtitulo" id="questaoSubtitulo"></p>
+      <div class="opcoes" id="opcoes"></div>
+    </main>
+    <div class="scroll-fade" id="scrollFade"></div>
+  </div>
+
+  <!-- FEEDBACK -->
+  <div class="feedback-bar" id="feedbackBar">
+    <div class="feedback-icon" id="feedbackIcon"></div>
+    <div class="feedback-texto" id="feedbackTexto"></div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="estudo-footer">
+    <button class="btn-anterior" id="btnAnterior">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      Anterior
+    </button>
+    <button class="btn-proxima" id="btnProxima">
+      Próxima
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    </button>
+  </footer>
+
+</div>
+
+<!-- MODAL LIÇÃO -->
+<div class="licao-overlay" id="licaoOverlay">
+  <div class="licao-card">
+    <div class="licao-header">
+      <h3 id="licaoHeader">📖 Lição</h3>
+      <button class="licao-fechar" id="licaoFechar">✕</button>
+    </div>
+    <div class="licao-corpo" id="licaoCorpo"></div>
+    <button class="licao-btn-fechar" id="licaoBtnFechar">Entendido</button>
+  </div>
+</div>
+
+<!-- MODAL RESULTADO -->
+<div class="resultado-overlay" id="resultadoOverlay">
+  <div class="resultado-card">
+    <div class="resultado-emoji" id="resultadoEmoji">🎉</div>
+    <h2 class="resultado-titulo" id="resultadoTitulo">Aula concluída!</h2>
+    <p class="resultado-desc" id="resultadoDesc"></p>
+    <div class="resultado-estrelas" id="resultadoEstrelas"></div>
+    <button class="resultado-btn-continuar" id="resultadoBtnContinuar">Voltar ao início</button>
+  </div>
+</div>
+
+<script src="js/progresso.mjs"></script>
+<script src="js/data/modulos.mjs"></script>
+<script src="js/estudo.mjs"></script>
+</body>
+</html>
