@@ -310,8 +310,61 @@ function escaparHtml(s) {
   return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+/** Migra o campo antigo "feedback" (um só, pra acerto e erro) pros novos feedbackCorreto/feedbackErrado,
+ * na primeira vez que o item é aberto no editor — sem isso, itens salvos antes dessa mudança perderiam
+ * o texto que já tinham. */
+function migrarFeedbackChecagem(item) {
+  if (item.feedbackCorreto === undefined && item.feedbackErrado === undefined) {
+    item.feedbackCorreto = item.feedback || '';
+    item.feedbackErrado = item.feedback || '';
+    delete item.feedback;
+  }
+}
+
 function opcoesTipoIcone(selecionado) {
-  return TIPOS_ICONE.map(t => `<option value="${t}" ${t === selecionado ? 'selected' : ''}>${t}</option>`).join('');
+  const padrao = TIPOS_ICONE.map(t => `<option value="${t}" ${t === selecionado ? 'selected' : ''}>${t}</option>`).join('');
+  return padrao + `<option value="externo" ${selecionado === 'externo' ? 'selected' : ''}>🔗 Ícone externo (link)</option>`;
+}
+
+/** <select> de tipo + botão de atalho "🔗" ao lado — clicar no botão já troca pra ícone externo
+ * e mostra o campo de link, sem precisar abrir o dropdown e procurar a opção. */
+function htmlSelectTipoIcone(item, attrSelect) {
+  return `<div class="linha-tipo-icone">
+    <select ${attrSelect}="tipo">${opcoesTipoIcone(item.tipo)}</select>
+    <button type="button" class="btn-icone-externo${item.tipo === 'externo' ? ' ativo' : ''}" title="Usar ícone externo (link)">🔗</button>
+  </div>`;
+}
+
+/** Liga o botão "🔗" (de htmlSelectTipoIcone) dentro de `container` — ao clicar, troca item.tipo pra
+ * "externo", sincroniza o <select>, mostra o campo de link e foca nele. */
+function ligarBotaoIconeExterno(container, item, seletorSelect, aoMudar) {
+  const botao = container.querySelector('.btn-icone-externo');
+  const select = container.querySelector(seletorSelect);
+  const campoUrl = container.querySelector('.campo-icone-externo');
+  botao.addEventListener('click', () => {
+    item.tipo = 'externo';
+    select.value = 'externo';
+    botao.classList.add('ativo');
+    campoUrl.style.display = '';
+    container.querySelector('[data-icone-url]').focus();
+    aoMudar();
+  });
+}
+
+/** Campo de URL do ícone externo (só visível quando o "Tipo" selecionado é "externo") — HTML pronto
+ * pra colar logo depois do <select> de tipo; quem chama ainda precisa achar o input e ligar o evento. */
+function htmlCampoIconeExterno(item) {
+  return `<div class="campo campo-icone-externo" style="${item.tipo === 'externo' ? '' : 'display:none'}">
+    <label>Link do ícone (imagem)</label>
+    <input type="text" data-icone-url placeholder="https://exemplo.com/icone.png">
+  </div>`;
+}
+
+/** Acha o input do htmlCampoIconeExterno() dentro de `container`, preenche com item.iconeUrl e liga o evento. */
+function ligarCampoIconeExterno(container, item) {
+  const input = container.querySelector('[data-icone-url]');
+  input.value = item.iconeUrl || '';
+  input.addEventListener('input', () => { item.iconeUrl = input.value; renderPreviewAtual(); });
 }
 
 /* ---------------------------------------------------------------------- */
@@ -321,7 +374,6 @@ function opcoesTipoIcone(selecionado) {
 function renderizarConteudo() {
   const aula = conteudoAulaAtual();
   const formEl = document.getElementById('formPasso');
-  const addRemoveEl = document.getElementById('stepAddRemove');
   if (!aula) {
     formEl.innerHTML = '<p class="pp-vazio">Nenhuma aula selecionada.</p>';
     return;
@@ -339,15 +391,6 @@ function renderizarConteudo() {
   document.getElementById('stepDots').innerHTML = passos.map((_, i) =>
     `<span class="step-dot ${i === conteudoEstado.passoIndex ? 'ativo' : (i < conteudoEstado.passoIndex ? 'feito' : '')}"></span>`
   ).join('');
-
-  addRemoveEl.innerHTML = '';
-  if (passo.tipo === 'exemplo' || passo.tipo === 'checagem') {
-    const btnRemover = document.createElement('button');
-    btnRemover.className = 'remover';
-    btnRemover.textContent = passo.tipo === 'exemplo' ? '🗑 Remover este exemplo' : '🗑 Remover esta checagem';
-    btnRemover.onclick = removerPassoAtual;
-    addRemoveEl.appendChild(btnRemover);
-  }
 
   const renderers = {
     antesComecar: renderFormAntesComecar,
@@ -388,7 +431,8 @@ function renderFormExemplo(el, conteudo, passo) {
   if (!item.pontos) item.pontos = [];
   el.innerHTML = `
     <div class="form-secao">
-      <div class="campo"><label>Tipo (ícone)</label><select data-f="tipo">${opcoesTipoIcone(item.tipo)}</select></div>
+      <div class="campo"><label>Tipo (ícone)</label>${htmlSelectTipoIcone(item, 'data-f')}</div>
+      ${htmlCampoIconeExterno(item)}
       <div class="campo"><label>Texto</label><textarea data-f="texto"></textarea></div>
       <div class="campo"><label>Conclusão (opcional)</label><textarea data-f="conclusao"></textarea></div>
       <div class="campo"><label>Observação (opcional)</label><textarea data-f="obs"></textarea></div>
@@ -400,6 +444,12 @@ function renderFormExemplo(el, conteudo, passo) {
     input.value = item[input.dataset.f] || '';
     input.addEventListener('input', () => { item[input.dataset.f] = input.value; renderPreviewAtual(); });
   });
+  ligarCampoIconeExterno(el, item);
+  el.querySelector('[data-f="tipo"]').addEventListener('change', () => {
+    el.querySelector('.campo-icone-externo').style.display = item.tipo === 'externo' ? '' : 'none';
+    el.querySelector('.btn-icone-externo').classList.toggle('ativo', item.tipo === 'externo');
+  });
+  ligarBotaoIconeExterno(el, item, '[data-f="tipo"]', renderPreviewAtual);
 
   const listaPontos = el.querySelector('#listaPontos');
   function renderPontos() {
@@ -409,11 +459,19 @@ function renderFormExemplo(el, conteudo, passo) {
       card.className = 'item-card';
       card.innerHTML = `
         <div class="item-card-topo"><strong>Ponto ${i + 1}</strong><button class="btn-remover-item" type="button">Remover</button></div>
-        <div class="campo"><select data-pf="tipo">${opcoesTipoIcone(ponto.tipo)}</select></div>
+        <div class="campo">${htmlSelectTipoIcone(ponto, 'data-pf')}</div>
+        ${htmlCampoIconeExterno(ponto)}
         <div class="campo"><input type="text" data-pf="texto" placeholder="Texto do ponto"></div>`;
       card.querySelector('[data-pf="tipo"]').value = ponto.tipo || 'dica';
       card.querySelector('[data-pf="texto"]').value = ponto.texto || '';
-      card.querySelector('[data-pf="tipo"]').addEventListener('change', e => { ponto.tipo = e.target.value; renderPreviewAtual(); });
+      ligarCampoIconeExterno(card, ponto);
+      card.querySelector('[data-pf="tipo"]').addEventListener('change', e => {
+        ponto.tipo = e.target.value;
+        card.querySelector('.campo-icone-externo').style.display = ponto.tipo === 'externo' ? '' : 'none';
+        card.querySelector('.btn-icone-externo').classList.toggle('ativo', ponto.tipo === 'externo');
+        renderPreviewAtual();
+      });
+      ligarBotaoIconeExterno(card, ponto, '[data-pf="tipo"]', renderPreviewAtual);
       card.querySelector('[data-pf="texto"]').addEventListener('input', e => { ponto.texto = e.target.value; renderPreviewAtual(); });
       card.querySelector('.btn-remover-item').addEventListener('click', () => { item.pontos.splice(i, 1); renderPontos(); renderPreviewAtual(); });
       listaPontos.appendChild(card);
@@ -440,12 +498,12 @@ function renderFormChecagem(el, conteudo, passo) {
     </div>`;
 
   el.querySelector('#modoChecagem').addEventListener('change', e => {
+    migrarFeedbackChecagem(item);
     const novoModo = e.target.value;
-    if (novoModo === 'palavra') {
-      conteudo.checagem[passo.idx] = { titulo: item.titulo || '', sentenca: [], classes: [], correta: 0, feedback: item.feedback || '' };
-    } else {
-      conteudo.checagem[passo.idx] = { titulo: item.titulo || '', opcoes: ['', ''], correta: 0, feedback: item.feedback || '' };
-    }
+    const base = { _id: item._id, titulo: item.titulo || '', correta: 0, feedbackCorreto: item.feedbackCorreto || '', feedbackErrado: item.feedbackErrado || '' };
+    conteudo.checagem[passo.idx] = novoModo === 'palavra'
+      ? { ...base, sentenca: [], classes: [] }
+      : { ...base, opcoes: ['', ''] };
     renderFormChecagem(el, conteudo, passo);
     renderPreviewAtual();
   });
@@ -457,6 +515,7 @@ function renderFormChecagem(el, conteudo, passo) {
 
 function renderCorpoChecagemMultipla(corpo, item) {
   if (!Array.isArray(item.opcoes) || item.opcoes.length < 2) item.opcoes = ['', ''];
+  migrarFeedbackChecagem(item);
   corpo.innerHTML = `
     <div class="campo-check"><input type="checkbox" id="chkInvertido"><label for="chkInvertido">Mostrar subtítulo antes do título (invertido)</label></div>
     <div class="campo-linha">
@@ -469,7 +528,8 @@ function renderCorpoChecagemMultipla(corpo, item) {
     <div class="secao-titulo-editor">Alternativas (marque a correta)</div>
     <div class="lista-itens" id="listaOpcoes"></div>
     <button class="btn-add-item" type="button" id="btnAddOpcao">+ Adicionar alternativa</button>
-    <div class="campo" style="margin-top:12px"><label>Feedback</label><textarea data-f="feedback"></textarea></div>`;
+    <div class="campo" style="margin-top:12px"><label>✅ Feedback quando ACERTAR</label><textarea data-f="feedbackCorreto"></textarea></div>
+    <div class="campo"><label>❌ Feedback quando ERRAR</label><textarea data-f="feedbackErrado"></textarea></div>`;
 
   corpo.querySelector('#chkInvertido').checked = !!item.invertido;
   corpo.querySelector('#chkInvertido').addEventListener('change', e => { item.invertido = e.target.checked; renderPreviewAtual(); });
@@ -508,6 +568,7 @@ function renderCorpoChecagemMultipla(corpo, item) {
 function renderCorpoChecagemPalavra(corpo, item) {
   if (!Array.isArray(item.sentenca)) item.sentenca = [];
   if (!Array.isArray(item.classes)) item.classes = [];
+  migrarFeedbackChecagem(item);
   const fraseAtual = item.sentenca.join(' ').replace(/ ([.,!?;:])/g, '$1');
 
   corpo.innerHTML = `
@@ -515,12 +576,15 @@ function renderCorpoChecagemPalavra(corpo, item) {
     <div class="campo"><label>Frase (edite e clique fora para gerar as palavras)</label><textarea id="fraseTexto" placeholder="Ex: A Maria cantou no coral."></textarea></div>
     <div class="secao-titulo-editor">Classifique cada palavra e marque a correta</div>
     <div class="lista-itens" id="listaPalavras"></div>
-    <div class="campo" style="margin-top:12px"><label>Feedback</label><textarea data-f="feedback"></textarea></div>`;
+    <div class="campo" style="margin-top:12px"><label>✅ Feedback quando ACERTAR</label><textarea data-f="feedbackCorreto"></textarea></div>
+    <div class="campo"><label>❌ Feedback quando ERRAR</label><textarea data-f="feedbackErrado"></textarea></div>`;
 
   corpo.querySelector('[data-f="titulo"]').value = item.titulo || '';
   corpo.querySelector('[data-f="titulo"]').addEventListener('input', e => { item.titulo = e.target.value; renderPreviewAtual(); });
-  corpo.querySelector('[data-f="feedback"]').value = item.feedback || '';
-  corpo.querySelector('[data-f="feedback"]').addEventListener('input', e => { item.feedback = e.target.value; renderPreviewAtual(); });
+  corpo.querySelectorAll('[data-f="feedbackCorreto"], [data-f="feedbackErrado"]').forEach(input => {
+    input.value = item[input.dataset.f] || '';
+    input.addEventListener('input', () => { item[input.dataset.f] = input.value; renderPreviewAtual(); });
+  });
 
   const fraseInput = corpo.querySelector('#fraseTexto');
   fraseInput.value = fraseAtual;
@@ -586,7 +650,8 @@ function renderFormResumo(el, conteudo) {
       card.className = 'item-card';
       card.innerHTML = `
         <div class="item-card-topo"><strong>Item ${i + 1}</strong><button class="btn-remover-item" type="button">Remover</button></div>
-        <div class="campo"><select data-rf="tipo">${opcoesTipoIcone(it.tipo)}</select></div>
+        <div class="campo">${htmlSelectTipoIcone(it, 'data-rf')}</div>
+        ${htmlCampoIconeExterno(it)}
         <div class="campo-linha">
           <div class="campo"><label>Cor</label><input type="color" data-rf="cor"></div>
           <div class="campo"><label>Fundo</label><input type="color" data-rf="corFundo"></div>
@@ -601,6 +666,12 @@ function renderFormResumo(el, conteudo) {
       card.querySelectorAll('[data-rf]').forEach(input => {
         input.addEventListener('input', () => { it[input.dataset.rf] = input.value; renderPreviewAtual(); });
       });
+      ligarCampoIconeExterno(card, it);
+      card.querySelector('[data-rf="tipo"]').addEventListener('input', () => {
+        card.querySelector('.campo-icone-externo').style.display = it.tipo === 'externo' ? '' : 'none';
+        card.querySelector('.btn-icone-externo').classList.toggle('ativo', it.tipo === 'externo');
+      });
+      ligarBotaoIconeExterno(card, it, '[data-rf="tipo"]', renderPreviewAtual);
       card.querySelector('.btn-remover-item').addEventListener('click', () => { r.itens.splice(i, 1); renderItens(); renderPreviewAtual(); });
       lista.appendChild(card);
     });
@@ -640,6 +711,40 @@ function renderPreviewAtual() {
 
 const ICONE_GENERICO = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.2H22l-6 4.6 2.3 7.2-6.3-4.5-6.3 4.5 2.3-7.2-6-4.6h7.6z"/></svg>';
 
+/** Um por valor de TIPOS_ICONE (js/data.js) — cópia exata de RESUMO_ICONES do motor real
+ * (vendor/estudo/js/estudo.mjs), pra prévia mostrar o mesmo ícone que a aluna vai ver de verdade. */
+const ICONES_TIPO = {
+  acao:     cor => `<path fill="${cor}" d="M13.49 5.48c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm-3.6 13.9l1-4.4 2.1 2v6h2v-7.5l-2.1-2 .6-3c1.3 1.5 3.3 2.5 5.5 2.5v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1l-5.2 2.2v4.7h2v-3.4l1.8-.7-1.6 8.1-4.9-1-.4 2 7 1.4z"/>`,
+  estado:   cor => `<circle cx="12" cy="5" r="2.5" fill="${cor}"/><path fill="${cor}" d="M12 9c-3 0-5 2-5 4.5V17h3v4h4v-4h3v-3.5C17 11 15 9 12 9z"/>`,
+  mudanca:  cor => `<path fill="none" stroke="${cor}" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>`,
+  fenomeno: cor => `<path fill="${cor}" d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/><line x1="8" y1="20" x2="8" y2="23" stroke="${cor}" stroke-width="2.2" stroke-linecap="round"/><line x1="12" y1="20" x2="12" y2="23" stroke="${cor}" stroke-width="2.2" stroke-linecap="round"/><line x1="16" y1="20" x2="16" y2="23" stroke="${cor}" stroke-width="2.2" stroke-linecap="round"/>`,
+  infinito: cor => `<text x="13" y="17" font-size="16" font-weight="700" fill="${cor}" text-anchor="middle">∞</text>`,
+  conjugar: cor => `<path fill="none" stroke="${cor}" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" d="M18.5 4.5a2.121 2.121 0 0 1 3 3L9 20l-4.5 1 1-4.5L18.5 4.5z"/>`,
+  gota:     cor => `<path fill="${cor}" d="M12 2s6 7.3 6 11.5A6 6 0 0 1 6 13.5C6 9.3 12 2 12 2z"/>`,
+  peca:     cor => `<path fill="none" stroke="${cor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 7h3a1 1 0 0 0 1 -1v-1a2 2 0 0 1 4 0v1a1 1 0 0 0 1 1h3a1 1 0 0 1 1 1v3a1 1 0 0 0 1 1h1a2 2 0 0 1 0 4h-1a1 1 0 0 0 -1 1v3a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-1a2 2 0 0 0 -4 0v1a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-3a1 1 0 0 0 -1 -1h-1a2 2 0 0 1 0 -4h1a1 1 0 0 0 1 -1v-3a1 1 0 0 1 1 -1"/>`,
+  foguete:  cor => `<path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>`,
+  sujeito:  cor => `<circle cx="12" cy="8" r="4" fill="none" stroke="${cor}" stroke-width="1.8"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/>`,
+  fala:     cor => `<path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/><circle cx="9" cy="11" r="1" fill="${cor}"/><circle cx="12" cy="11" r="1" fill="${cor}"/><circle cx="15" cy="11" r="1" fill="${cor}"/>`,
+  busca:    cor => `<circle cx="11" cy="11" r="7" fill="none" stroke="${cor}" stroke-width="2.1"/><line x1="20" y1="20" x2="16" y2="16" stroke="${cor}" stroke-width="2.1" stroke-linecap="round"/>`,
+  tarefa:   cor => `<rect x="5" y="4" width="12" height="16" rx="2" fill="none" stroke="${cor}" stroke-width="1.6"/><line x1="8" y1="8" x2="14" y2="8" stroke="${cor}" stroke-width="1.6" stroke-linecap="round"/><line x1="8" y1="12" x2="12" y2="12" stroke="${cor}" stroke-width="1.6" stroke-linecap="round"/><path d="M14 16l4-4 2 2-4 4h-2v-2z" fill="none" stroke="${cor}" stroke-width="1.4" stroke-linejoin="round"/>`,
+  pergunta: cor => `<path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/><text x="9.5" y="14" font-size="9" font-weight="700" fill="${cor}">?</text>`,
+  dica:     cor => `<path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.5.4.8 1 .8 1.6v.5h5.4v-.5c0-.6.3-1.2.8-1.6A6 6 0 0 0 12 3z"/>`,
+  predVerbal:      cor => `<path fill="none" stroke="${cor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/>`,
+  predNominal:     cor => `<circle cx="12" cy="12" r="8" fill="none" stroke="${cor}" stroke-width="1.8"/><line x1="8" y1="12" x2="16" y2="12" stroke="${cor}" stroke-width="1.8" stroke-linecap="round"/>`,
+  predVerboNominal: cor => `<path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M9 17H7a5 5 0 1 1 0-10h2M15 7h2a5 5 0 1 1 0 10h-2M8 12h8"/>`,
+  semSujeito: cor => `<line x1="-1" y1="6"  x2="2" y2="6"  stroke="${cor}" stroke-width="1.6" stroke-linecap="round" opacity="0.5"/><line x1="-1" y1="10" x2="2" y2="10" stroke="${cor}" stroke-width="1.6" stroke-linecap="round" opacity="0.5"/><line x1="-1" y1="14" x2="2" y2="14" stroke="${cor}" stroke-width="1.6" stroke-linecap="round" opacity="0.5"/><circle cx="11" cy="8" r="4" fill="none" stroke="${cor}" stroke-width="1.8"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" d="M4 21v-1a6 6 0 0 1 6-6h1.5"/><circle cx="18" cy="17" r="5" fill="none" stroke="${cor}" stroke-width="1.7"/><line x1="16.1" y1="15.1" x2="19.9" y2="18.9" stroke="${cor}" stroke-width="1.7" stroke-linecap="round"/><line x1="19.9" y1="15.1" x2="16.1" y2="18.9" stroke="${cor}" stroke-width="1.7" stroke-linecap="round"/>`,
+};
+
+/** Ícone de um "tipo" (TIPOS_ICONE), na cor pedida — pronto pra colar num pp-*-icone. Se
+ * tipo for "externo" com iconeUrl definido, mostra a imagem enviada em vez do ícone padrão. */
+function iconeTipo(tipo, cor, iconeUrl) {
+  if (tipo === 'externo' && iconeUrl) {
+    return `<img src="${escaparHtml(iconeUrl)}" alt="" style="width:60%;height:60%;object-fit:contain">`;
+  }
+  const gerador = ICONES_TIPO[tipo] || ICONES_TIPO.acao;
+  return `<svg viewBox="0 0 24 24" width="26" height="26">${gerador(cor)}</svg>`;
+}
+
 /** Renderiza o corpo de um passo (função pura, sem tocar em nenhum elemento fixo). */
 function corpoDoPasso(aula, passo, resp) {
   if (passo.tipo === 'antesComecar') return { html: previewAntesComecar(aula.conteudo.antesComecar), temToggle: false };
@@ -664,10 +769,13 @@ function preencherCaixaPreview(prefixo, aula, passos, indice, resp) {
 
   const feedbackEl = document.getElementById(`${prefixo}Feedback`);
   feedbackEl.className = 'pp-feedback';
-  if (temToggle && resp !== 'padrao' && item.feedback) {
+  // Aceita tanto os campos novos (feedbackCorreto/feedbackErrado) quanto o antigo "feedback"
+  // (item ainda não aberto no editor pra migrar) como texto de reserva.
+  const textoFeedback = item && (resp === 'acerto' ? (item.feedbackCorreto || item.feedback) : (item.feedbackErrado || item.feedback));
+  if (temToggle && resp !== 'padrao' && textoFeedback) {
     feedbackEl.style.display = 'flex';
     feedbackEl.classList.add(resp === 'acerto' ? 'acerto' : 'erro');
-    feedbackEl.innerHTML = `<span>${resp === 'acerto' ? '✅' : '❌'}</span><span class="pp-feedback-texto">${escaparHtml(item.feedback)}</span>`;
+    feedbackEl.innerHTML = `<span>${resp === 'acerto' ? '✅' : '❌'}</span><span class="pp-feedback-texto">${escaparHtml(textoFeedback)}</span>`;
   } else {
     feedbackEl.style.display = 'none';
   }
@@ -720,12 +828,12 @@ function previewAntesComecar(d) {
 function previewExemplo(item) {
   if (!item.texto) return '<p class="pp-vazio">Preencha o texto para ver a prévia.</p>';
   return `
-    <div class="pp-exemplo-icone">${ICONE_GENERICO}</div>
+    <div class="pp-exemplo-icone">${iconeTipo(item.tipo, '#4A80F0', item.iconeUrl)}</div>
     <p class="pp-exemplo-texto">${item.texto}</p>
     ${item.conclusao ? `<p class="pp-exemplo-conclusao">${item.conclusao}</p>` : ''}
     ${item.obs ? `<p class="pp-exemplo-texto">${item.obs}</p>` : ''}
     ${(item.pontos && item.pontos.length) ? `<div class="pp-pontos">${item.pontos.map(p => `
-      <div class="pp-ponto"><div class="pp-ponto-icone">${ICONE_GENERICO}</div><p class="pp-ponto-texto">${p.texto}</p></div>`).join('')}</div>` : ''}`;
+      <div class="pp-ponto"><div class="pp-ponto-icone">${iconeTipo(p.tipo, '#4A80F0', p.iconeUrl)}</div><p class="pp-ponto-texto">${p.texto}</p></div>`).join('')}</div>` : ''}`;
 }
 
 /** Corpo puro do exercício de checagem (sem tocar em feedback/toggle) — reaproveitado pelas duas caixas de preview. */
@@ -777,7 +885,7 @@ function previewResumo(r) {
     ${r.titulo ? `<p class="pp-titulo">${escaparHtml(r.titulo)}</p>` : ''}
     ${r.itens.map(it => `
       <div class="pp-resumo-item">
-        <div class="pp-resumo-icone" style="background:${it.corFundo || '#eef2ff'};color:${it.cor || '#4A80F0'}">${ICONE_GENERICO}</div>
+        <div class="pp-resumo-icone" style="background:${it.corFundo || '#eef2ff'};color:${it.cor || '#4A80F0'}">${iconeTipo(it.tipo, it.cor || '#4A80F0', it.iconeUrl)}</div>
         <div class="pp-resumo-info">
           <span class="pp-resumo-titulo-item" style="color:${it.cor || '#1a1a2e'}">${escaparHtml(it.titulo)}</span>
           <span class="pp-resumo-exemplos">${escaparHtml(it.exemplos)}</span>

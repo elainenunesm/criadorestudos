@@ -474,7 +474,7 @@ function mostrarExemplo(aula, introIdx, i) {
   questaoSubtitulo.textContent = '';
   const icone = ex.tipo === 'fenomeno'
     ? EXEMPLO_ICONE_FENOMENO
-    : (RESUMO_ICONES[ex.tipo] ? RESUMO_ICONES[ex.tipo]('#4A80F0') : RESUMO_ICONES.acao('#4A80F0'));
+    : (iconeExternoOuNulo(ex) || (RESUMO_ICONES[ex.tipo] ? RESUMO_ICONES[ex.tipo]('#4A80F0') : RESUMO_ICONES.acao('#4A80F0')));
   opcoesEl.innerHTML = `
     <div class="exemplo-card">
       ${marcarCartaoHtml(`exemplo${i}`)}
@@ -494,7 +494,7 @@ function mostrarExemplo(aula, introIdx, i) {
         ${ex.pontos.map(p => `
           <div class="exemplo-ponto">
             <div class="exemplo-ponto-icone">
-              <svg viewBox="0 0 24 24" width="22" height="22">${RESUMO_ICONES[p.tipo] ? RESUMO_ICONES[p.tipo]('#4A80F0') : ''}</svg>
+              <svg viewBox="0 0 24 24" width="22" height="22">${iconeExternoOuNulo(p) || (RESUMO_ICONES[p.tipo] ? RESUMO_ICONES[p.tipo]('#4A80F0') : '')}</svg>
             </div>
             <p class="exemplo-ponto-texto">${p.texto}</p>
           </div>`).join('')}
@@ -526,7 +526,7 @@ function mostrarExemplo(aula, introIdx, i) {
       <div class="passo-caixa">
         <div class="passo-caixa-cabecalho">
           <div class="passo-caixa-icone">
-            <svg viewBox="0 0 24 24" width="22" height="22">${RESUMO_ICONES[ex.caixa.tipo] ? RESUMO_ICONES[ex.caixa.tipo]('#4A80F0') : ''}</svg>
+            <svg viewBox="0 0 24 24" width="22" height="22">${iconeExternoOuNulo(ex.caixa) || (RESUMO_ICONES[ex.caixa.tipo] ? RESUMO_ICONES[ex.caixa.tipo]('#4A80F0') : '')}</svg>
           </div>
           ${ex.caixa.interativo
             ? `<p class="passo-caixa-inline"><strong>${ex.caixa.rotulo || 'Selecione o verbo abaixo:'}</strong></p>`
@@ -622,6 +622,15 @@ function mostrarExemplo(aula, introIdx, i) {
   atualizarScrollFade();
 }
 
+/** Se o item tiver um ícone externo (tipo:'externo' + iconeUrl, definido no Construtor de Aulas),
+ * retorna o <image> SVG pra usar no lugar do ícone padrão; senão retorna null. */
+function iconeExternoOuNulo(item) {
+  if (item && item.tipo === 'externo' && item.iconeUrl) {
+    return `<image href="${item.iconeUrl}" x="0" y="0" width="24" height="24" preserveAspectRatio="xMidYMid meet"/>`;
+  }
+  return null;
+}
+
 // ── ÍCONES DO RESUMO ─────────────────────────────────────────
 const RESUMO_ICONES = {
   acao:     cor => `<path fill="${cor}" d="M13.49 5.48c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm-3.6 13.9l1-4.4 2.1 2v6h2v-7.5l-2.1-2 .6-3c1.3 1.5 3.3 2.5 5.5 2.5v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1l-5.2 2.2v4.7h2v-3.4l1.8-.7-1.6 8.1-4.9-1-.4 2 7 1.4z"/>`,
@@ -691,7 +700,7 @@ function mostrarResumo(aula, introIdx) {
       <div class="resumo-item">
         <div class="resumo-icone" style="background:${item.corFundo}">
           <svg viewBox="0 0 24 24" width="26" height="26">
-            ${RESUMO_ICONES[item.tipo] ? RESUMO_ICONES[item.tipo](item.cor) : ''}
+            ${iconeExternoOuNulo(item) || (RESUMO_ICONES[item.tipo] ? RESUMO_ICONES[item.tipo](item.cor) : '')}
           </svg>
         </div>
         <div class="resumo-item-info">
@@ -892,7 +901,10 @@ function mostrarChecagem(aula, introIdx, dados, checagemIdx, origemAulaId = aula
     feedbackBar.className     = `feedback-bar show ${acertou ? 'acerto' : 'erro'}`;
     feedbackIcon.textContent  = acertou ? '✅' : '❌';
     const letraCorreta        = (dados.sentenca || dados.sujeito || dados.banco) ? null : LETRAS[dados.correta];
-    feedbackTexto.innerHTML   = montarFeedbackHtml(acertou, dados.feedback, letraCorreta);
+    // feedbackCorreto/feedbackErrado (Construtor de Aulas) — cai pro "feedback" antigo (um só,
+    // pra acerto e erro) se a aula tiver sido exportada antes dessa distinção existir.
+    const textoFeedback       = acertou ? (dados.feedbackCorreto || dados.feedback) : (dados.feedbackErrado || dados.feedback);
+    feedbackTexto.innerHTML   = montarFeedbackHtml(acertou, textoFeedback, letraCorreta);
   } else {
     feedbackBar.className = 'feedback-bar';
   }
@@ -1356,7 +1368,7 @@ function mostrarSentido(aula, introIdx) {
         <div class="sentido-item">
           <div class="resumo-icone" style="background:${item.corFundo}">
             <svg viewBox="0 0 24 24" width="26" height="26">
-              ${RESUMO_ICONES[item.tipo] ? RESUMO_ICONES[item.tipo](item.cor) : ''}
+              ${iconeExternoOuNulo(item) || (RESUMO_ICONES[item.tipo] ? RESUMO_ICONES[item.tipo](item.cor) : '')}
             </svg>
           </div>
           <div class="sentido-item-texto">
