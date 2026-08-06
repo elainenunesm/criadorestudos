@@ -45,7 +45,7 @@ function abrirInicio() {
 function abrirConfig() {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.querySelector('.bottom-nav .nav-item:last-child').classList.add('active');
+  document.getElementById('navLayout').classList.add('active');
   mostrarPainel('config');
 }
 

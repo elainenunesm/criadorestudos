@@ -57,7 +57,7 @@
       </button>
       <button class="tab" id="tabConteudo" onclick="switchTab(this,'conteudo')">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-        Conteúdo da aula
+        Aula
       </button>
     </nav>
 
@@ -434,29 +434,24 @@
       <span>Início</span>
     </a>
 
-    <a href="#" class="nav-item">
+    <a href="#" class="nav-item" id="navLayout" onclick="abrirConfig(); return false;">
       <span class="nav-icon" aria-hidden="true">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z"/>
+          <circle cx="13.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>
+          <circle cx="17.5" cy="10.5" r="1" fill="currentColor" stroke="none"/>
+          <circle cx="6.5" cy="12.5" r="1" fill="currentColor" stroke="none"/>
+          <circle cx="8.5" cy="7.5" r="1" fill="currentColor" stroke="none"/>
+        </svg>
       </span>
-      <span>Conteúdo</span>
+      <span>Layout</span>
     </a>
-
-    <button class="nav-fab" onclick="alert('Criar')" aria-label="Criar">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    </button>
 
     <a href="#" class="nav-item" id="navEstatistica" onclick="abrirEstatistica(); return false;">
       <span class="nav-icon" aria-hidden="true">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
       </span>
       <span>Estatística</span>
-    </a>
-
-    <a href="#" class="nav-item" onclick="abrirConfig(); return false;">
-      <span class="nav-icon" aria-hidden="true">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
-      </span>
-      <span>Layout</span>
     </a>
   </nav>
 

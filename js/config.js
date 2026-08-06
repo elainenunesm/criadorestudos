@@ -96,6 +96,112 @@ function gerarFaviconHref() {
   return 'data:image/svg+xml,' + encodeURIComponent(iconeComoFaviconSvg());
 }
 
+/* ---------------------------------------------------------------------- */
+/* Ícones do PWA exportado (manifest.json) — mesma cor/ícone escolhidos    */
+/* aqui na aba Layout, rasterizados em PNG de verdade (canvas), já que o   */
+/* manifest não aceita SVG em todo navegador/Android de forma confiável.   */
+/* ---------------------------------------------------------------------- */
+
+/** SVG quadrado (fundo colorido arredondado + ícone branco centralizado) em qualquer tamanho, pro manifest do app exportado. */
+function iconeAppExportadoSvg(tamanho) {
+  const cor = CONFIG_APP.cor;
+  const caminho = ICONES_APP[CONFIG_APP.icone] || ICONES_APP.capelo;
+  const raio = Math.round(tamanho * 0.22);
+  const escala = (tamanho * 0.5) / 24;
+  const offset = tamanho * 0.25;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${tamanho} ${tamanho}">
+    <rect width="${tamanho}" height="${tamanho}" rx="${raio}" fill="${cor}"/>
+    <g transform="translate(${offset} ${offset}) scale(${escala})" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${caminho}</g>
+  </svg>`;
+}
+
+/** Rasteriza uma string SVG em PNG (bytes) via <canvas> — só conteúdo gerado localmente, sem CORS envolvido. */
+function svgParaPngBytes(svgString, tamanho) {
+  return new Promise((resolve, reject) => {
+    const blob = new Blob([svgString], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const canvas = document.createElement('canvas');
+      canvas.width = tamanho;
+      canvas.height = tamanho;
+      canvas.getContext('2d').drawImage(img, 0, 0, tamanho, tamanho);
+      canvas.toBlob(blobPng => {
+        if (!blobPng) return reject(new Error('Falha ao gerar PNG do ícone'));
+        blobPng.arrayBuffer().then(buf => resolve(new Uint8Array(buf)));
+      }, 'image/png');
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Falha ao carregar SVG do ícone')); };
+    img.src = url;
+  });
+}
+
+/** Tenta baixar e recortar (quadrado, centralizado) a imagem externa escolhida, em PNG. Se o servidor não liberar
+ * CORS o canvas fica "tainted" e isso falha — quem chama trata o erro caindo pra referenciar a URL direto. */
+function imagemExternaParaPngBytes(urlImagem, tamanho) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const lado = Math.min(img.naturalWidth, img.naturalHeight);
+        const sx = (img.naturalWidth - lado) / 2;
+        const sy = (img.naturalHeight - lado) / 2;
+        const canvas = document.createElement('canvas');
+        canvas.width = tamanho;
+        canvas.height = tamanho;
+        canvas.getContext('2d').drawImage(img, sx, sy, lado, lado, 0, 0, tamanho, tamanho);
+        canvas.toBlob(blobPng => {
+          if (!blobPng) return reject(new Error('Falha ao gerar PNG da imagem'));
+          blobPng.arrayBuffer().then(buf => resolve(new Uint8Array(buf)));
+        }, 'image/png');
+      } catch (e) { reject(e); }
+    };
+    img.onerror = () => reject(new Error('Falha ao carregar a imagem externa'));
+    img.src = urlImagem;
+  });
+}
+
+/**
+ * Gera os ícones do manifest.json do app exportado, no mesmo ícone/cor
+ * escolhidos na aba Layout. Retorna { icones, arquivosBinarios } — icones é
+ * o array pronto pro campo "icons" do manifest, arquivosBinarios são os
+ * .png (se algum) que precisam entrar no zip exportado.
+ */
+async function gerarIconesPwaExport() {
+  const TAMANHOS = [192, 512];
+  const arquivosBinarios = {};
+
+  if (logoUsaImagem()) {
+    const url = CONFIG_APP.imagemUrl.trim();
+    try {
+      for (const t of TAMANHOS) {
+        arquivosBinarios[`icons/icon-${t}.png`] = await imagemExternaParaPngBytes(url, t);
+      }
+      return {
+        icones: TAMANHOS.map(t => ({ src: `icons/icon-${t}.png`, sizes: `${t}x${t}`, type: 'image/png' })),
+        arquivosBinarios,
+      };
+    } catch (e) {
+      // CORS bloqueou o recorte via canvas — o manifest referencia a URL direto (o navegador busca por conta própria).
+      return { icones: [{ src: url, sizes: 'any' }], arquivosBinarios: {} };
+    }
+  }
+
+  for (const t of TAMANHOS) {
+    arquivosBinarios[`icons/icon-${t}.png`] = await svgParaPngBytes(iconeAppExportadoSvg(t), t);
+  }
+  return {
+    icones: [
+      { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+      { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+    ],
+    arquivosBinarios,
+  };
+}
+
 /** Ícone (ICONES_APP) ou ICONES_AULA/padrão — usado nos aula-node da prévia. */
 function iconeAulaPreview(iconeAula) {
   const ICONES_AULA_PREVIEW = {

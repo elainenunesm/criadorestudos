@@ -201,7 +201,71 @@ function escaparHtmlExport(s) {
   return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-function exportarProjeto() {
+/** manifest.json do app exportado — mesmo título/cor/ícone escolhidos na aba Layout. */
+function gerarManifestExport(icones) {
+  const nome = CONFIG_APP.titulo || 'Minhas Aulas';
+  return JSON.stringify({
+    name: nome,
+    short_name: nome.length > 15 ? nome.slice(0, 15) : nome,
+    description: CONFIG_APP.subtitulo || 'App de estudos gerado pelo Construtor de Aulas',
+    start_url: './index.html',
+    scope: './',
+    display: 'standalone',
+    orientation: 'portrait-primary',
+    background_color: '#ffffff',
+    theme_color: CONFIG_APP.cor,
+    lang: 'pt-BR',
+    icons: icones,
+  }, null, 2);
+}
+
+/** Service worker do app exportado — network-first (sempre busca a versão mais nova, só cai pro
+ * cache offline), pré-cacheando exatamente os arquivos que foram exportados dessa vez. */
+function gerarSwExport(caminhosArquivos) {
+  const lista = JSON.stringify(['./', ...caminhosArquivos.map(c => './' + c)], null, 2);
+  return `'use strict';
+
+/**
+ * SW.JS — Gerado pelo Construtor de Aulas. Estratégia network-first: busca
+ * a versão mais nova na rede primeiro, e só usa o cache quando estiver
+ * offline (o cache existe pra permitir abrir sem internet).
+ */
+const CACHE = 'app-estudos-v1';
+const ARQUIVOS = ${lista};
+
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE).then(cache => cache.addAll(ARQUIVOS.map(u => new Request(u, { cache: 'reload' }))))
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(chaves => Promise.all(chaves.filter(k => k !== CACHE).map(k => caches.delete(k))))
+  );
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+  if (url.origin !== location.origin) return;
+
+  event.respondWith(
+    fetch(event.request)
+      .then(resposta => {
+        const copia = resposta.clone();
+        caches.open(CACHE).then(cache => cache.put(event.request, copia));
+        return resposta;
+      })
+      .catch(() => caches.match(event.request).then(cached => cached || (event.request.mode === 'navigate' ? caches.match('./index.html') : undefined)))
+  );
+});
+`;
+}
+
+async function exportarProjeto() {
   const plano = construirPlano(CICLOS);
   const arquivos = carregarArquivosVendor();
   aplicarIdentidadeVisual(arquivos);
@@ -214,6 +278,11 @@ function exportarProjeto() {
       arquivos[`js/data/questoes/aula-${aula.id}.mjs`] = gerarAulaJs(aula, etapa.titulo);
     });
   });
+
+  const { icones, arquivosBinarios } = await gerarIconesPwaExport();
+  Object.assign(arquivos, arquivosBinarios);
+  arquivos['manifest.json'] = gerarManifestExport(icones);
+  arquivos['sw.js'] = gerarSwExport(Object.keys(arquivos));
 
   const blob = criarZip(arquivos);
   const url = URL.createObjectURL(blob);

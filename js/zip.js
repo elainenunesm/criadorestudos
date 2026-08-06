@@ -33,7 +33,8 @@ function dosDataHora() {
 }
 
 /**
- * @param {Object<string,string>} arquivos - caminho (com "/") -> conteúdo texto
+ * @param {Object<string,string|Uint8Array>} arquivos - caminho (com "/") -> conteúdo
+ *   (texto, ou Uint8Array pra arquivos binários como os ícones .png gerados)
  * @returns {Blob}
  */
 function criarZip(arquivos) {
@@ -45,7 +46,8 @@ function criarZip(arquivos) {
 
   for (const caminho of Object.keys(arquivos)) {
     const nomeBytes = encoder.encode(caminho);
-    const dadoBytes = encoder.encode(arquivos[caminho]);
+    const valor = arquivos[caminho];
+    const dadoBytes = valor instanceof Uint8Array ? valor : encoder.encode(valor);
     const crc = crc32(dadoBytes);
     const tamanho = dadoBytes.length;
 
