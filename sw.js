@@ -6,7 +6,7 @@
  * arquivo listado abaixo mudar, senão o navegador continua servindo a
  * versão antiga do cache.
  */
-const CACHE = 'construtor-aulas-v1';
+const CACHE = 'construtor-aulas-v2';
 const ARQUIVOS = [
   './',
   './index.html',
@@ -20,6 +20,7 @@ const ARQUIVOS = [
   './js/conteudo.js',
   './js/config.js',
   './js/script.js',
+  './js/pwa.js',
   './icons/icon.svg',
   './icons/icon-192.png',
   './icons/icon-512.png',
