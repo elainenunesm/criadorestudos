@@ -450,3 +450,14 @@ section { margin-top: 18px; }
 .sobre-item-textos { min-width: 0; }
 .sobre-item-titulo { font-size: 14px; font-weight: 700; color: var(--text-main); margin: 0 0 3px; }
 .sobre-item-texto { font-size: 12.5px; color: var(--text-sec); line-height: 1.45; margin: 0; }
+
+.git-sync-card {
+  background: var(--surface); border: 1px solid rgba(30,27,46,0.06);
+  border-radius: var(--radius-sm); padding: 16px; margin-top: 14px;
+}
+.git-sync-titulo { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--text-main); margin-bottom: 6px; }
+.git-sync-desc { font-size: 12.5px; color: var(--text-sec); line-height: 1.45; margin: 0 0 14px; }
+.git-sync-status { font-size: 12.5px; color: var(--text-sec); text-align: center; margin: 10px 0; }
+.git-sync-status.git-sync-ok { color: #16a34a; font-weight: 600; }
+.git-sync-status.git-sync-erro { color: #dc2626; font-weight: 600; }
+#gitConectarBtn { width: 100%; }

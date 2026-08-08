@@ -337,6 +337,29 @@
           </div>
         </div>
       </div>
+
+      <div class="git-sync-card">
+        <div class="git-sync-titulo">
+          <span aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+          </span>
+          Sincronizar com o Git
+        </div>
+        <p class="git-sync-desc">Toda mudança salva sozinha (commit + push) num repositório do GitHub. O token fica salvo só neste navegador.</p>
+
+        <div class="campo"><label>URL do repositório</label><input type="text" id="gitRepoUrl" placeholder="https://github.com/usuario/repositorio.git"></div>
+        <div class="campo-linha">
+          <div class="campo"><label>Branch</label><input type="text" id="gitBranch" placeholder="main"></div>
+          <div class="campo"><label>Token de acesso</label><input type="password" id="gitToken" placeholder="ghp_..."></div>
+        </div>
+        <div class="campo-linha">
+          <div class="campo"><label>Nome do autor</label><input type="text" id="gitAutorNome" placeholder="Seu nome"></div>
+          <div class="campo"><label>E-mail do autor</label><input type="text" id="gitAutorEmail" placeholder="voce@exemplo.com"></div>
+        </div>
+
+        <p class="git-sync-status" id="gitSyncStatus">Ainda não conectado.</p>
+        <button type="button" class="btn-outline" id="gitConectarBtn" onclick="conectarGit()">Conectar e sincronizar</button>
+      </div>
     </div>
   </main>
 
@@ -410,6 +433,21 @@
 <script src="js/config.js"></script>
 <script src="js/script.js"></script>
 <script src="js/pwa.js"></script>
+
+<!-- Sincronizar com o Git (js/git.js) roda 100% no navegador via isomorphic-git. Versões fixas
+     (não "latest") porque a 1.35+ tem uma regressão conhecida ("Missing Buffer dependency") —
+     e o polyfill do Buffer abaixo cobre o que ainda precisar dele mesmo assim. -->
+<script type="module">
+  import { Buffer } from 'https://esm.sh/buffer@6.0.3';
+  window.Buffer = Buffer;
+</script>
+<script src="https://unpkg.com/@isomorphic-git/lightning-fs@4.7.0"></script>
+<script src="https://unpkg.com/isomorphic-git@1.34.2"></script>
+<script type="module">
+  import http from 'https://unpkg.com/isomorphic-git@1.34.2/http/web/index.js';
+  window.gitHttp = http;
+</script>
+<script src="js/git.js"></script>
 <script>
   // Service worker só funciona em http(s)/localhost — abrindo o index.html
   // direto do disco (file://) ele falha em silêncio, sem quebrar o app.

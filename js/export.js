@@ -300,7 +300,8 @@ async function exportarProjeto() {
  * "Exportar projeto (.zip)" (que gera o app pronto pra estudar). Em navegadores com File System
  * Access API (Chrome/Edge), grava direto na pasta escolhida; nos outros, baixa o arquivo normal. */
 async function salvarProjetoJson() {
-  const dados = { savedAt: new Date().toISOString(), config: CONFIG_APP, ciclos: CICLOS };
+  const git = typeof obterConfigGitSemToken === 'function' ? obterConfigGitSemToken() : null;
+  const dados = { savedAt: new Date().toISOString(), config: CONFIG_APP, ciclos: CICLOS, git };
   const conteudoJson = JSON.stringify(dados, null, 2);
 
   if ('showDirectoryPicker' in window) {

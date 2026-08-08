@@ -70,9 +70,10 @@ function listarTodasAulas() {
 }
 
 /* ---------------------------------------------------------------------- */
-/* Autosave — só existe se tiver uma pasta conectada (ver js/pasta.js). Sem */
-/* pasta conectada, nada é salvo nem recarregado: a tela sempre começa     */
-/* vazia. Toda criação/edição/exclusão/reordenação chama isso.             */
+/* Autosave — só existe se tiver uma pasta conectada (ver js/pasta.js) e/ou  */
+/* um repositório Git configurado (ver js/git.js). Sem nenhum dos dois,    */
+/* nada é salvo nem recarregado: a tela sempre começa vazia. Toda          */
+/* criação/edição/exclusão/reordenação chama isso.                         */
 /* ---------------------------------------------------------------------- */
 let _autosaveTimeout = null;
 
@@ -80,5 +81,6 @@ function salvarAutomaticamente() {
   clearTimeout(_autosaveTimeout);
   _autosaveTimeout = setTimeout(() => {
     if (typeof escreverJsonNaPastaConectada === 'function') escreverJsonNaPastaConectada();
+    if (typeof agendarSincronizacaoGit === 'function') agendarSincronizacaoGit();
   }, 400);
 }
