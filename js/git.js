@@ -135,17 +135,25 @@ async function sincronizarComGit() {
   } catch (e) {
     // Repositório novo/vazio (sem nenhum commit ainda) não tem branch nenhuma pra clonar —
     // nesse caso, começa um repositório local do zero; o primeiro push cria a branch lá.
-    if (!/could not find/i.test(e.message || '')) throw e;
-    await limparDiretorioVirtual(pfs, GIT_DIR);
-    await pfs.mkdir(GIT_DIR).catch(() => {});
-    await git.init({ fs: _gitFs, dir: GIT_DIR, defaultBranch: branch });
-    await git.addRemote({ fs: _gitFs, dir: GIT_DIR, remote: 'origin', url: config.repoUrl });
+    if (!/could not find/i.test(e.message || '')) throw new Error(`Ao clonar: ${e.message || e}`);
+    try {
+      await limparDiretorioVirtual(pfs, GIT_DIR);
+      await pfs.mkdir(GIT_DIR).catch(() => {});
+      await git.init({ fs: _gitFs, dir: GIT_DIR, defaultBranch: branch });
+      await git.addRemote({ fs: _gitFs, dir: GIT_DIR, remote: 'origin', url: config.repoUrl });
+    } catch (e2) {
+      throw new Error(`Ao iniciar repositório novo: ${e2.message || e2}`);
+    }
   }
 
   mostrarStatusGit('Salvando...', null);
-  const dados = { savedAt: new Date().toISOString(), config: CONFIG_APP, ciclos: CICLOS };
-  await pfs.writeFile(`${GIT_DIR}/construtor-aulas.json`, JSON.stringify(dados, null, 2), 'utf8');
-  await git.add({ fs: _gitFs, dir: GIT_DIR, filepath: 'construtor-aulas.json' });
+  try {
+    const dados = { savedAt: new Date().toISOString(), config: CONFIG_APP, ciclos: CICLOS };
+    await pfs.writeFile(`${GIT_DIR}/construtor-aulas.json`, JSON.stringify(dados, null, 2), 'utf8');
+    await git.add({ fs: _gitFs, dir: GIT_DIR, filepath: 'construtor-aulas.json' });
+  } catch (e) {
+    throw new Error(`Ao salvar o arquivo: ${e.message || e}`);
+  }
 
   const status = await git.statusMatrix({ fs: _gitFs, dir: GIT_DIR, filepaths: ['construtor-aulas.json'] });
   const semMudanca = status.length && status[0][1] === status[0][2] && status[0][2] === status[0][3];
@@ -154,17 +162,25 @@ async function sincronizarComGit() {
     return;
   }
 
-  await git.commit({
-    fs: _gitFs, dir: GIT_DIR,
-    message: `Atualização automática — ${new Date().toLocaleString('pt-BR')}`,
-    author: { name: config.autorNome || 'Construtor de Aulas', email: config.autorEmail || 'construtor@local' },
-  });
+  try {
+    await git.commit({
+      fs: _gitFs, dir: GIT_DIR,
+      message: `Atualização automática — ${new Date().toLocaleString('pt-BR')}`,
+      author: { name: config.autorNome || 'Construtor de Aulas', email: config.autorEmail || 'construtor@local' },
+    });
+  } catch (e) {
+    throw new Error(`Ao comitar: ${e.message || e}`);
+  }
 
   mostrarStatusGit('Enviando pro repositório...', null);
-  await git.push({
-    fs: _gitFs, http: window.gitHttp, dir: GIT_DIR,
-    remote: 'origin', ref: branch, corsProxy: GIT_CORS_PROXY, onAuth,
-  });
+  try {
+    await git.push({
+      fs: _gitFs, http: window.gitHttp, dir: GIT_DIR,
+      remote: 'origin', ref: branch, corsProxy: GIT_CORS_PROXY, onAuth,
+    });
+  } catch (e) {
+    throw new Error(`Ao enviar (push): ${e.message || e}`);
+  }
 
   mostrarStatusGit(`Sincronizado às ${new Date().toLocaleTimeString('pt-BR')}.`, 'ok');
 }
