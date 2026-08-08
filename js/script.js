@@ -146,7 +146,7 @@ function confirmarExclusao(mensagem, aoConfirmar) {
     btnCancelar.removeEventListener('click', onCancelar);
     overlay.removeEventListener('click', onOverlay);
   }
-  function onOk() { fechar(); aoConfirmar(); salvarAutomaticamente(); }
+  function onOk() { fechar(); aoConfirmar(); salvarAutomaticamente(); atualizarEstatisticas(); }
   function onCancelar() { fechar(); }
   function onOverlay(e) { if (e.target === overlay) fechar(); }
 
@@ -332,6 +332,7 @@ function novoCiclo() {
   const ciclo = { id: proximoIdCiclo(), titulo: 'Novo ciclo', materias: [] };
   CICLOS.push(ciclo);
   salvarAutomaticamente();
+  atualizarEstatisticas();
 
   const node = criarNoCiclo(ciclo);
   document.querySelector('.tree-wrap').appendChild(node);
@@ -419,6 +420,7 @@ function novaEtapaEm(cicloId) {
   const materia = { id: proximoIdMateria(), titulo: 'Nova matéria', aulas: [] };
   ciclo.materias.push(materia);
   salvarAutomaticamente();
+  atualizarEstatisticas();
 
   const cicloNode = document.querySelector(`.node[data-ciclo-id="${ciclo.id}"]`);
   cicloNode.classList.remove('collapsed');
@@ -458,6 +460,7 @@ function novaAulaEm(cicloId, materiaId) {
   const aula = { id: proximoIdAula(), titulo: 'Nova aula', conteudo: novoConteudo() };
   info.materia.aulas.push(aula);
   salvarAutomaticamente();
+  atualizarEstatisticas();
 
   const cicloNode = document.querySelector(`.node[data-ciclo-id="${cicloId}"]`);
   cicloNode.classList.remove('collapsed');
@@ -665,5 +668,18 @@ function renderArvoreCompleta() {
   });
 
   if (vazio) vazio.style.display = CICLOS.length ? 'none' : '';
+  atualizarEstatisticas();
 }
 renderArvoreCompleta();
+
+/** Recalcula os números do "Resumo do curso" (aba Estatística) a partir de CICLOS — chamado
+ * sempre que algo é criado/excluído/carregado, pra nunca ficar com números velhos na tela. */
+function atualizarEstatisticas() {
+  const statCiclos = document.getElementById('statCiclos');
+  const statEtapas = document.getElementById('statEtapas');
+  const statAulas = document.getElementById('statAulas');
+  if (!statCiclos) return;
+  statCiclos.textContent = CICLOS.length;
+  statEtapas.textContent = CICLOS.reduce((soma, c) => soma + c.materias.length, 0);
+  statAulas.textContent = CICLOS.reduce((soma, c) => soma + c.materias.reduce((s2, m) => s2 + m.aulas.length, 0), 0);
+}
