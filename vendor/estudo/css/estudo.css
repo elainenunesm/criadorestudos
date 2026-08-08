@@ -155,7 +155,7 @@ body {
 
 .questao-titulo {
   font-size: 21px;
-  font-weight: 700;
+  font-weight: 400;
   color: #1a1a2e;
   margin-bottom: 6px;
   line-height: 1.3;
@@ -212,7 +212,7 @@ body {
 
 .intro-titulo {
   font-size: 32px;
-  font-weight: 800;
+  font-weight: 400;
   color: #1a1a2e;
   line-height: 1.25;
   margin-bottom: 14px;
@@ -432,7 +432,6 @@ body {
 
 .exemplo-conclusao {
   font-size: 16px;
-  font-weight: 700;
   color: #1a1a2e;
   line-height: 1.5;
   text-align: justify;
@@ -500,6 +499,22 @@ body {
   background: #f5f7ff;
   border-radius: 16px;
   padding: 16px;
+}
+
+.point-label-titulo {
+  font-size: 16px;
+  color: #1a1a2e;
+  margin: 14px 0 4px;
+}
+
+.point-label-subtitulo {
+  font-size: 13px;
+  color: #6E6A7A;
+  margin: 0 0 10px;
+}
+
+.destaque-azul {
+  color: #3B82F6;
 }
 
 .passo-caixa-cabecalho {
@@ -761,7 +776,6 @@ body {
 
 .resumo-titulo {
   font-size: 18px;
-  font-weight: 700;
   color: #1a1a2e;
   margin-bottom: 4px;
 }
@@ -794,7 +808,6 @@ body {
 
 .resumo-item-titulo {
   font-size: 16px;
-  font-weight: 700;
 }
 
 .resumo-item-exemplos {
@@ -1318,6 +1331,12 @@ body {
   color: #15803d;
 }
 
+.word-chip.selecionavel-alvo {
+  border-color: var(--cor-primaria);
+  background: var(--cor-clara);
+  color: var(--cor-primaria);
+}
+
 .anotacao-verbo,
 .anotacao-sujeito,
 .anotacao-predicado,
@@ -1356,6 +1375,31 @@ body {
 .anotacao-predicado  { color: var(--cor-primaria); grid-row: 3; }
 .anotacao-auxiliar   { color: #2563eb; }
 .anotacao-principal  { color: #16a34a; }
+
+.anotacao-generica {
+  position: relative;
+  grid-row: 2;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 5px 6px 3px;
+  margin-top: 14px;
+  border-top: 2px solid currentColor;
+  white-space: nowrap;
+  color: var(--cor-primaria);
+}
+.anotacao-generica::before, .anotacao-generica::after {
+  content: '';
+  position: absolute;
+  top: -14px;
+  width: 2px;
+  height: 14px;
+  background: currentColor;
+}
+.anotacao-generica::before { left: 0; }
+.anotacao-generica::after  { right: 0; }
 
 .btn-confirmar-duplo {
   display: inline-flex;

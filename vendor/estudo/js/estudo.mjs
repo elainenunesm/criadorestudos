@@ -141,8 +141,8 @@ function mostrarIntro(aula, introIdx = 0) {
   opcoesEl.innerHTML = `
     <div class="intro-card">
       <span class="intro-label">Antes de começar</span>
-      <h2 class="intro-titulo">${ac.titulo || aula.titulo}</h2>
-      <p class="intro-desc">${ac.descricao || ''}</p>
+      <h2 class="intro-titulo"${estiloTextoInline(ac, 'titulo')}>${ac.titulo ? renderFraseComDestaque(ac.titulo, ac.tituloDestaque) : aula.titulo}</h2>
+      <p class="intro-desc"${estiloTextoInline(ac, 'descricao')}>${renderFraseComDestaque(ac.descricao || '', ac.descricaoDestaque)}</p>
       <div class="intro-info">
         <div class="intro-info-item">
           <div class="intro-info-icone-wrap">
@@ -153,7 +153,7 @@ function mostrarIntro(aula, introIdx = 0) {
           </div>
           <div class="intro-info-texto">
             <h3>O que você vai aprender</h3>
-            <p>${ac.aprender || ''}</p>
+            <p${estiloTextoInline(ac, 'aprender')}>${renderFraseComDestaque(ac.aprender || '', ac.aprenderDestaque)}</p>
           </div>
         </div>
         <div class="intro-info-item">
@@ -166,7 +166,7 @@ function mostrarIntro(aula, introIdx = 0) {
           </div>
           <div class="intro-info-texto">
             <h3>Por que isso é importante</h3>
-            <p>${ac.importancia || ''}</p>
+            <p${estiloTextoInline(ac, 'importancia')}>${renderFraseComDestaque(ac.importancia || '', ac.importanciaDestaque)}</p>
           </div>
         </div>
       </div>
@@ -321,6 +321,200 @@ function anotarPapelInterativo(wrap, idxOuIdxs, papel) {
     wrap.insertAdjacentHTML('beforeend',
       `<div class="anotacao-${papel}" style="grid-column:${ini + 1}/span ${final - ini + 1};grid-row:${linha}">${ROTULO_PAPEL[papel]}</div>`);
   });
+}
+
+/** Colchete com rótulo de texto livre embaixo de UMA palavra (Construtor de Aulas, "palavra
+ * selecionável") — mais simples que anotarPapelInterativo: sempre um índice só, sem papel fixo. */
+function anotarRotuloGenerico(wrap, idx, rotulo) {
+  wrap.insertAdjacentHTML('beforeend',
+    `<div class="anotacao-generica" style="grid-column:${idx + 1}/span 1;grid-row:2">${rotulo}</div>`);
+}
+
+/** Agrupa índices em blocos contíguos (ex: [1,2,4] -> [[1,2],[4,4]]) — o colchete de cada grupo
+ * cobre só as palavras próximas, sem "engolir" uma palavra não marcada no meio. */
+function agruparIndicesContiguos(indices) {
+  const sorted = [...indices].sort((a, b) => a - b);
+  const grupos = [];
+  if (!sorted.length) return grupos;
+  let inicio = sorted[0], fim = sorted[0];
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i] === fim + 1) fim = sorted[i];
+    else { grupos.push([inicio, fim]); inicio = fim = sorted[i]; }
+  }
+  grupos.push([inicio, fim]);
+  return grupos;
+}
+
+function tokenizarFraseSimples(frase) {
+  const bruta = frase.trim().split(/\s+/).filter(Boolean);
+  const tokens = [];
+  bruta.forEach(palavra => {
+    const m = palavra.match(/^(.+?)([.,!?;:]+)$/);
+    if (m) { tokens.push(m[1]); tokens.push(m[2]); }
+    else tokens.push(palavra);
+  });
+  return tokens;
+}
+
+/** Renderiza um texto corrido (Título/Instrução) com algumas palavras em azul de destaque —
+ * diferente dos word-chips, aqui o texto continua fluindo normalmente como frase. */
+function renderFraseComDestaque(texto, indices) {
+  if (!texto) return '';
+  const tokens = tokenizarFraseSimples(texto);
+  const destacadas = new Set(indices || []);
+  const partes = tokens.map((tok, i) =>
+    (destacadas.has(i) && !/^[.,!?;:]+$/.test(tok)) ? `<span class="destaque-azul">${tok}</span>` : tok
+  );
+  return partes.join(' ').replace(/ ([.,!?;:]+)/g, '$1');
+}
+
+/** Monta o atributo style="..." (negrito/itálico) pro texto inteiro de um campo, a partir dos
+ * flags `${campo}Negrito`/`${campo}Italico` marcados no Construtor de Aulas. */
+function estiloTextoInline(obj, campo, extraCss) {
+  const partes = [];
+  if (extraCss) partes.push(extraCss);
+  if (obj[`${campo}Negrito`]) partes.push('font-weight:700');
+  if (obj[`${campo}Italico`]) partes.push('font-style:italic');
+  return partes.length ? ` style="${partes.join(';')}"` : '';
+}
+
+/** Igual a anotarRotuloGenerico, mas pra vários índices de uma vez — agrupa em blocos contíguos
+ * (2 palavras seguidas ganham um colchete só; palavras separadas ganham um colchete cada). */
+function anotarRotuloGenericoMultiplo(wrap, indices, rotulo) {
+  agruparIndicesContiguos(indices).forEach(([ini, fim]) => {
+    wrap.insertAdjacentHTML('beforeend',
+      `<div class="anotacao-generica" style="grid-column:${ini + 1}/span ${fim - ini + 1};grid-row:2">${rotulo}</div>`);
+  });
+}
+
+/** "Palavra selecionável (múltipla)" (Construtor de Aulas) — igual a palavraSelecionavel, mas
+ * com mais de uma palavra certa; a aluna precisa clicar em todas antes de liberar o "Próximo".
+ * Re-renderiza do zero a cada clique certo (mesmo padrão de renderInterativoMultiplo). */
+function renderPalavraSelecionavelMultipla(ex, psm, wrap) {
+  wrap.innerHTML = '';
+  if (!ex._selecionadasPsm) ex._selecionadasPsm = [];
+  const todasEncontradas = psm.corretas.length > 0 && psm.corretas.every(idx => ex._selecionadasPsm.includes(idx));
+  btnProxima.disabled = !todasEncontradas;
+
+  psm.sentenca.forEach((palavra, idx) => {
+    const btn = document.createElement('button');
+    btn.className = 'word-chip word-chip-sm';
+    btn.textContent = palavra;
+    btn.style.gridColumn = String(idx + 1);
+    btn.style.gridRow    = '1';
+    const jaSelecionada = ex._selecionadasPsm.includes(idx);
+    if (PONTUACAO_RE.test(palavra)) {
+      btn.classList.add('pontuacao');
+      btn.disabled = true;
+    } else if (jaSelecionada) {
+      btn.disabled = true;
+      btn.classList.add('selecionavel-alvo');
+    } else if (todasEncontradas) {
+      btn.disabled = true;
+    } else {
+      btn.addEventListener('click', () => {
+        if (psm.corretas.includes(idx)) {
+          ex._selecionadasPsm.push(idx);
+          renderPalavraSelecionavelMultipla(ex, psm, wrap);
+        } else {
+          btn.classList.add('errada');
+          setTimeout(() => btn.classList.remove('errada'), 500);
+        }
+      });
+    }
+    wrap.appendChild(btn);
+  });
+
+  if (ex._selecionadasPsm.length) anotarRotuloGenericoMultiplo(wrap, ex._selecionadasPsm, psm.rotulo || '');
+}
+
+/** Agrupa um array `rotulos` (mesmo tamanho da sentença, '' = sem rótulo) em blocos de palavras
+ * ADJACENTES que têm o MESMO rótulo — cada bloco vira um colchete só. */
+function agruparRotulos(rotulos) {
+  const grupos = [];
+  let atual = null;
+  (rotulos || []).forEach((r, i) => {
+    if (r && atual && atual.rotulo === r && atual.fim === i - 1) {
+      atual.fim = i;
+    } else {
+      if (atual) grupos.push(atual);
+      atual = r ? { rotulo: r, inicio: i, fim: i } : null;
+    }
+  });
+  if (atual) grupos.push(atual);
+  return grupos;
+}
+
+/** Paleta usada pra dar uma cor diferente a cada rótulo distinto (ex: SUJEITO roxo, VERBO verde) —
+ * a cor é sempre a mesma pro mesmo texto de rótulo, na ordem em que aparecem na frase. */
+const PALETA_ROTULOS = ['#7B3FF2', '#0D9488', '#DB2777', '#EA580C', '#0EA5E9', '#65A30D', '#DC2626', '#9333EA'];
+function corDoRotulo(rotulo, mapaCores) {
+  if (!mapaCores.has(rotulo)) mapaCores.set(rotulo, PALETA_ROTULOS[mapaCores.size % PALETA_ROTULOS.length]);
+  return mapaCores.get(rotulo);
+}
+function mapaCoresRotulos(rotulos) {
+  const mapa = new Map();
+  (rotulos || []).forEach(r => { if (r) corDoRotulo(r, mapa); });
+  return mapa;
+}
+
+/** Igual a anotarRotuloGenericoMultiplo, mas cada palavra JÁ REVELADA mostra o SEU PRÓPRIO rótulo
+ * (não um rótulo único pra todo mundo) — só agrupa em um colchete se as palavras reveladas forem
+ * adjacentes E tiverem o mesmo rótulo. Cada colchete usa a cor do seu rótulo. */
+function anotarRotulosMultiplos(wrap, indicesRevelados, rotulos, mapaCores) {
+  const revelados = new Set(indicesRevelados);
+  const rotulosVisiveis = rotulos.map((r, i) => revelados.has(i) ? r : '');
+  agruparRotulos(rotulosVisiveis).forEach(g => {
+    wrap.insertAdjacentHTML('beforeend',
+      `<div class="anotacao-generica" style="grid-column:${g.inicio + 1}/span ${g.fim - g.inicio + 1};grid-row:2;color:${corDoRotulo(g.rotulo, mapaCores)}">${g.rotulo}</div>`);
+  });
+}
+
+/** "Palavra(s) com Múltiplos Rótulos" (Construtor de Aulas) — cada palavra marcada pode ter o SEU
+ * PRÓPRIO rótulo (ex: "Maria"=SUJEITO, "estudou"=VERBO). A aluna clica em cada palavra rotulada;
+ * palavras sem rótulo contam como erro se clicadas. Libera o "Próximo" quando todas as palavras
+ * com rótulo tiverem sido reveladas. */
+function renderPalavraMultiplosRotulos(ex, pmr, wrap) {
+  wrap.innerHTML = '';
+  if (!ex._reveladosPmr) ex._reveladosPmr = [];
+  const indicesComRotulo = pmr.rotulos.map((r, i) => r ? i : -1).filter(i => i !== -1);
+  const todasReveladas = indicesComRotulo.length > 0 && indicesComRotulo.every(idx => ex._reveladosPmr.includes(idx));
+  btnProxima.disabled = !todasReveladas;
+  const mapaCores = mapaCoresRotulos(pmr.rotulos);
+
+  pmr.sentenca.forEach((palavra, idx) => {
+    const btn = document.createElement('button');
+    btn.className = 'word-chip word-chip-sm';
+    btn.textContent = palavra;
+    btn.style.gridColumn = String(idx + 1);
+    btn.style.gridRow    = '1';
+    const jaRevelada = ex._reveladosPmr.includes(idx);
+    if (PONTUACAO_RE.test(palavra)) {
+      btn.classList.add('pontuacao');
+      btn.disabled = true;
+    } else if (jaRevelada) {
+      btn.disabled = true;
+      const cor = corDoRotulo(pmr.rotulos[idx], mapaCores);
+      btn.style.borderColor = cor;
+      btn.style.background  = `${cor}1a`;
+      btn.style.color       = cor;
+    } else if (todasReveladas) {
+      btn.disabled = true;
+    } else {
+      btn.addEventListener('click', () => {
+        if (pmr.rotulos[idx]) {
+          ex._reveladosPmr.push(idx);
+          renderPalavraMultiplosRotulos(ex, pmr, wrap);
+        } else {
+          btn.classList.add('errada');
+          setTimeout(() => btn.classList.remove('errada'), 500);
+        }
+      });
+    }
+    wrap.appendChild(btn);
+  });
+
+  if (ex._reveladosPmr.length) anotarRotulosMultiplos(wrap, ex._reveladosPmr, pmr.rotulos, mapaCores);
 }
 
 // Passo de exemplo com mais de uma palavra clicável pro mesmo papel (ex:
@@ -486,9 +680,9 @@ function mostrarExemplo(aula, introIdx, i) {
           ${icone}
         </svg>
       </div>
-      ${ex.texto ? `<p class="exemplo-texto">${ex.texto}</p>` : ''}
-      ${ex.conclusao ? `<p class="exemplo-conclusao">${ex.conclusao}</p>` : ''}
-      ${ex.obs ? `<p class="exemplo-texto">${ex.obs}</p>` : ''}
+      ${ex.texto ? `<p class="exemplo-texto"${estiloTextoInline(ex, 'texto')}>${renderFraseComDestaque(ex.texto, ex.textoDestaque)}</p>` : ''}
+      ${ex.conclusao ? `<p class="exemplo-conclusao"${estiloTextoInline(ex, 'conclusao')}>${renderFraseComDestaque(ex.conclusao, ex.conclusaoDestaque)}</p>` : ''}
+      ${ex.obs ? `<p class="exemplo-texto"${estiloTextoInline(ex, 'obs')}>${renderFraseComDestaque(ex.obs, ex.obsDestaque)}</p>` : ''}
       ${(ex.pontos || []).length ? `
       <div class="exemplo-pontos">
         ${ex.pontos.map(p => `
@@ -496,8 +690,51 @@ function mostrarExemplo(aula, introIdx, i) {
             <div class="exemplo-ponto-icone">
               <svg viewBox="0 0 24 24" width="22" height="22">${iconeExternoOuNulo(p) || (RESUMO_ICONES[p.tipo] ? RESUMO_ICONES[p.tipo]('#4A80F0') : '')}</svg>
             </div>
-            <p class="exemplo-ponto-texto">${p.texto}</p>
+            <p class="exemplo-ponto-texto"${estiloTextoInline(p, 'texto')}>${renderFraseComDestaque(p.texto || '', p.textoDestaque)}</p>
           </div>`).join('')}
+      </div>` : ''}
+      ${ex.palavraSelecionavel ? `
+      <div class="passo-caixa">
+        <div class="passo-caixa-cabecalho">
+          <div class="passo-caixa-icone"><svg viewBox="0 0 24 24" width="22" height="22">${RESUMO_ICONES.tarefa('#4A80F0')}</svg></div>
+          <p class="passo-caixa-inline"${estiloTextoInline(ex.palavraSelecionavel, 'instrucao')}>${ex.palavraSelecionavel.instrucao ? renderFraseComDestaque(ex.palavraSelecionavel.instrucao, ex.palavraSelecionavel.instrucaoDestaque) : 'Selecione a palavra abaixo:'}</p>
+        </div>
+        <div class="frase-anotada-wrap"><div class="frase-anotada" id="exemploPalavraSelecionavel" style="grid-template-columns:repeat(${ex.palavraSelecionavel.sentenca.length},auto)"></div></div>
+      </div>` : ''}
+      ${ex.palavraSelecionavelMultipla ? `
+      <div class="passo-caixa">
+        <div class="passo-caixa-cabecalho">
+          <div class="passo-caixa-icone"><svg viewBox="0 0 24 24" width="22" height="22">${RESUMO_ICONES.tarefa('#4A80F0')}</svg></div>
+          <p class="passo-caixa-inline"${estiloTextoInline(ex.palavraSelecionavelMultipla, 'instrucao')}>${ex.palavraSelecionavelMultipla.instrucao ? renderFraseComDestaque(ex.palavraSelecionavelMultipla.instrucao, ex.palavraSelecionavelMultipla.instrucaoDestaque) : 'Selecione as palavras abaixo:'}</p>
+        </div>
+        <div class="frase-anotada-wrap"><div class="frase-anotada" id="exemploPalavraSelecionavelMultipla" style="grid-template-columns:repeat(${ex.palavraSelecionavelMultipla.sentenca.length},auto)"></div></div>
+      </div>` : ''}
+      ${ex.palavraMultiplosRotulos ? `
+      <div class="passo-caixa">
+        <div class="passo-caixa-cabecalho">
+          <div class="passo-caixa-icone"><svg viewBox="0 0 24 24" width="22" height="22">${RESUMO_ICONES.tarefa('#4A80F0')}</svg></div>
+          <p class="passo-caixa-inline"${estiloTextoInline(ex.palavraMultiplosRotulos, 'instrucao')}>${ex.palavraMultiplosRotulos.instrucao ? renderFraseComDestaque(ex.palavraMultiplosRotulos.instrucao, ex.palavraMultiplosRotulos.instrucaoDestaque) : 'Classifique cada palavra:'}</p>
+        </div>
+        <div class="frase-anotada-wrap"><div class="frase-anotada" id="exemploPalavraMultiplosRotulos" style="grid-template-columns:repeat(${ex.palavraMultiplosRotulos.sentenca.length},auto)"></div></div>
+      </div>` : ''}
+      ${ex.palavraPointLabelExemplo ? `
+      ${ex.palavraPointLabelExemplo.titulo ? `<p class="point-label-titulo"${estiloTextoInline(ex.palavraPointLabelExemplo, 'titulo')}>${renderFraseComDestaque(ex.palavraPointLabelExemplo.titulo, ex.palavraPointLabelExemplo.tituloDestaque)}</p>` : ''}
+      ${ex.palavraPointLabelExemplo.subtitulo ? `<p class="point-label-subtitulo"${estiloTextoInline(ex.palavraPointLabelExemplo, 'subtitulo')}>${renderFraseComDestaque(ex.palavraPointLabelExemplo.subtitulo, ex.palavraPointLabelExemplo.subtituloDestaque)}</p>` : ''}
+      <div class="passo-caixa">
+        <div class="passo-caixa-cabecalho">
+          <div class="passo-caixa-icone"><svg viewBox="0 0 24 24" width="22" height="22">${RESUMO_ICONES.tarefa('#4A80F0')}</svg></div>
+          <p class="passo-caixa-inline"${estiloTextoInline(ex.palavraPointLabelExemplo, 'instrucao')}>${ex.palavraPointLabelExemplo.instrucao ? renderFraseComDestaque(ex.palavraPointLabelExemplo.instrucao, ex.palavraPointLabelExemplo.instrucaoDestaque) : 'Exemplo:'}</p>
+        </div>
+        <div class="frase-anotada-wrap"><div class="frase-anotada" style="grid-template-columns:repeat(${ex.palavraPointLabelExemplo.sentenca.length},auto)">
+          ${ex.palavraPointLabelExemplo.sentenca.map((palavra, idx) => {
+            const pontuacao = PONTUACAO_RE.test(palavra);
+            const alvo = (ex.palavraPointLabelExemplo.corretas || []).includes(idx);
+            return `<button class="word-chip word-chip-sm${pontuacao ? ' pontuacao' : ''}${alvo ? ' selecionavel-alvo' : ''}" disabled style="grid-column:${idx + 1};grid-row:1">${palavra}</button>`;
+          }).join('')}
+          ${ex.palavraPointLabelExemplo.rotulo ? agruparIndicesContiguos(ex.palavraPointLabelExemplo.corretas || []).map(([ini, fim]) =>
+            `<div class="anotacao-generica" style="grid-column:${ini + 1}/span ${fim - ini + 1};grid-row:2">${ex.palavraPointLabelExemplo.rotulo}</div>`
+          ).join('') : ''}
+        </div></div>
       </div>` : ''}
       ${ex.fechamento ? `<p class="exemplo-texto">${ex.fechamento}</p>` : ''}
       ${ex.passo ? `
@@ -613,6 +850,47 @@ function mostrarExemplo(aula, introIdx, i) {
     if (jaAcertou && interativo.papel) {
       anotarPapelInterativo(wrap, interativo.intervaloAoAcertar || interativo.correta, interativo.papel);
     }
+  } else if (ex.palavraSelecionavel) {
+    // "Palavra selecionável" (Construtor de Aulas) — clique numa palavra da frase e mostra um
+    // rótulo de texto livre embaixo dela (quem monta a aula escolhe a frase, a palavra certa e o
+    // rótulo). Mais simples que ex.caixa.interativo: não tem papéis fixos (verbo/sujeito/...).
+    const ps = ex.palavraSelecionavel;
+    const jaAcertouPs = ex._acertouPalavraSelecionavel === true;
+    btnProxima.disabled = !jaAcertouPs;
+    const wrapPs = document.getElementById('exemploPalavraSelecionavel');
+    ps.sentenca.forEach((palavra, idx) => {
+      const btn = document.createElement('button');
+      btn.className = 'word-chip word-chip-sm';
+      btn.textContent = palavra;
+      btn.style.gridColumn = String(idx + 1);
+      btn.style.gridRow    = '1';
+      if (PONTUACAO_RE.test(palavra)) {
+        btn.classList.add('pontuacao');
+        btn.disabled = true;
+      } else if (jaAcertouPs) {
+        btn.disabled = true;
+        if (idx === ps.correta) btn.classList.add('selecionavel-alvo');
+      } else {
+        btn.addEventListener('click', () => {
+          if (idx === ps.correta) {
+            ex._acertouPalavraSelecionavel = true;
+            btn.classList.add('selecionavel-alvo');
+            Array.from(wrapPs.children).forEach(c => c.disabled = true);
+            btnProxima.disabled = false;
+            anotarRotuloGenerico(wrapPs, idx, ps.rotulo || '');
+          } else {
+            btn.classList.add('errada');
+            setTimeout(() => btn.classList.remove('errada'), 500);
+          }
+        });
+      }
+      wrapPs.appendChild(btn);
+    });
+    if (jaAcertouPs) anotarRotuloGenerico(wrapPs, ps.correta, ps.rotulo || '');
+  } else if (ex.palavraSelecionavelMultipla) {
+    renderPalavraSelecionavelMultipla(ex, ex.palavraSelecionavelMultipla, document.getElementById('exemploPalavraSelecionavelMultipla'));
+  } else if (ex.palavraMultiplosRotulos) {
+    renderPalavraMultiplosRotulos(ex, ex.palavraMultiplosRotulos, document.getElementById('exemploPalavraMultiplosRotulos'));
   } else {
     btnProxima.disabled = false;
   }
@@ -695,7 +973,7 @@ function mostrarResumo(aula, introIdx) {
   questaoSubtitulo.textContent = '';
   opcoesEl.innerHTML = `
     <div class="resumo-card">
-      <p class="resumo-titulo">${res.titulo || ''}</p>
+      <p class="resumo-titulo"${estiloTextoInline(res, 'titulo')}>${renderFraseComDestaque(res.titulo || '', res.tituloDestaque)}</p>
       ${(res.itens || []).map(item => `
       <div class="resumo-item">
         <div class="resumo-icone" style="background:${item.corFundo}">
@@ -704,8 +982,8 @@ function mostrarResumo(aula, introIdx) {
           </svg>
         </div>
         <div class="resumo-item-info">
-          <span class="resumo-item-titulo" style="color:${item.cor}">${item.titulo}</span>
-          <span class="resumo-item-exemplos">${item.exemplos}</span>
+          <span class="resumo-item-titulo"${estiloTextoInline(item, 'titulo', `color:${item.cor}`)}>${renderFraseComDestaque(item.titulo || '', item.tituloDestaque)}</span>
+          <span class="resumo-item-exemplos"${estiloTextoInline(item, 'exemplos')}>${renderFraseComDestaque(item.exemplos || '', item.exemplosDestaque)}</span>
         </div>
       </div>`).join('')}
     </div>`;
@@ -725,7 +1003,7 @@ function mostrarLicao(aula, introIdx) {
   questaoSubtitulo.textContent = '';
   opcoesEl.innerHTML = `
     <div class="resumo-card">
-      <p class="resumo-titulo">${lic.titulo || ''}</p>
+      <p class="resumo-titulo"${estiloTextoInline(lic, 'titulo')}>${renderFraseComDestaque(lic.titulo || '', lic.tituloDestaque)}</p>
       <div class="licao-corpo">${lic.html || ''}</div>
     </div>`;
   btnProxima.innerHTML = 'Próximo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
@@ -802,13 +1080,13 @@ function mostrarChecagem(aula, introIdx, dados, checagemIdx, origemAulaId = aula
   // Só a primeira checagem ("O que é um verbo?") usa a ordem invertida
   // (pergunta curta em negrito antes do título grande). As demais seguem
   // o layout padrão das questões, com o verbo em destaque no subtítulo.
-  // Checagens com "sentenca" (clicar na palavra) não repetem a frase como
-  // subtítulo — ela já aparece como as palavras clicáveis logo abaixo.
+  // Checagens com "banco" (reordenar) não mostram subtítulo — o "sentenca" (clicar na palavra)
+  // mostra normalmente quando preenchido (descrição opcional, definida no Construtor de Aulas).
   opcoesEl.innerHTML = marcarCartaoHtml(`checagem${checagemIdx}`) + (dados.invertido
-    ? `<p class="questao-subtitulo checagem-pergunta">${dados.subtitulo || ''}</p>
-       <h2 class="questao-titulo checagem-titulo">${dados.titulo || ''}</h2>`
-    : `<h2 class="questao-titulo checagem-instrucao">${dados.titulo || ''}</h2>` +
-      ((dados.sentenca || dados.banco) ? '' : `<p class="questao-subtitulo checagem-frase">${dados.subtitulo || ''}</p>`)) +
+    ? `<p class="questao-subtitulo checagem-pergunta"${estiloTextoInline(dados, 'subtitulo')}>${renderFraseComDestaque(dados.subtitulo || '', dados.subtituloDestaque)}</p>
+       <h2 class="questao-titulo checagem-titulo"${estiloTextoInline(dados, 'titulo')}>${renderFraseComDestaque(dados.titulo || '', dados.tituloDestaque)}</h2>`
+    : `<h2 class="questao-titulo checagem-instrucao"${estiloTextoInline(dados, 'titulo')}>${renderFraseComDestaque(dados.titulo || '', dados.tituloDestaque)}</h2>` +
+      (dados.banco ? '' : `<p class="questao-subtitulo checagem-frase"${estiloTextoInline(dados, 'subtitulo')}>${renderFraseComDestaque(dados.subtitulo || '', dados.subtituloDestaque)}</p>`)) +
     (dados.predicado ? '<div class="tri-select-wrap" id="triSelectWrap"></div>'
       : dados.sujeito ? '<div class="dual-select-wrap" id="dualSelectWrap"></div>'
       : dados.banco ? '<div class="reordenar-wrap" id="reordenarWrap"></div>'
@@ -891,7 +1169,11 @@ function mostrarChecagem(aula, introIdx, dados, checagemIdx, origemAulaId = aula
           mostrarChecagem(aula, introIdx, dados, checagemIdx, origemAulaId);
         });
       }
-      btn.innerHTML = `<span class="letra">${LETRAS[i]}</span><span class="opcao-texto">${texto}</span>`;
+      const partesEstiloOpcao = [];
+      if ((dados.opcoesNegrito || [])[i]) partesEstiloOpcao.push('font-weight:700');
+      if ((dados.opcoesItalico || [])[i]) partesEstiloOpcao.push('font-style:italic');
+      const estiloOpcao = partesEstiloOpcao.length ? ` style="${partesEstiloOpcao.join(';')}"` : '';
+      btn.innerHTML = `<span class="letra">${LETRAS[i]}</span><span class="opcao-texto"${estiloOpcao}>${renderFraseComDestaque(texto, (dados.opcoesDestaque || [])[i])}</span>`;
       opcoesEl.appendChild(btn);
     });
   }

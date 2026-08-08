@@ -212,7 +212,18 @@ function iconeAulaPreview(iconeAula) {
   return ICONES_AULA_PREVIEW[iconeAula] || ICONES_AULA_PREVIEW.padrao;
 }
 
+/** Aplica a paleta derivada da cor de marca (aba Layout) nas variáveis CSS globais do documento —
+ * é o que faz os pré-visualizadores de "Conteúdo da aula" (.player-preview) combinarem com a cor
+ * escolhida, já que eles usam var(--cor-primaria) etc. com o roxo padrão só como fallback. */
+function aplicarPaletaGlobalPreview() {
+  const paleta = gerarPaletaCss(CONFIG_APP.cor);
+  Object.entries(paleta).forEach(([k, v]) => document.documentElement.style.setProperty(k, v));
+}
+aplicarPaletaGlobalPreview();
+
 function renderPreviewConfig() {
+  salvarAutomaticamente();
+  aplicarPaletaGlobalPreview();
   const preview = document.getElementById('previewPagina');
   if (!preview) return;
   const paleta = gerarPaletaCss(CONFIG_APP.cor);

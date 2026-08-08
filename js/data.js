@@ -36,34 +36,7 @@ function novoConteudo() {
   };
 }
 
-const CICLOS = [
-  {
-    id: 1,
-    titulo: 'Ciclo 1 – Base Jurídica',
-    materias: [
-      {
-        id: 1,
-        titulo: 'Português',
-        aulas: [
-          { id: 1, titulo: 'Aula 1 – Verbos', conteudo: novoConteudo() },
-          { id: 2, titulo: 'Aula 2 – Sujeito', conteudo: novoConteudo() },
-          { id: 3, titulo: 'Aula 3 – Predicado', conteudo: novoConteudo() },
-        ],
-      },
-      {
-        id: 2,
-        titulo: 'Direito Administrativo',
-        aulas: [
-          { id: 4, titulo: 'Aula 1 – Conceitos', conteudo: novoConteudo() },
-          { id: 5, titulo: 'Aula 2 – Princípios', conteudo: novoConteudo() },
-          { id: 6, titulo: 'Aula 3 – Atos administrativos', conteudo: novoConteudo() },
-        ],
-      },
-    ],
-  },
-  { id: 2, titulo: 'Ciclo 2 – Específica', materias: [] },
-  { id: 3, titulo: 'Ciclo 3 – Avançada', materias: [] },
-];
+const CICLOS = [];
 
 /** Tipos de ícone reconhecidos pelo player (estudos/js/estudo.js:RESUMO_ICONES). */
 const TIPOS_ICONE = [
@@ -94,4 +67,18 @@ function listarTodasAulas() {
     });
   });
   return lista;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Autosave — só existe se tiver uma pasta conectada (ver js/pasta.js). Sem */
+/* pasta conectada, nada é salvo nem recarregado: a tela sempre começa     */
+/* vazia. Toda criação/edição/exclusão/reordenação chama isso.             */
+/* ---------------------------------------------------------------------- */
+let _autosaveTimeout = null;
+
+function salvarAutomaticamente() {
+  clearTimeout(_autosaveTimeout);
+  _autosaveTimeout = setTimeout(() => {
+    if (typeof escreverJsonNaPastaConectada === 'function') escreverJsonNaPastaConectada();
+  }, 400);
 }

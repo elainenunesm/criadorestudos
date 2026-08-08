@@ -23,7 +23,8 @@ function mostrarPainel(painel) {
   document.getElementById('painelConteudo').classList.toggle('ativo', painel === 'conteudo');
   document.getElementById('painelConfig').classList.toggle('ativo', painel === 'config');
   document.getElementById('painelEstatistica').classList.toggle('ativo', painel === 'estatistica');
-  document.getElementById('tabsNav').style.display = (painel === 'config' || painel === 'estatistica') ? 'none' : '';
+  document.getElementById('painelSobre').classList.toggle('ativo', painel === 'sobre');
+  document.getElementById('tabsNav').style.display = (painel === 'config' || painel === 'estatistica' || painel === 'sobre') ? 'none' : '';
   if (painel === 'conteudo' && !conteudoInicializado) {
     conteudoInicializado = true;
     inicializarConteudo();
@@ -54,6 +55,13 @@ function abrirEstatistica() {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('navEstatistica').classList.add('active');
   mostrarPainel('estatistica');
+}
+
+function abrirSobre() {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('navSobre').classList.add('active');
+  mostrarPainel('sobre');
 }
 
 // Menu "..." de ciclo/matéria/aula (renomear / excluir) — genérico
@@ -102,6 +110,7 @@ function iniciarEdicaoInline(label, valorOriginal, aoSalvar) {
     resolvido = true;
     const novo = input.value.trim() || valorOriginal;
     aoSalvar(novo);
+    salvarAutomaticamente();
     const novoLabel = document.createElement('span');
     novoLabel.className = label.className;
     novoLabel.textContent = novo;
@@ -137,7 +146,7 @@ function confirmarExclusao(mensagem, aoConfirmar) {
     btnCancelar.removeEventListener('click', onCancelar);
     overlay.removeEventListener('click', onOverlay);
   }
-  function onOk() { fechar(); aoConfirmar(); }
+  function onOk() { fechar(); aoConfirmar(); salvarAutomaticamente(); }
   function onCancelar() { fechar(); }
   function onOverlay(e) { if (e.target === overlay) fechar(); }
 
@@ -322,29 +331,64 @@ function proximoIdAula() { return Math.max(0, ...CICLOS.flatMap(c => c.materias.
 function novoCiclo() {
   const ciclo = { id: proximoIdCiclo(), titulo: 'Novo ciclo', materias: [] };
   CICLOS.push(ciclo);
+  salvarAutomaticamente();
 
   const node = criarNoCiclo(ciclo);
   document.querySelector('.tree-wrap').appendChild(node);
+  configurarArrasteCiclo(node, ciclo.id);
   node.scrollIntoView({ behavior: 'smooth', block: 'center' });
   iniciarEdicaoInline(node.querySelector('.node-label'), ciclo.titulo, novo => { ciclo.titulo = novo; });
 }
 
-/** Modal de escolha (substitui "sempre vai pro último") — itens: [{ label, sublabel?, onClick }]. */
+/** Modal de escolha (substitui "sempre vai pro último") — itens: [{ label, sublabel?, grupo?, onClick }].
+ * Se algum item tiver `grupo`, a lista ganha títulos de seção (itens do mesmo grupo devem vir
+ * seguidos). Com 5 itens ou mais, aparece um campo de busca no topo pra filtrar por label/sublabel. */
 function abrirEscolha(titulo, itens) {
   const overlay = document.getElementById('modalEscolher');
   const lista = document.getElementById('modalEscolherLista');
   const btnCancelar = document.getElementById('modalEscolherCancelar');
+  const buscaWrap = document.getElementById('modalEscolherBuscaWrap');
+  const buscaInput = document.getElementById('modalEscolherBusca');
   document.getElementById('modalEscolherTitulo').textContent = titulo;
 
-  lista.innerHTML = '';
-  itens.forEach(it => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'modal-lista-item';
-    btn.innerHTML = `<span>${escaparHtmlScript(it.label)}</span>${it.sublabel ? `<span class="modal-lista-sub">${escaparHtmlScript(it.sublabel)}</span>` : ''}`;
-    btn.addEventListener('click', () => { fechar(); it.onClick(); });
-    lista.appendChild(btn);
-  });
+  const mostrarBusca = itens.length >= 5;
+  buscaWrap.style.display = mostrarBusca ? '' : 'none';
+  buscaInput.value = '';
+
+  function renderLista(termoBusca) {
+    lista.innerHTML = '';
+    const termo = (termoBusca || '').trim().toLowerCase();
+    const filtrados = termo
+      ? itens.filter(it => `${it.label} ${it.sublabel || ''}`.toLowerCase().includes(termo))
+      : itens;
+
+    if (!filtrados.length) {
+      lista.innerHTML = '<p class="pp-vazio">Nada encontrado.</p>';
+      return;
+    }
+
+    let grupoAtual = null;
+    filtrados.forEach(it => {
+      if (it.grupo && it.grupo !== grupoAtual) {
+        grupoAtual = it.grupo;
+        const header = document.createElement('p');
+        header.className = 'modal-lista-grupo-titulo';
+        header.textContent = it.grupo;
+        lista.appendChild(header);
+      }
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'modal-lista-item' + (it.iconeHtml ? ' modal-lista-item-icone' : '');
+      const textos = `<span>${escaparHtmlScript(it.label)}</span>${it.sublabel ? `<span class="modal-lista-sub">${escaparHtmlScript(it.sublabel)}</span>` : ''}`;
+      // iconeHtml é sempre montado internamente (badgeIcone()/ICONES_TIPO em conteudo.js), nunca vem de
+      // texto digitado pela usuária — por isso entra direto, sem escapar (senão o SVG viraria texto cru).
+      btn.innerHTML = (it.iconeHtml || '') + `<span class="modal-lista-item-textos">${textos}</span>`;
+      btn.addEventListener('click', () => { fechar(); it.onClick(); });
+      lista.appendChild(btn);
+    });
+  }
+  renderLista('');
+  buscaInput.oninput = () => renderLista(buscaInput.value);
 
   overlay.classList.add('show');
 
@@ -352,6 +396,7 @@ function abrirEscolha(titulo, itens) {
     overlay.classList.remove('show');
     btnCancelar.removeEventListener('click', fechar);
     overlay.removeEventListener('click', onOverlay);
+    buscaInput.oninput = null;
   }
   function onOverlay(e) { if (e.target === overlay) fechar(); }
   btnCancelar.addEventListener('click', fechar);
@@ -373,6 +418,7 @@ function novaEtapaEm(cicloId) {
 
   const materia = { id: proximoIdMateria(), titulo: 'Nova matéria', aulas: [] };
   ciclo.materias.push(materia);
+  salvarAutomaticamente();
 
   const cicloNode = document.querySelector(`.node[data-ciclo-id="${ciclo.id}"]`);
   cicloNode.classList.remove('collapsed');
@@ -411,6 +457,7 @@ function novaAulaEm(cicloId, materiaId) {
 
   const aula = { id: proximoIdAula(), titulo: 'Nova aula', conteudo: novoConteudo() };
   info.materia.aulas.push(aula);
+  salvarAutomaticamente();
 
   const cicloNode = document.querySelector(`.node[data-ciclo-id="${cicloId}"]`);
   cicloNode.classList.remove('collapsed');
@@ -428,17 +475,195 @@ function novaAulaEm(cicloId, materiaId) {
   const addLessonLink = childrenWrap.querySelector('.add-lesson');
   const linha = criarLinhaAula(cicloId, materiaId, aula);
   childrenWrap.insertBefore(linha, addLessonLink);
+  configurarArrasteAula(linha, cicloId, materiaId, aula.id);
 
   linha.scrollIntoView({ behavior: 'smooth', block: 'center' });
   iniciarEdicaoInline(linha.querySelector('.lesson-label'), aula.titulo, novo => { aula.titulo = novo; });
 }
 
-// Keyboard support for tree nodes
-document.querySelectorAll('.node-header').forEach(btn => {
-  btn.addEventListener('keydown', e => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      btn.click();
+// Busca na árvore de Estrutura (ciclo/matéria/aula) — digitar filtra a lista, escondendo quem
+// não bate e mostrando só os ramos que levam a um resultado (expandindo os que precisar).
+function normalizarBusca(s) {
+  return (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+}
+
+function expandirTemporarioBusca(node) {
+  if (node.classList.contains('collapsed')) node.dataset.expandidoPelaBusca = '1';
+  node.classList.remove('collapsed');
+  node.setAttribute('aria-expanded', 'true');
+  const arrow = node.querySelector(':scope > .node-header .arrow');
+  if (arrow) arrow.classList.add('rotated');
+}
+
+function filtrarArvoreEstrutura(termoOriginal) {
+  const treeWrap = document.querySelector('.tree-wrap');
+  const vazio = document.getElementById('buscaEstruturaVazia');
+  if (!treeWrap) return;
+  const termo = normalizarBusca(termoOriginal);
+
+  if (!termo) {
+    treeWrap.querySelectorAll('.busca-oculto').forEach(el => el.classList.remove('busca-oculto'));
+    treeWrap.querySelectorAll('[data-expandido-pela-busca]').forEach(node => {
+      delete node.dataset.expandidoPelaBusca;
+      node.classList.add('collapsed');
+      node.setAttribute('aria-expanded', 'false');
+      const arrow = node.querySelector(':scope > .node-header .arrow');
+      if (arrow) arrow.classList.remove('rotated');
+    });
+    if (vazio) vazio.style.display = 'none';
+    treeWrap.style.display = '';
+    return;
+  }
+
+  // Top-down: se o ciclo ou a matéria bate com a busca, TODO o conteúdo dentro dele fica visível
+  // (mesmo que o texto da aula em si não bata) — e o inverso também funciona: uma aula que bate
+  // mantém a matéria/ciclo dela visíveis e expandidos, mesmo que os nomes deles não batam.
+  treeWrap.querySelectorAll('.node[data-ciclo-id]').forEach(cicloNode => {
+    const labelCiclo = normalizarBusca(cicloNode.querySelector(':scope > .node-header .node-label')?.textContent);
+    const cicloBate = labelCiclo.includes(termo);
+    let cicloTemVisivel = cicloBate;
+
+    cicloNode.querySelectorAll(':scope > .children > .node[data-materia-id]').forEach(materiaNode => {
+      const labelMateria = normalizarBusca(materiaNode.querySelector(':scope > .node-header .node-label')?.textContent);
+      const materiaBate = cicloBate || labelMateria.includes(termo);
+      let materiaTemVisivel = materiaBate;
+
+      materiaNode.querySelectorAll(':scope > .children > .lesson-row').forEach(row => {
+        const labelAula = normalizarBusca(row.querySelector('.lesson-label')?.textContent);
+        const aulaBate = materiaBate || labelAula.includes(termo);
+        row.classList.toggle('busca-oculto', !aulaBate);
+        if (aulaBate) materiaTemVisivel = true;
+      });
+
+      materiaNode.classList.toggle('busca-oculto', !materiaTemVisivel);
+      if (materiaTemVisivel && !materiaBate) expandirTemporarioBusca(materiaNode);
+      if (materiaTemVisivel) cicloTemVisivel = true;
+    });
+
+    cicloNode.classList.toggle('busca-oculto', !cicloTemVisivel);
+    if (cicloTemVisivel && !cicloBate) expandirTemporarioBusca(cicloNode);
+  });
+
+  const temAlgumaCoisaVisivel = !!treeWrap.querySelector('.node[data-ciclo-id]:not(.busca-oculto)');
+  treeWrap.style.display = temAlgumaCoisaVisivel ? '' : 'none';
+  if (vazio) vazio.style.display = temAlgumaCoisaVisivel ? 'none' : '';
+}
+
+const inputBuscaEstrutura = document.getElementById('buscaEstrutura');
+if (inputBuscaEstrutura) {
+  inputBuscaEstrutura.addEventListener('input', () => filtrarArvoreEstrutura(inputBuscaEstrutura.value));
+}
+
+// ── Arrastar pra reordenar (ciclos entre si, aulas dentro da mesma matéria) ──────────
+
+/** Move o item de `array` achado por `idOrigem` pra ficar do lado do item `idDestino` — depois
+ * do destino se arrastou pra baixo, antes se arrastou pra cima. Retorna a direção (útil pra
+ * reposicionar o elemento correspondente no DOM do mesmo jeito). */
+function moverNoArray(array, idOrigem, idDestino) {
+  const idxOrigem = array.findIndex(x => x.id === idOrigem);
+  const idxDestino = array.findIndex(x => x.id === idDestino);
+  if (idxOrigem === -1 || idxDestino === -1 || idxOrigem === idxDestino) return null;
+  const paraBaixo = idxOrigem < idxDestino;
+  const [item] = array.splice(idxOrigem, 1);
+  let alvo = array.findIndex(x => x.id === idDestino);
+  if (paraBaixo) alvo += 1;
+  array.splice(alvo, 0, item);
+  return paraBaixo;
+}
+
+let arrastando = null; // { tipo: 'ciclo'|'aula', id, materiaId? }
+
+/** `handleEl` é o que o usuário agarra pra arrastar; `alvoEl` é onde ele pode soltar (pode ser
+ * o mesmo elemento). `extra` guarda contexto extra (ex: materiaId, pra aula só trocar de posição
+ * dentro da mesma matéria). */
+function configurarArraste(handleEl, alvoEl, tipo, id, extra, aoSoltar) {
+  handleEl.draggable = true;
+  handleEl.addEventListener('dragstart', e => {
+    arrastando = { tipo, id, ...extra };
+    alvoEl.classList.add('arrastando');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  handleEl.addEventListener('dragend', () => {
+    alvoEl.classList.remove('arrastando');
+    document.querySelectorAll('.arraste-hover').forEach(n => n.classList.remove('arraste-hover'));
+    arrastando = null;
+  });
+
+  function podeSoltarAqui() {
+    if (!arrastando || arrastando.tipo !== tipo || arrastando.id === id) return false;
+    if (tipo === 'aula' && arrastando.materiaId !== extra.materiaId) return false;
+    return true;
+  }
+
+  alvoEl.addEventListener('dragover', e => {
+    if (!podeSoltarAqui()) return;
+    e.preventDefault();
+    alvoEl.classList.add('arraste-hover');
+  });
+  alvoEl.addEventListener('dragleave', () => alvoEl.classList.remove('arraste-hover'));
+  alvoEl.addEventListener('drop', e => {
+    e.preventDefault();
+    alvoEl.classList.remove('arraste-hover');
+    if (!podeSoltarAqui()) return;
+    aoSoltar(arrastando.id, id, alvoEl);
+    salvarAutomaticamente();
+  });
+}
+
+function configurarArrasteCiclo(nodeEl, cicloId) {
+  const header = nodeEl.querySelector(':scope > .node-header');
+  configurarArraste(header, nodeEl, 'ciclo', cicloId, {}, (idOrigem, idDestino) => {
+    const paraBaixo = moverNoArray(CICLOS, idOrigem, idDestino);
+    if (paraBaixo === null) return;
+    const elOrigem = document.querySelector(`.node[data-ciclo-id="${idOrigem}"]`);
+    if (paraBaixo) nodeEl.after(elOrigem);
+    else nodeEl.before(elOrigem);
+  });
+}
+
+function configurarArrasteAula(linhaEl, cicloId, materiaId, aulaId) {
+  configurarArraste(linhaEl, linhaEl, 'aula', aulaId, { materiaId }, (idOrigem, idDestino) => {
+    const info = buscarMateria(cicloId, materiaId);
+    if (!info) return;
+    const paraBaixo = moverNoArray(info.materia.aulas, idOrigem, idDestino);
+    if (paraBaixo === null) return;
+    const elOrigem = linhaDaAula(materiaId, idOrigem);
+    if (paraBaixo) linhaEl.after(elOrigem);
+    else linhaEl.before(elOrigem);
+  });
+}
+
+/** Reconstrói a árvore inteira (ciclo > matéria > aula) a partir de CICLOS — chamado no
+ * carregamento da página (lista vazia na primeira vez, ou restaurada do autosave), já com
+ * clique/teclado/arraste ligados em cada nó criado. */
+function renderArvoreCompleta() {
+  const treeWrap = document.querySelector('.tree-wrap');
+  const vazio = document.getElementById('arvoreVazia');
+  if (!treeWrap) return;
+  treeWrap.innerHTML = '';
+
+  CICLOS.forEach(ciclo => {
+    const nodeCiclo = criarNoCiclo(ciclo);
+    treeWrap.appendChild(nodeCiclo);
+    configurarArrasteCiclo(nodeCiclo, ciclo.id);
+
+    if (ciclo.materias.length) {
+      const childrenWrap = document.createElement('div');
+      childrenWrap.className = 'children';
+      childrenWrap.setAttribute('role', 'group');
+      nodeCiclo.appendChild(childrenWrap);
+
+      ciclo.materias.forEach(materia => {
+        const nodeMateria = criarNoMateria(ciclo.id, materia);
+        childrenWrap.appendChild(nodeMateria);
+        materia.aulas.forEach(aula => {
+          const linha = linhaDaAula(materia.id, aula.id);
+          if (linha) configurarArrasteAula(linha, ciclo.id, materia.id, aula.id);
+        });
+      });
     }
   });
-});
+
+  if (vazio) vazio.style.display = CICLOS.length ? 'none' : '';
+}
+renderArvoreCompleta();

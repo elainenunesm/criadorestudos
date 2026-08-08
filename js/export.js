@@ -294,3 +294,37 @@ async function exportarProjeto() {
   a.remove();
   URL.revokeObjectURL(url);
 }
+
+/** Salva TODO o trabalho (ciclos/matérias/aulas/conteúdo + config de marca) num arquivo .json,
+ * numa pasta que a usuária escolhe — é o "salvar meu progresso no Construtor", diferente do
+ * "Exportar projeto (.zip)" (que gera o app pronto pra estudar). Em navegadores com File System
+ * Access API (Chrome/Edge), grava direto na pasta escolhida; nos outros, baixa o arquivo normal. */
+async function salvarProjetoJson() {
+  const dados = { savedAt: new Date().toISOString(), config: CONFIG_APP, ciclos: CICLOS };
+  const conteudoJson = JSON.stringify(dados, null, 2);
+
+  if ('showDirectoryPicker' in window) {
+    let pastaHandle;
+    try {
+      pastaHandle = await window.showDirectoryPicker();
+    } catch (e) {
+      return; // usuária cancelou o seletor de pasta
+    }
+    const arquivoHandle = await pastaHandle.getFileHandle('construtor-aulas.json', { create: true });
+    const writable = await arquivoHandle.createWritable();
+    await writable.write(conteudoJson);
+    await writable.close();
+    return;
+  }
+
+  // Sem suporte a escolher pasta (Firefox/Safari) — baixa o .json normalmente.
+  const blob = new Blob([conteudoJson], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'construtor-aulas.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
