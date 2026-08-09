@@ -170,6 +170,18 @@ const DADOS_FICTICIOS_TELA = {
     tipo: 'acao', texto: '',
     flashcard: { frente: 'Assim vai aparecer a frente do card.', verso: 'E aqui o verso, ao virar.' },
   },
+  exemploAudio: {
+    tipo: 'acao', texto: '',
+    audio: { audioUrl: '', titulo: 'Assim vai aparecer o título.', subtitulo: 'E aqui o subtítulo.', texto: 'Assim vai aparecer o texto embaixo do áudio.' },
+  },
+  exemploGravacao: {
+    tipo: 'acao', texto: '',
+    gravacao: { audioUrl: '', titulo: 'Assim vai aparecer o título.', subtitulo: 'E aqui o subtítulo.', texto: 'Assim vai aparecer o texto embaixo da gravação.' },
+  },
+  exemploGravacaoAluno: {
+    tipo: 'acao', texto: '',
+    gravacaoAluno: { titulo: 'Assim vai aparecer o título.', subtitulo: 'E aqui o subtítulo.', texto: 'Assim vai aparecer o texto embaixo do gravador.' },
+  },
   checagemMultipla: { titulo: 'Assim vai aparecer a pergunta da checagem.', opcoes: ['Alternativa A', 'Alternativa B', 'Alternativa C'], correta: 0 },
   checagemPalavra: { titulo: 'Assim vai aparecer a instrução da checagem.', sentenca: ['A', 'Maria', 'estudou', 'muito', '.'], correta: 2 },
 };
@@ -182,6 +194,9 @@ const NOME_TELA_ADICIONAR = {
   'exemplo:palavraMultiplosRotulos': 'Palavra(s) com Múltiplos Rótulos',
   'exemplo:cardImagem': 'Card com imagem',
   'exemplo:flashcard': 'Flashcard',
+  'exemplo:audio': 'Card de áudio',
+  'exemplo:gravacao': 'Card de gravação',
+  'exemplo:gravacaoAluno': 'Card de gravação do aluno',
   'checagem:multipla': 'Questão múltipla escolha',
   'checagem:palavra': 'Selecione a palavra',
 };
@@ -214,6 +229,9 @@ function mostrarPreviewNovaTela(tipo, modo) {
     palavraMultiplosRotulos: DADOS_FICTICIOS_TELA.exemploPalavraMultiplosRotulos,
     cardImagem: DADOS_FICTICIOS_TELA.exemploCardImagem,
     flashcard: DADOS_FICTICIOS_TELA.exemploFlashcard,
+    audio: DADOS_FICTICIOS_TELA.exemploAudio,
+    gravacao: DADOS_FICTICIOS_TELA.exemploGravacao,
+    gravacaoAluno: DADOS_FICTICIOS_TELA.exemploGravacaoAluno,
   };
   const body = document.getElementById('previewNovaTelaBody');
   if (tipo === 'exemplo') {
@@ -266,6 +284,9 @@ function renderEstruturaTelas() {
     const ICONE_ROTULO = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8 8a2 2 0 0 0 2.828 0l7.172-7.172a2 2 0 0 0 0-2.828z"/><circle cx="7.5" cy="7.5" r="1.5" fill="#fff" stroke="none"/></svg>';
     const ICONE_IMAGEM = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>';
     const ICONE_FLASHCARD = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="15" height="12" rx="2"/><path d="M7 2h13a2 2 0 0 1 2 2v12"/></svg>';
+    const ICONE_AUDIO = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="#fff" stroke="none"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
+    const ICONE_MICROFONE = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
+    const ICONE_MICROFONE_ALUNO = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/><circle cx="19" cy="5" r="4" fill="#fff" stroke="none"/></svg>';
     btnAdicionar.onclick = () => {
       abrirEscolha('Tipo (Telas)', [
         {
@@ -302,6 +323,21 @@ function renderEstruturaTelas() {
           label: 'Flashcard', sublabel: 'Card com frente e verso — a aluna toca pra virar e ver a resposta', grupo: 'Exemplo',
           iconeHtml: badgeIcone(ICONE_FLASHCARD, '#0EA5E9'),
           onClick: () => mostrarPreviewNovaTela('exemplo', 'flashcard'),
+        },
+        {
+          label: 'Card de áudio', sublabel: 'Importe um arquivo de áudio pra tocar, com título/texto opcionais', grupo: 'Áudio',
+          iconeHtml: badgeIcone(ICONE_AUDIO, '#10B981'),
+          onClick: () => mostrarPreviewNovaTela('exemplo', 'audio'),
+        },
+        {
+          label: 'Card de gravação', sublabel: 'Você grava sua própria voz direto pelo microfone, no Construtor', grupo: 'Áudio',
+          iconeHtml: badgeIcone(ICONE_MICROFONE, '#EF4444'),
+          onClick: () => mostrarPreviewNovaTela('exemplo', 'gravacao'),
+        },
+        {
+          label: 'Card de gravação do aluno', sublabel: 'A aluna grava a própria voz, ao estudar a aula', grupo: 'Áudio',
+          iconeHtml: badgeIcone(ICONE_MICROFONE_ALUNO, '#8B5CF6'),
+          onClick: () => mostrarPreviewNovaTela('exemplo', 'gravacaoAluno'),
         },
         {
           label: 'Questão múltipla escolha', sublabel: 'Crie uma pergunta com alternativas', grupo: 'Questão',
@@ -445,6 +481,12 @@ function adicionarItemPasso(tipoLista, variante) {
       novoExemplo.cardImagem = { imagemUrl: '', titulo: '', subtitulo: '', texto: '' };
     } else if (variante === 'flashcard') {
       novoExemplo.flashcard = { frente: '', verso: '' };
+    } else if (variante === 'audio') {
+      novoExemplo.audio = { audioUrl: '', titulo: '', subtitulo: '', texto: '', obrigatorio: false };
+    } else if (variante === 'gravacao') {
+      novoExemplo.gravacao = { audioUrl: '', titulo: '', subtitulo: '', texto: '', obrigatorio: false };
+    } else if (variante === 'gravacaoAluno') {
+      novoExemplo.gravacaoAluno = { titulo: '', subtitulo: '', texto: '', obrigatorio: false };
     }
     conteudo.exemplo.push(novoExemplo);
     inserirNaOrdemAntesDoResumo(conteudo, { tipo: 'exemplo', id });
@@ -794,6 +836,9 @@ function renderFormAntesComecar(el, conteudo) {
 function varianteDoExemplo(item) {
   if (item.cardImagem) return 'cardImagem';
   if (item.flashcard) return 'flashcard';
+  if (item.audio) return 'audio';
+  if (item.gravacao) return 'gravacao';
+  if (item.gravacaoAluno) return 'gravacaoAluno';
   if (item.palavraPointLabelExemplo) return 'palavraPointLabelExemplo';
   if (item.palavraMultiplosRotulos) return 'palavraMultiplosRotulos';
   if (item.palavraSelecionavelMultipla) return 'palavraSelecionavelMultipla';
@@ -808,6 +853,9 @@ const RENDER_BLOCO_VARIANTE = {
   palavraMultiplosRotulos: renderBlocoPalavraMultiplosRotulos,
   cardImagem: renderBlocoCardImagem,
   flashcard: renderBlocoFlashcard,
+  audio: renderBlocoAudio,
+  gravacao: renderBlocoGravacao,
+  gravacaoAluno: renderBlocoGravacaoAluno,
 };
 
 function renderFormExemplo(el, conteudo, passo) {
@@ -1203,6 +1251,201 @@ function renderBlocoFlashcard(bloco, item) {
   ]);
   bloco.querySelectorAll('[data-fcf]').forEach(input => {
     input.addEventListener('blur', () => { podarDestaque(fc, input.dataset.fcf); renderDestaquesFC(); });
+  });
+}
+
+/** Checkbox "Obrigatório" pros cards de áudio/gravação — quando marcado, o "Próximo" só libera
+ * depois que a aluna escutar o áudio até o fim (Card de áudio/gravação) ou gravar pelo menos uma
+ * vez (Card de gravação do aluno); `rotulo` já vem escrito certo pra cada caso. */
+function htmlCampoObrigatorio(rotulo) {
+  return `<label class="campo-check"><input type="checkbox" data-obrigatorio> ${escaparHtml(rotulo)}</label>`;
+}
+function ligarCampoObrigatorio(bloco, obj) {
+  const input = bloco.querySelector('[data-obrigatorio]');
+  input.checked = !!obj.obrigatorio;
+  input.addEventListener('change', () => { obj.obrigatorio = input.checked; renderPreviewAtual(); });
+}
+
+/** "Card de áudio" — importa um arquivo de áudio do computador (embutido em base64, mesmo padrão
+ * do Card com imagem) pra tocar, com título/subtítulo/texto opcionais embaixo do player. */
+function renderBlocoAudio(bloco, item) {
+  const a = item.audio;
+  bloco.innerHTML = `
+    <div class="item-card">
+      <div class="item-card-topo"><strong>Card de áudio</strong></div>
+      <div class="campo">
+        <label>Arquivo de áudio</label>
+        <button type="button" class="btn-add-item btn-importar-audio">Importar arquivo de áudio</button>
+        <input type="file" accept="audio/*" class="input-arquivo-audio" hidden>
+        <div class="campo-audio-preview"></div>
+      </div>
+      <div class="campo">${htmlCampoObrigatorio('Obrigatório escutar até o fim pra liberar o Próximo')}</div>
+      <div class="campo">${htmlLabelComEstilo('Título (opcional)', 'titulo')}<input type="text" data-af="titulo" placeholder="Ex: Título do card"></div>
+      <div class="campo">${htmlLabelComEstilo('Subtítulo (opcional)', 'subtitulo')}<input type="text" data-af="subtitulo" placeholder="Ex: Subtítulo do card"></div>
+      <div class="campo">${htmlLabelComEstilo('Texto (opcional)', 'texto')}<textarea data-af="texto"></textarea></div>
+      <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
+      <div id="listaDestaqueAudio"></div>
+    </div>`;
+  bloco.querySelectorAll('[data-af]').forEach(input => {
+    input.value = a[input.dataset.af] || '';
+    input.addEventListener('input', () => { a[input.dataset.af] = input.value; renderPreviewAtual(); });
+  });
+
+  const previewWrap = bloco.querySelector('.campo-audio-preview');
+  function renderAudioPreview() {
+    previewWrap.innerHTML = a.audioUrl ? `<audio controls src="${escaparHtml(a.audioUrl)}"></audio>` : '';
+  }
+  renderAudioPreview();
+
+  const inputArquivo = bloco.querySelector('.input-arquivo-audio');
+  bloco.querySelector('.btn-importar-audio').addEventListener('click', () => inputArquivo.click());
+  inputArquivo.addEventListener('change', () => {
+    const arquivo = inputArquivo.files[0];
+    if (!arquivo) return;
+    const leitor = new FileReader();
+    leitor.onload = () => {
+      a.audioUrl = leitor.result;
+      renderAudioPreview();
+      renderPreviewAtual();
+    };
+    leitor.readAsDataURL(arquivo);
+  });
+
+  ligarCampoObrigatorio(bloco, a);
+  ligarBotoesEstiloTexto(bloco, a);
+  const renderDestaquesA = montarDestaqueFrases(bloco.querySelector('#listaDestaqueAudio'), a, [
+    { rotulo: 'Título', campo: 'titulo' },
+    { rotulo: 'Subtítulo', campo: 'subtitulo' },
+    { rotulo: 'Texto', campo: 'texto' },
+  ]);
+  bloco.querySelectorAll('[data-af="titulo"], [data-af="subtitulo"], [data-af="texto"]').forEach(input => {
+    input.addEventListener('blur', () => { podarDestaque(a, input.dataset.af); renderDestaquesA(); });
+  });
+}
+
+/** Só uma gravação por vez pode estar em andamento na tela (guarda o stream/recorder ativos pra
+ * conseguir parar ao clicar de novo no botão, mesmo se o bloco tiver sido re-renderizado). */
+let _gravacaoAtiva = null;
+
+/** "Card de gravação" — grava a própria voz direto pelo microfone (MediaRecorder da Web API), sem
+ * precisar de nenhum arquivo pronto; ao parar, já mostra o player pra ouvir o resultado na hora
+ * (mesmo formulário do Card de áudio depois disso — título/subtítulo/texto opcionais). Precisa
+ * rodar em contexto seguro (https ou localhost) — em file:// o navegador pode bloquear o microfone. */
+function renderBlocoGravacao(bloco, item) {
+  const g = item.gravacao;
+  bloco.innerHTML = `
+    <div class="item-card">
+      <div class="item-card-topo"><strong>Card de gravação</strong></div>
+      <div class="campo">
+        <label>Grave sua voz pelo microfone</label>
+        <div class="campo-gravacao-controles">
+          <button type="button" class="btn-add-item btn-gravar-audio">🎙️ Gravar áudio</button>
+          <span class="gravacao-status"></span>
+        </div>
+        <div class="campo-audio-preview"></div>
+      </div>
+      <div class="campo">${htmlCampoObrigatorio('Obrigatório escutar até o fim pra liberar o Próximo')}</div>
+      <div class="campo">${htmlLabelComEstilo('Título (opcional)', 'titulo')}<input type="text" data-gf="titulo" placeholder="Ex: Título do card"></div>
+      <div class="campo">${htmlLabelComEstilo('Subtítulo (opcional)', 'subtitulo')}<input type="text" data-gf="subtitulo" placeholder="Ex: Subtítulo do card"></div>
+      <div class="campo">${htmlLabelComEstilo('Texto (opcional)', 'texto')}<textarea data-gf="texto"></textarea></div>
+      <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
+      <div id="listaDestaqueGravacao"></div>
+    </div>`;
+  bloco.querySelectorAll('[data-gf]').forEach(input => {
+    input.value = g[input.dataset.gf] || '';
+    input.addEventListener('input', () => { g[input.dataset.gf] = input.value; renderPreviewAtual(); });
+  });
+
+  const btnGravar = bloco.querySelector('.btn-gravar-audio');
+  const status = bloco.querySelector('.gravacao-status');
+  const previewWrap = bloco.querySelector('.campo-audio-preview');
+
+  function renderAudioPreview() {
+    previewWrap.innerHTML = g.audioUrl ? `<audio controls src="${escaparHtml(g.audioUrl)}"></audio>` : '';
+    btnGravar.textContent = g.audioUrl ? '🎙️ Gravar novamente' : '🎙️ Gravar áudio';
+  }
+  renderAudioPreview();
+
+  btnGravar.addEventListener('click', async () => {
+    if (_gravacaoAtiva) { _gravacaoAtiva.recorder.stop(); return; } // clique de novo enquanto grava = parar
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      status.textContent = 'Seu navegador não permite gravar áudio aqui.';
+      return;
+    }
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (e) {
+      status.textContent = 'Não deu pra acessar o microfone (permissão negada?).';
+      return;
+    }
+    const recorder = new MediaRecorder(stream);
+    const chunks = [];
+    recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    recorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      _gravacaoAtiva = null;
+      btnGravar.classList.remove('gravando');
+      status.textContent = '';
+      const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+      const leitor = new FileReader();
+      leitor.onload = () => {
+        g.audioUrl = leitor.result;
+        renderAudioPreview();
+        renderPreviewAtual();
+      };
+      leitor.readAsDataURL(blob);
+    };
+    _gravacaoAtiva = { stream, recorder };
+    recorder.start();
+    btnGravar.textContent = '⏹️ Parar gravação';
+    btnGravar.classList.add('gravando');
+    status.textContent = 'Gravando...';
+  });
+
+  ligarCampoObrigatorio(bloco, g);
+  ligarBotoesEstiloTexto(bloco, g);
+  const renderDestaquesG = montarDestaqueFrases(bloco.querySelector('#listaDestaqueGravacao'), g, [
+    { rotulo: 'Título', campo: 'titulo' },
+    { rotulo: 'Subtítulo', campo: 'subtitulo' },
+    { rotulo: 'Texto', campo: 'texto' },
+  ]);
+  bloco.querySelectorAll('[data-gf="titulo"], [data-gf="subtitulo"], [data-gf="texto"]').forEach(input => {
+    input.addEventListener('blur', () => { podarDestaque(g, input.dataset.gf); renderDestaquesG(); });
+  });
+}
+
+/** "Card de gravação do aluno" — diferente do "Card de gravação" (que é a professora quem grava,
+ * aqui no Construtor), este não tem áudio nenhum pra configurar: é a ALUNA quem grava a própria
+ * voz, no player de verdade, ao estudar a aula. Por isso o formulário só tem título/subtítulo/
+ * texto opcionais (o prompt do que ela deve falar) — sem botão de gravar nem de importar arquivo. */
+function renderBlocoGravacaoAluno(bloco, item) {
+  const g = item.gravacaoAluno;
+  bloco.innerHTML = `
+    <div class="item-card">
+      <div class="item-card-topo"><strong>Card de gravação do aluno</strong></div>
+      <p class="pp-vazio" style="margin:0 0 4px">A aluna vai gravar a própria voz aqui, ao estudar a aula — não dá pra gravar por ela no Construtor.</p>
+      <div class="campo">${htmlCampoObrigatorio('Obrigatório gravar pra liberar o Próximo')}</div>
+      <div class="campo">${htmlLabelComEstilo('Título (opcional)', 'titulo')}<input type="text" data-gaf="titulo" placeholder="Ex: Agora é sua vez"></div>
+      <div class="campo">${htmlLabelComEstilo('Subtítulo (opcional)', 'subtitulo')}<input type="text" data-gaf="subtitulo" placeholder="Ex: Grave-se lendo a frase abaixo"></div>
+      <div class="campo">${htmlLabelComEstilo('Texto (opcional)', 'texto')}<textarea data-gaf="texto"></textarea></div>
+      <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
+      <div id="listaDestaqueGravacaoAluno"></div>
+    </div>`;
+  bloco.querySelectorAll('[data-gaf]').forEach(input => {
+    input.value = g[input.dataset.gaf] || '';
+    input.addEventListener('input', () => { g[input.dataset.gaf] = input.value; renderPreviewAtual(); });
+  });
+
+  ligarCampoObrigatorio(bloco, g);
+  ligarBotoesEstiloTexto(bloco, g);
+  const renderDestaquesGA = montarDestaqueFrases(bloco.querySelector('#listaDestaqueGravacaoAluno'), g, [
+    { rotulo: 'Título', campo: 'titulo' },
+    { rotulo: 'Subtítulo', campo: 'subtitulo' },
+    { rotulo: 'Texto', campo: 'texto' },
+  ]);
+  bloco.querySelectorAll('[data-gaf="titulo"], [data-gaf="subtitulo"], [data-gaf="texto"]').forEach(input => {
+    input.addEventListener('blur', () => { podarDestaque(g, input.dataset.gaf); renderDestaquesGA(); });
   });
 }
 
@@ -1637,7 +1880,10 @@ function previewExemplo(item) {
   const temPalavraMultiplosRotulos = item.palavraMultiplosRotulos && item.palavraMultiplosRotulos.sentenca && item.palavraMultiplosRotulos.sentenca.length;
   const temCardImagem = item.cardImagem && (item.cardImagem.imagemUrl || item.cardImagem.titulo || item.cardImagem.subtitulo || item.cardImagem.texto);
   const temFlashcard = item.flashcard && (item.flashcard.frente || item.flashcard.verso);
-  if (!item.texto && !temPalavraSelecionavel && !temPalavraSelecionavelMultipla && !temPalavraPointLabelExemplo && !temPalavraMultiplosRotulos && !temCardImagem && !temFlashcard) return '<p class="pp-vazio">Preencha o texto para ver a prévia.</p>';
+  const temAudio = item.audio && (item.audio.audioUrl || item.audio.titulo || item.audio.subtitulo || item.audio.texto);
+  const temGravacao = item.gravacao && (item.gravacao.audioUrl || item.gravacao.titulo || item.gravacao.subtitulo || item.gravacao.texto);
+  const temGravacaoAluno = !!item.gravacaoAluno; // sem audioUrl (quem grava é a aluna, no player) — o card sempre existe uma vez criado
+  if (!item.texto && !temPalavraSelecionavel && !temPalavraSelecionavelMultipla && !temPalavraPointLabelExemplo && !temPalavraMultiplosRotulos && !temCardImagem && !temFlashcard && !temAudio && !temGravacao && !temGravacaoAluno) return '<p class="pp-vazio">Preencha o texto para ver a prévia.</p>';
   return `
     <div class="pp-exemplo-icone">${iconeTipo(item.tipo, '#4A80F0', item.iconeUrl)}</div>
     ${item.texto ? `<p class="pp-exemplo-texto"${estiloTextoInline(item, 'texto')}>${renderFraseComDestaque(item.texto, item.textoDestaque)}</p>` : ''}
@@ -1650,7 +1896,16 @@ function previewExemplo(item) {
     ${item.palavraPointLabelExemplo ? previewPalavraSelecionavelMultipla(item.palavraPointLabelExemplo, 'Exemplo:') : ''}
     ${item.palavraMultiplosRotulos ? previewPalavraMultiplosRotulos(item.palavraMultiplosRotulos) : ''}
     ${item.cardImagem ? previewCardImagem(item.cardImagem) : ''}
-    ${item.flashcard ? previewFlashcard(item.flashcard) : ''}`;
+    ${item.flashcard ? previewFlashcard(item.flashcard) : ''}
+    ${item.audio ? previewAudioCard(item.audio) : ''}
+    ${item.gravacao ? previewAudioCard(item.gravacao) : ''}
+    ${item.gravacaoAluno ? previewGravacaoAlunoCard(item.gravacaoAluno) : ''}`;
+}
+
+/** Selo "Obrigatório" mostrado na prévia do Construtor quando o card de áudio/gravação está
+ * marcado como obrigatório — só ilustrativo aqui (quem trava o Próximo de verdade é o player). */
+function tagObrigatorio(obj) {
+  return obj.obrigatorio ? '<span class="pp-audio-obrigatorio-tag">Obrigatório</span>' : '';
 }
 
 /** Prévia do "Card com imagem" — só ilustrativo: imagem grande em cima, texto embaixo. */
@@ -1665,6 +1920,39 @@ function previewCardImagem(ci) {
         ${ci.subtitulo ? `<p class="pp-card-imagem-subtitulo"${estiloTextoInline(ci, 'subtitulo')}>${renderFraseComDestaque(ci.subtitulo, ci.subtituloDestaque)}</p>` : ''}
         ${ci.texto ? `<p class="pp-card-imagem-texto"${estiloTextoInline(ci, 'texto')}>${renderFraseComDestaque(ci.texto, ci.textoDestaque)}</p>` : ''}
       </div>` : ''}
+    </div>`;
+}
+
+/** Prévia do "Card de áudio"/"Card de gravação" — mesmo layout pros dois: player de áudio nativo
+ * em cima, título/subtítulo/texto opcionais embaixo (a diferença entre eles é só como o áudio foi
+ * obtido no editor — arquivo importado ou gravado pelo microfone). */
+function previewAudioCard(a) {
+  if (!a.audioUrl && !a.titulo && !a.subtitulo && !a.texto) return '';
+  return `
+    <div class="pp-card-audio">
+      ${tagObrigatorio(a)}
+      ${(a.titulo || a.subtitulo) ? `<div class="pp-card-audio-cabecalho">
+        ${a.titulo ? `<p class="pp-card-audio-titulo"${estiloTextoInline(a, 'titulo')}>${renderFraseComDestaque(a.titulo, a.tituloDestaque)}</p>` : ''}
+        ${a.subtitulo ? `<p class="pp-card-audio-subtitulo"${estiloTextoInline(a, 'subtitulo')}>${renderFraseComDestaque(a.subtitulo, a.subtituloDestaque)}</p>` : ''}
+      </div>` : ''}
+      ${a.audioUrl ? `<audio class="pp-card-audio-player" controls src="${escaparHtml(a.audioUrl)}"></audio>` : ''}
+      ${a.texto ? `<p class="pp-card-audio-texto"${estiloTextoInline(a, 'texto')}>${renderFraseComDestaque(a.texto, a.textoDestaque)}</p>` : ''}
+    </div>`;
+}
+
+/** Prévia do "Card de gravação do aluno" — mostra um "mock" não-funcional do gravador (a
+ * gravação de verdade só acontece no player exportado, com a aluna estudando). */
+function previewGravacaoAlunoCard(g) {
+  return `
+    <div class="pp-card-audio pp-card-gravacao-aluno">
+      ${tagObrigatorio(g)}
+      ${(g.titulo || g.subtitulo) ? `<div class="pp-card-audio-cabecalho">
+        ${g.titulo ? `<p class="pp-card-audio-titulo"${estiloTextoInline(g, 'titulo')}>${renderFraseComDestaque(g.titulo, g.tituloDestaque)}</p>` : ''}
+        ${g.subtitulo ? `<p class="pp-card-audio-subtitulo"${estiloTextoInline(g, 'subtitulo')}>${renderFraseComDestaque(g.subtitulo, g.subtituloDestaque)}</p>` : ''}
+      </div>` : ''}
+      <div class="pp-gravacao-aluno-mock">🎙️ Gravar áudio</div>
+      <p class="pp-gravacao-aluno-mock-nota">A aluna grava aqui, ao estudar a aula.</p>
+      ${g.texto ? `<p class="pp-card-audio-texto"${estiloTextoInline(g, 'texto')}>${renderFraseComDestaque(g.texto, g.textoDestaque)}</p>` : ''}
     </div>`;
 }
 

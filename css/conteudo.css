@@ -415,6 +415,22 @@
 .player-preview .pp-card-imagem-subtitulo:first-child,
 .player-preview .pp-card-imagem-texto:first-child { margin-top: 0; }
 
+/* card de áudio / card de gravação / card de gravação do aluno */
+.player-preview .pp-card-audio { margin-top: 10px; border-radius: 16px; border: 1px solid #ececf5; background: #fbfaff; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.player-preview .pp-card-audio-player { display: block; width: 100%; }
+.player-preview .pp-card-audio-titulo { font-size: 15px; color: #1a1a2e; line-height: 1.35; }
+.player-preview .pp-card-audio-subtitulo { font-size: 13px; color: #64748b; line-height: 1.35; margin-top: 2px; }
+.player-preview .pp-card-audio-texto { font-size: 13.5px; color: #1a1a2e; line-height: 1.45; }
+.player-preview .pp-audio-obrigatorio-tag { align-self: flex-start; font-size: 10.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: #b91c1c; background: #fee2e2; border-radius: 999px; padding: 2px 8px; }
+.player-preview .pp-gravacao-aluno-mock { display: flex; align-items: center; justify-content: center; gap: 6px; border: 1.5px dashed #c7c3d9; border-radius: 12px; padding: 10px; font-size: 13.5px; color: #6E6A7A; background: #f5f4fa; }
+.player-preview .pp-gravacao-aluno-mock-nota { font-size: 11.5px; color: #9ca3af; text-align: center; margin-top: -4px; }
+
+/* editor: importar áudio / gravar áudio */
+.campo-audio-preview audio { display: block; width: 100%; margin-top: 8px; }
+.campo-gravacao-controles { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.btn-gravar-audio.gravando { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; }
+.gravacao-status { font-size: 12.5px; color: #b91c1c; }
+
 /* flashcard */
 .player-preview .pp-flashcard { margin-top: 10px; border-radius: 16px; overflow: hidden; border: 1px solid #ececf5; background: #fbfaff; }
 .player-preview .pp-flashcard-lado { padding: 12px 14px; }

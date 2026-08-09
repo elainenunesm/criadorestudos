@@ -385,6 +385,107 @@ function estiloTextoInline(obj, campo, extraCss) {
   return partes.length ? ` style="${partes.join(';')}"` : '';
 }
 
+/** "Card de áudio"/"Card de gravação" (Construtor de Aulas) — mesmo layout pros dois: player de
+ * áudio nativo em cima, título/subtítulo/texto opcionais embaixo. A diferença entre eles é só
+ * como o áudio foi obtido no editor (arquivo importado x gravado pelo microfone); no player pra
+ * aluna os dois tocam do mesmo jeito. */
+function htmlCardAudio(a) {
+  if (!a) return '';
+  if (!a.audioUrl && !a.titulo && !a.subtitulo && !a.texto) return '';
+  return `
+      <div class="card-audio">
+        ${(a.titulo || a.subtitulo) ? `<div class="card-audio-cabecalho">
+          ${a.titulo ? `<p class="card-audio-titulo"${estiloTextoInline(a, 'titulo')}>${renderFraseComDestaque(a.titulo, a.tituloDestaque)}</p>` : ''}
+          ${a.subtitulo ? `<p class="card-audio-subtitulo"${estiloTextoInline(a, 'subtitulo')}>${renderFraseComDestaque(a.subtitulo, a.subtituloDestaque)}</p>` : ''}
+        </div>` : ''}
+        ${a.audioUrl ? `<audio class="card-audio-player" id="cardAudioPlayer" controls src="${a.audioUrl}"></audio>` : ''}
+        ${a.texto ? `<p class="card-audio-texto"${estiloTextoInline(a, 'texto')}>${renderFraseComDestaque(a.texto, a.textoDestaque)}</p>` : ''}
+      </div>`;
+}
+
+/** "Card de gravação do aluno" — diferente do Card de gravação (a professora grava no
+ * Construtor): aqui é a ALUNA quem grava, direto nesta tela, ao estudar a aula. O HTML só monta
+ * a moldura (título/subtítulo/texto + a caixinha `#gravacaoAlunoWrap`); a lógica de gravar de
+ * verdade (getUserMedia/MediaRecorder) é ligada depois, em ativarGravacaoAluno(). */
+function htmlCardGravacaoAluno(g) {
+  if (!g) return '';
+  return `
+      <div class="card-audio card-gravacao-aluno">
+        ${(g.titulo || g.subtitulo) ? `<div class="card-audio-cabecalho">
+          ${g.titulo ? `<p class="card-audio-titulo"${estiloTextoInline(g, 'titulo')}>${renderFraseComDestaque(g.titulo, g.tituloDestaque)}</p>` : ''}
+          ${g.subtitulo ? `<p class="card-audio-subtitulo"${estiloTextoInline(g, 'subtitulo')}>${renderFraseComDestaque(g.subtitulo, g.subtituloDestaque)}</p>` : ''}
+        </div>` : ''}
+        <div class="gravacao-aluno-wrap" id="gravacaoAlunoWrap">
+          <div class="gravacao-aluno-controles">
+            <button type="button" class="btn-gravar-audio-aluno">🎙️ Gravar áudio</button>
+            <span class="gravacao-aluno-status"></span>
+          </div>
+          <div class="gravacao-aluno-preview"></div>
+        </div>
+        ${g.texto ? `<p class="card-audio-texto"${estiloTextoInline(g, 'texto')}>${renderFraseComDestaque(g.texto, g.textoDestaque)}</p>` : ''}
+      </div>`;
+}
+
+/** Liga o gravador de verdade do "Card de gravação do aluno" — carrega uma gravação já salva
+ * (se a aluna já tinha gravado antes, reabrindo a aula), grava/reproduz pelo microfone e salva no
+ * progresso a cada nova gravação. `obrigatorio` trava o "Próximo" até ela gravar pelo menos uma
+ * vez; devolve uma função que confere se já pode liberar (chamada de novo depois de gravar). */
+async function ativarGravacaoAluno(aulaId, chave, obrigatorio, btnProxima) {
+  const wrap = document.getElementById('gravacaoAlunoWrap');
+  if (!wrap) return;
+  const btn = wrap.querySelector('.btn-gravar-audio-aluno');
+  const status = wrap.querySelector('.gravacao-aluno-status');
+  const previewWrap = wrap.querySelector('.gravacao-aluno-preview');
+
+  let audioUrlAtual = await getGravacaoAluna(aulaId, chave);
+
+  function renderPreview() {
+    previewWrap.innerHTML = audioUrlAtual ? `<audio controls src="${audioUrlAtual}"></audio>` : '';
+    btn.textContent = audioUrlAtual ? '🎙️ Gravar novamente' : '🎙️ Gravar áudio';
+  }
+  renderPreview();
+  if (obrigatorio) btnProxima.disabled = !audioUrlAtual;
+
+  let gravacaoAtiva = null;
+  btn.addEventListener('click', async () => {
+    if (gravacaoAtiva) { gravacaoAtiva.recorder.stop(); return; }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      status.textContent = 'Seu navegador não permite gravar áudio aqui.';
+      return;
+    }
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (e) {
+      status.textContent = 'Não deu pra acessar o microfone (permissão negada?).';
+      return;
+    }
+    const recorder = new MediaRecorder(stream);
+    const chunks = [];
+    recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    recorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      gravacaoAtiva = null;
+      btn.classList.remove('gravando');
+      status.textContent = '';
+      const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+      const leitor = new FileReader();
+      leitor.onload = async () => {
+        audioUrlAtual = leitor.result;
+        renderPreview();
+        if (obrigatorio) btnProxima.disabled = false;
+        await salvarGravacaoAluna(aulaId, chave, audioUrlAtual);
+      };
+      leitor.readAsDataURL(blob);
+    };
+    gravacaoAtiva = { stream, recorder };
+    recorder.start();
+    btn.textContent = '⏹️ Parar gravação';
+    btn.classList.add('gravando');
+    status.textContent = 'Gravando...';
+  });
+}
+
 /** Igual a anotarRotuloGenerico, mas pra vários índices de uma vez — agrupa em blocos contíguos
  * (2 palavras seguidas ganham um colchete só; palavras separadas ganham um colchete cada). */
 function anotarRotuloGenericoMultiplo(wrap, indices, rotulo) {
@@ -752,6 +853,9 @@ function mostrarExemplo(aula, introIdx, i) {
           ${ex.cardImagem.texto ? `<p class="card-imagem-texto"${estiloTextoInline(ex.cardImagem, 'texto')}>${renderFraseComDestaque(ex.cardImagem.texto, ex.cardImagem.textoDestaque)}</p>` : ''}
         </div>` : ''}
       </div>` : ''}
+      ${htmlCardAudio(ex.audio)}
+      ${htmlCardAudio(ex.gravacao)}
+      ${htmlCardGravacaoAluno(ex.gravacaoAluno)}
       ${ex.flashcard ? `
       <div class="flashcard-wrap">
         <div class="flashcard" id="flashcardCard" role="button" tabindex="0" aria-label="Toque para virar o card">
@@ -930,6 +1034,22 @@ function mostrarExemplo(aula, introIdx, i) {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); virar(); }
     });
     btnProxima.disabled = false;
+  } else if (ex.gravacaoAluno) {
+    // Enquanto a gravação salva (ou a já existente) carrega de forma assíncrona, começa travado
+    // se for obrigatório — evita um piscar de "Próximo" liberado por um instante sem motivo.
+    btnProxima.disabled = !!ex.gravacaoAluno.obrigatorio;
+    ativarGravacaoAluno(aulaId, `exemplo${i}`, !!ex.gravacaoAluno.obrigatorio, btnProxima);
+  } else if ((ex.audio && ex.audio.obrigatorio) || (ex.gravacao && ex.gravacao.obrigatorio)) {
+    // Obrigatório escutar até o fim (Card de áudio/gravação) — só libera o "Próximo" quando o
+    // <audio> disparar o evento "ended". Sem áudio de verdade carregado (professora esqueceu de
+    // importar/gravar o arquivo), não trava a aluna: não tem o que ouvir.
+    const audioEl = document.getElementById('cardAudioPlayer');
+    if (audioEl) {
+      btnProxima.disabled = true;
+      audioEl.addEventListener('ended', () => { btnProxima.disabled = false; }, { once: true });
+    } else {
+      btnProxima.disabled = false;
+    }
   } else {
     btnProxima.disabled = false;
   }

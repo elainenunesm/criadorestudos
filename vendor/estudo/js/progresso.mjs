@@ -3,14 +3,20 @@
 /**
  * PROGRESSO.JS — Substitui js/idb.js do projeto "estudos" original. Mesma API pública (mesmos
  * nomes de função, mesmas assinaturas async) que estudo.js/inicio.mjs/cadernos.mjs/niveis.mjs já
- * esperam. O progresso (aulas concluídas, favoritos, cadernos de erro, insígnias) fica salvo num
- * arquivo "progresso.json" dentro de uma pasta escolhida pela aluna (File System Access API,
- * Chrome/Edge) — igual ao Construtor de Aulas salva os cursos numa pasta conectada (ver
- * js/pasta.js do Construtor). Sem pasta conectada, nada é salvo entre sessões: um export novo
- * (ou uma pasta nunca conectada) sempre começa do zero, sem aula marcada como concluída/favorita
- * por engano só porque foi aberta no mesmo caminho de um teste anterior.
+ * esperam.
+ *
+ * Duas camadas de persistência:
+ *  1. localStorage — sempre disponível, sem precisar configurar nada; é a base de toda aluna.
+ *     Sem isso, cada tela (index.html/estudo.html) é um carregamento de página separado, e o
+ *     progresso ficaria só na memória daquela página — perderia tudo ao trocar de aula (foi
+ *     exatamente esse bug: completar a aula 1, ir pra aula 2, e a 1 "esquecer" que foi concluída).
+ *  2. Pasta conectada (File System Access API, Chrome/Edge) — opcional, por cima da localStorage:
+ *     um arquivo "progresso.json" de verdade no computador da aluna, pra ter uma cópia fora do
+ *     navegador (não se perde limpando o cache, dá pra levar pra outro navegador). Se conectada,
+ *     os dados de lá têm prioridade sobre a localStorage ao carregar a página.
  */
 
+const LOCALSTORAGE_CHAVE_PROGRESSO = 'estudo-progresso';
 const IDB_NOME_PROGRESSO = 'estudo-progresso-fs';
 const IDB_STORE_PROGRESSO = 'handles';
 const IDB_CHAVE_PROGRESSO = 'pastaProgresso';
@@ -19,6 +25,25 @@ const NOME_ARQUIVO_PROGRESSO = 'progresso.json';
 let _pastaProgressoHandle = null;
 let _progressoCache = {};
 let _inicializacaoPromise = null;
+
+function lerProgressoLocalStorage() {
+  try {
+    const bruto = localStorage.getItem(LOCALSTORAGE_CHAVE_PROGRESSO);
+    return bruto ? JSON.parse(bruto) : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function escreverProgressoLocalStorage(dados) {
+  try {
+    localStorage.setItem(LOCALSTORAGE_CHAVE_PROGRESSO, JSON.stringify(dados));
+    return true;
+  } catch (e) {
+    console.warn('Não deu pra salvar o progresso no navegador:', e);
+    return false;
+  }
+}
 
 function abrirIdbProgresso() {
   return new Promise((resolve, reject) => {
@@ -62,7 +87,7 @@ function atualizarBadgePastaProgresso() {
   } else {
     badge.classList.remove('conectado');
     texto.textContent = 'Conectar pasta';
-    badge.title = 'Conecte uma pasta pra salvar seu progresso entre sessões';
+    badge.title = 'Seu progresso já salva sozinho neste navegador — conecte uma pasta se quiser uma cópia extra, fora do navegador';
   }
 }
 
@@ -138,6 +163,7 @@ function garantirInicializado() {
 }
 
 async function inicializarInterno() {
+  _progressoCache = lerProgressoLocalStorage(); // base — sempre disponível, mesmo sem pasta
   if ('showDirectoryPicker' in window) {
     try {
       const handle = await lerHandleProgresso();
@@ -145,11 +171,12 @@ async function inicializarInterno() {
         const permissao = await handle.queryPermission({ mode: 'readwrite' });
         if (permissao === 'granted') {
           _pastaProgressoHandle = handle;
-          _progressoCache = (await lerArquivoProgressoDaPasta()) || {};
+          const dadosPasta = await lerArquivoProgressoDaPasta();
+          if (dadosPasta) _progressoCache = dadosPasta; // pasta manda, se já tiver algo salvo nela
         }
       }
     } catch (e) {
-      // segue sem pasta conectada
+      // segue só com a localStorage
     }
   }
   atualizarBadgePastaProgresso();
@@ -164,11 +191,16 @@ async function lerArquivoProgresso() {
   return _progressoCache;
 }
 
+/** Grava na localStorage sempre (base) e, se tiver pasta conectada, também lá (cópia extra). O
+ * retorno reflete se a localStorage salvou de verdade — quem chama usa isso pra avisar a aluna
+ * só num caso raro de falha real (ex: modo privado com storage bloqueada), não pela ausência de
+ * pasta, que agora é só um extra opcional. */
 async function gravarArquivoProgresso(mudancas) {
   await garantirInicializado();
   _progressoCache = { ..._progressoCache, ...mudancas, savedAt: new Date().toISOString() };
+  const salvouLocal = escreverProgressoLocalStorage(_progressoCache);
   await escreverArquivoProgresso();
-  return true;
+  return salvouLocal;
 }
 
 // ── CADERNO DE ERROS (persistido junto com o progresso) ──────
@@ -250,4 +282,19 @@ async function alternarTrilhaEscolhida(trilhaId) {
   const trilhasEscolhidas = escolhendo ? [...atuais, trilhaId] : atuais.filter(id => id !== trilhaId);
   const salvou = await gravarArquivoProgresso({ trilhasEscolhidas });
   return { escolhendo, salvou };
+}
+
+// ── GRAVAÇÕES DA ALUNA (cards "Gravação do aluno") ─────────────
+// Guardadas por aula + posição do card na tela (mesma chave usada pelo "marcar pra revisão",
+// ex: "exemplo0") — a aluna pode gravar de novo quantas vezes quiser, cada gravação nova
+// substitui a anterior daquele card.
+async function getGravacaoAluna(aulaId, chave) {
+  const dados = await lerArquivoProgresso();
+  return (dados?.gravacoesAluna?.[aulaId]?.[chave]) || null;
+}
+async function salvarGravacaoAluna(aulaId, chave, audioUrl) {
+  const dados = await lerArquivoProgresso();
+  const gravacoesAluna = { ...(dados.gravacoesAluna || {}) };
+  gravacoesAluna[aulaId] = { ...(gravacoesAluna[aulaId] || {}), [chave]: audioUrl };
+  return gravarArquivoProgresso({ gravacoesAluna });
 }
