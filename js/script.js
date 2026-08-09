@@ -25,9 +25,14 @@ function mostrarPainel(painel) {
   document.getElementById('painelEstatistica').classList.toggle('ativo', painel === 'estatistica');
   document.getElementById('painelSobre').classList.toggle('ativo', painel === 'sobre');
   document.getElementById('tabsNav').style.display = (painel === 'config' || painel === 'estatistica' || painel === 'sobre') ? 'none' : '';
-  if (painel === 'conteudo' && !conteudoInicializado) {
-    conteudoInicializado = true;
-    inicializarConteudo();
+  if (painel === 'conteudo') {
+    if (!conteudoInicializado) {
+      conteudoInicializado = true;
+      inicializarConteudo();
+    } else {
+      const sel = document.getElementById('seletorAula');
+      if (sel) popularOpcoesSeletorAula(sel); // aulas criadas depois da primeira visita também aparecem
+    }
   }
   if (painel === 'config' && !configInicializado) {
     configInicializado = true;
@@ -159,6 +164,7 @@ function confirmarExclusao(mensagem, aoConfirmar) {
 function abrirMenuCiclo(event, cicloId) {
   abrirMenu(event, [
     { acao: 'renomear', label: '✏️ Renomear', onClick: () => renomearCiclo(cicloId) },
+    { acao: 'insignia', label: '🏅 Ícone da insígnia', onClick: () => { const ciclo = CICLOS.find(c => c.id === cicloId); if (ciclo) abrirModalInsignia(ciclo); } },
     { acao: 'excluir', label: '🗑 Excluir ciclo', onClick: () => excluirCiclo(cicloId) },
   ]);
 }
@@ -178,7 +184,127 @@ function excluirCiclo(cicloId) {
     if (idx !== -1) CICLOS.splice(idx, 1);
     const node = document.querySelector(`.node[data-ciclo-id="${cicloId}"]`);
     if (node) node.remove();
+    TRILHAS.forEach(t => { t.cicloIds = t.cicloIds.filter(id => id !== cicloId); });
+    atualizarBotaoTrilha();
   });
+}
+
+// ── Trilhas ──────────────────────────────────────────────────
+function proximoIdTrilha() { return Math.max(0, ...TRILHAS.map(t => t.id)) + 1; }
+
+/** O botão "Trilha" só faz sentido se já existir pelo menos um ciclo pra colocar dentro dela. */
+function atualizarBotaoTrilha() {
+  const btn = document.getElementById('btnTrilha');
+  if (!btn) return;
+  btn.disabled = CICLOS.length === 0;
+  btn.title = CICLOS.length === 0 ? 'Crie ciclos primeiro para montar uma trilha' : '';
+}
+
+function abrirModalTrilhas() {
+  if (CICLOS.length === 0) return;
+  const overlay = document.getElementById('modalTrilhas');
+  const lista = document.getElementById('modalTrilhasLista');
+
+  function renderLista() {
+    if (!TRILHAS.length) {
+      lista.innerHTML = '<p class="pp-vazio">Nenhuma trilha ainda.</p>';
+      return;
+    }
+    lista.innerHTML = TRILHAS.map(t => `
+      <button type="button" class="modal-lista-item" data-trilha-id="${t.id}">
+        <div class="modal-lista-item-textos">
+          <span>${escaparHtmlScript(t.titulo)}</span>
+          <span class="modal-lista-sub">${t.cicloIds.length} ciclo${t.cicloIds.length === 1 ? '' : 's'}</span>
+        </div>
+      </button>`).join('');
+    lista.querySelectorAll('[data-trilha-id]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const trilha = TRILHAS.find(t => t.id === parseInt(btn.dataset.trilhaId, 10));
+        if (trilha) abrirModalEditarTrilha(trilha);
+      });
+    });
+  }
+  renderLista();
+  overlay.classList.add('show');
+
+  function fechar() {
+    overlay.classList.remove('show');
+    document.getElementById('btnNovaTrilha').removeEventListener('click', onNova);
+    document.getElementById('modalTrilhasFechar').removeEventListener('click', fechar);
+    overlay.removeEventListener('click', onOverlay);
+  }
+  function onNova() { abrirModalEditarTrilha(null); }
+  function onOverlay(e) { if (e.target === overlay) fechar(); }
+  document.getElementById('btnNovaTrilha').addEventListener('click', onNova);
+  document.getElementById('modalTrilhasFechar').addEventListener('click', fechar);
+  overlay.addEventListener('click', onOverlay);
+
+  // Reabre a lista atualizada sempre que volta do modal de editar/criar.
+  overlay._renderLista = renderLista;
+}
+
+/** `trilha` é null pra criar uma nova, ou a trilha existente pra editar/excluir. */
+function abrirModalEditarTrilha(trilha) {
+  const overlay = document.getElementById('modalEditarTrilha');
+  const tituloModal = document.getElementById('modalEditarTrilhaTitulo');
+  const nomeInput = document.getElementById('trilhaNomeInput');
+  const ciclosLista = document.getElementById('trilhaCiclosLista');
+  const btnSalvar = document.getElementById('trilhaSalvar');
+  const btnCancelar = document.getElementById('trilhaCancelar');
+  const btnExcluir = document.getElementById('trilhaExcluir');
+
+  tituloModal.textContent = trilha ? 'Editar trilha' : 'Nova trilha';
+  nomeInput.value = trilha ? trilha.titulo : '';
+  const selecionados = new Set(trilha ? trilha.cicloIds : []);
+  btnExcluir.style.display = trilha ? '' : 'none';
+
+  ciclosLista.innerHTML = CICLOS.map(c => `
+    <label class="campo-check">
+      <input type="checkbox" data-ciclo-id="${c.id}" ${selecionados.has(c.id) ? 'checked' : ''}>
+      <span>${escaparHtmlScript(c.titulo)}</span>
+    </label>`).join('');
+
+  document.getElementById('modalTrilhas').classList.remove('show');
+  overlay.classList.add('show');
+  nomeInput.focus();
+
+  function fechar() {
+    overlay.classList.remove('show');
+    btnSalvar.removeEventListener('click', onSalvar);
+    btnCancelar.removeEventListener('click', onCancelar);
+    btnExcluir.removeEventListener('click', onExcluir);
+    overlay.removeEventListener('click', onOverlay);
+    document.getElementById('modalTrilhas').classList.add('show');
+    const listaModal = document.getElementById('modalTrilhas');
+    if (listaModal._renderLista) listaModal._renderLista();
+  }
+  function onSalvar() {
+    const cicloIds = Array.from(ciclosLista.querySelectorAll('input:checked')).map(inp => parseInt(inp.dataset.cicloId, 10));
+    const titulo = nomeInput.value.trim() || 'Nova trilha';
+    if (trilha) {
+      trilha.titulo = titulo;
+      trilha.cicloIds = cicloIds;
+    } else {
+      TRILHAS.push({ id: proximoIdTrilha(), titulo, cicloIds });
+    }
+    salvarAutomaticamente();
+    atualizarEstatisticas();
+    fechar();
+  }
+  function onCancelar() { fechar(); }
+  function onExcluir() {
+    confirmarExclusao(`Excluir a trilha "${trilha.titulo}"?`, () => {
+      const idx = TRILHAS.findIndex(t => t.id === trilha.id);
+      if (idx !== -1) TRILHAS.splice(idx, 1);
+    });
+    fechar();
+  }
+  function onOverlay(e) { if (e.target === overlay) fechar(); }
+
+  btnSalvar.addEventListener('click', onSalvar);
+  btnCancelar.addEventListener('click', onCancelar);
+  btnExcluir.addEventListener('click', onExcluir);
+  overlay.addEventListener('click', onOverlay);
 }
 
 // ── Matéria (etapa) ───────────────────────────────────────────
@@ -329,16 +455,80 @@ function proximoIdMateria() { return Math.max(0, ...CICLOS.flatMap(c => c.materi
 function proximoIdAula() { return Math.max(0, ...CICLOS.flatMap(c => c.materias.flatMap(m => m.aulas.map(a => a.id)))) + 1; }
 
 function novoCiclo() {
-  const ciclo = { id: proximoIdCiclo(), titulo: 'Novo ciclo', materias: [] };
+  const ciclo = { id: proximoIdCiclo(), titulo: 'Novo ciclo', materias: [], insigniaUrl: '' };
   CICLOS.push(ciclo);
   salvarAutomaticamente();
   atualizarEstatisticas();
+  atualizarBotaoTrilha();
 
   const node = criarNoCiclo(ciclo);
   document.querySelector('.tree-wrap').appendChild(node);
   configurarArrasteCiclo(node, ciclo.id);
   node.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  iniciarEdicaoInline(node.querySelector('.node-label'), ciclo.titulo, novo => { ciclo.titulo = novo; });
+  iniciarEdicaoInline(node.querySelector('.node-label'), ciclo.titulo, novo => {
+    ciclo.titulo = novo;
+    abrirModalInsignia(ciclo);
+  });
+}
+
+/** Ícone-padrão (estrela) usado na prévia do modal de insígnia quando o ciclo ainda não tem
+ * imagem/link definido — o mesmo aparece pro aluno no player caso ela pule essa etapa. */
+function iconeInsigniaPadrao() {
+  return '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+}
+
+/** Abre o modal "Ícone da insígnia" pro ciclo — chamado logo depois de nomear um ciclo novo
+ * (opcional, pode pular) e também pelo menu "..." de um ciclo já existente, pra trocar depois.
+ * Link externo ou "Importar arquivo" (vira base64) — mesmo padrão do Card com imagem. */
+function abrirModalInsignia(ciclo) {
+  const overlay = document.getElementById('modalInsignia');
+  const preview = document.getElementById('insigniaPreview');
+  const urlInput = document.getElementById('insigniaUrlInput');
+  const arquivoInput = document.getElementById('insigniaArquivoInput');
+  const btnImportar = document.getElementById('insigniaImportarBtn');
+  const btnConfirmar = document.getElementById('insigniaConfirmar');
+  const btnPular = document.getElementById('insigniaPular');
+
+  let urlAtual = ciclo.insigniaUrl || '';
+  urlInput.value = urlAtual;
+
+  function atualizarPreview() {
+    preview.innerHTML = urlAtual
+      ? `<img src="${urlAtual}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+      : iconeInsigniaPadrao();
+  }
+  atualizarPreview();
+
+  function fechar() {
+    overlay.classList.remove('show');
+    urlInput.removeEventListener('input', onInput);
+    btnImportar.removeEventListener('click', onImportar);
+    arquivoInput.removeEventListener('change', onArquivo);
+    btnConfirmar.removeEventListener('click', onConfirmar);
+    btnPular.removeEventListener('click', onPular);
+    overlay.removeEventListener('click', onOverlay);
+  }
+  function onInput() { urlAtual = urlInput.value; atualizarPreview(); }
+  function onImportar() { arquivoInput.click(); }
+  function onArquivo() {
+    const arquivo = arquivoInput.files[0];
+    if (!arquivo) return;
+    const leitor = new FileReader();
+    leitor.onload = () => { urlAtual = leitor.result; urlInput.value = urlAtual; atualizarPreview(); };
+    leitor.readAsDataURL(arquivo);
+  }
+  function onConfirmar() { ciclo.insigniaUrl = urlAtual; salvarAutomaticamente(); fechar(); }
+  function onPular() { fechar(); }
+  function onOverlay(e) { if (e.target === overlay) fechar(); }
+
+  urlInput.addEventListener('input', onInput);
+  btnImportar.addEventListener('click', onImportar);
+  arquivoInput.addEventListener('change', onArquivo);
+  btnConfirmar.addEventListener('click', onConfirmar);
+  btnPular.addEventListener('click', onPular);
+  overlay.addEventListener('click', onOverlay);
+
+  overlay.classList.add('show');
 }
 
 /** Modal de escolha (substitui "sempre vai pro último") — itens: [{ label, sublabel?, grupo?, onClick }].
@@ -669,6 +859,7 @@ function renderArvoreCompleta() {
 
   if (vazio) vazio.style.display = CICLOS.length ? 'none' : '';
   atualizarEstatisticas();
+  atualizarBotaoTrilha();
 }
 renderArvoreCompleta();
 
@@ -678,8 +869,10 @@ function atualizarEstatisticas() {
   const statCiclos = document.getElementById('statCiclos');
   const statEtapas = document.getElementById('statEtapas');
   const statAulas = document.getElementById('statAulas');
+  const statTrilhas = document.getElementById('statTrilhas');
   if (!statCiclos) return;
   statCiclos.textContent = CICLOS.length;
   statEtapas.textContent = CICLOS.reduce((soma, c) => soma + c.materias.length, 0);
   statAulas.textContent = CICLOS.reduce((soma, c) => soma + c.materias.reduce((s2, m) => s2 + m.aulas.length, 0), 0);
+  if (statTrilhas) statTrilhas.textContent = TRILHAS.length;
 }

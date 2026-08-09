@@ -148,7 +148,7 @@ async function sincronizarComGit() {
 
   mostrarStatusGit('Salvando...', null);
   try {
-    const dados = { savedAt: new Date().toISOString(), config: CONFIG_APP, ciclos: CICLOS };
+    const dados = { savedAt: new Date().toISOString(), config: CONFIG_APP, ciclos: CICLOS, trilhas: TRILHAS };
     await pfs.writeFile(`${GIT_DIR}/construtor-aulas.json`, JSON.stringify(dados, null, 2), 'utf8');
     await git.add({ fs: _gitFs, dir: GIT_DIR, filepath: 'construtor-aulas.json' });
   } catch (e) {

@@ -96,7 +96,10 @@ function abrirConteudoAula(cicloId, materiaId, aulaId) {
   conteudoEstado.passoIndex = 0;
   conteudoEstado.respostaTela = 'padrao';
   const sel = document.getElementById('seletorAula');
-  if (sel) sel.value = `${cicloId}:${materiaId}:${aulaId}`;
+  if (sel) {
+    popularOpcoesSeletorAula(sel); // atualiza a lista antes de selecionar, caso a aula seja nova
+    sel.value = `${cicloId}:${materiaId}:${aulaId}`;
+  }
   irParaSubtabEditor();
   renderizarConteudo();
 }
@@ -154,6 +157,19 @@ const DADOS_FICTICIOS_TELA = {
       rotulos: ['', 'SUJEITO', 'VERBO', 'ADVÉRBIO', ''],
     },
   },
+  exemploCardImagem: {
+    tipo: 'acao', texto: '',
+    cardImagem: {
+      imagemUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='220'><rect width='100%25' height='100%25' fill='%23e5e7eb'/><text x='50%25' y='50%25' font-size='16' fill='%239ca3af' text-anchor='middle' dy='.3em'>Imagem</text></svg>",
+      titulo: 'Assim vai aparecer o título.',
+      subtitulo: 'E aqui o subtítulo.',
+      texto: 'Assim vai aparecer o texto embaixo da imagem.',
+    },
+  },
+  exemploFlashcard: {
+    tipo: 'acao', texto: '',
+    flashcard: { frente: 'Assim vai aparecer a frente do card.', verso: 'E aqui o verso, ao virar.' },
+  },
   checagemMultipla: { titulo: 'Assim vai aparecer a pergunta da checagem.', opcoes: ['Alternativa A', 'Alternativa B', 'Alternativa C'], correta: 0 },
   checagemPalavra: { titulo: 'Assim vai aparecer a instrução da checagem.', sentenca: ['A', 'Maria', 'estudou', 'muito', '.'], correta: 2 },
 };
@@ -164,6 +180,8 @@ const NOME_TELA_ADICIONAR = {
   'exemplo:palavraSelecionavelMultipla': 'Palavra selecionável (múltipla)',
   'exemplo:palavraPointLabelExemplo': 'Palavra(s) com Point Label - Exemplo',
   'exemplo:palavraMultiplosRotulos': 'Palavra(s) com Múltiplos Rótulos',
+  'exemplo:cardImagem': 'Card com imagem',
+  'exemplo:flashcard': 'Flashcard',
   'checagem:multipla': 'Questão múltipla escolha',
   'checagem:palavra': 'Selecione a palavra',
 };
@@ -194,6 +212,8 @@ function mostrarPreviewNovaTela(tipo, modo) {
     palavraSelecionavelMultipla: DADOS_FICTICIOS_TELA.exemploPalavraSelecionavelMultipla,
     palavraPointLabelExemplo: DADOS_FICTICIOS_TELA.exemploPalavraPointLabelExemplo,
     palavraMultiplosRotulos: DADOS_FICTICIOS_TELA.exemploPalavraMultiplosRotulos,
+    cardImagem: DADOS_FICTICIOS_TELA.exemploCardImagem,
+    flashcard: DADOS_FICTICIOS_TELA.exemploFlashcard,
   };
   const body = document.getElementById('previewNovaTelaBody');
   if (tipo === 'exemplo') {
@@ -244,6 +264,8 @@ function renderEstruturaTelas() {
   if (btnAdicionar) {
     const ICONE_PALAVRA = '<svg width="15" height="15" viewBox="0 0 24 24" fill="#fff" stroke="none"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>';
     const ICONE_ROTULO = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8 8a2 2 0 0 0 2.828 0l7.172-7.172a2 2 0 0 0 0-2.828z"/><circle cx="7.5" cy="7.5" r="1.5" fill="#fff" stroke="none"/></svg>';
+    const ICONE_IMAGEM = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>';
+    const ICONE_FLASHCARD = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="15" height="12" rx="2"/><path d="M7 2h13a2 2 0 0 1 2 2v12"/></svg>';
     btnAdicionar.onclick = () => {
       abrirEscolha('Tipo (Telas)', [
         {
@@ -270,6 +292,16 @@ function renderEstruturaTelas() {
           label: 'Palavra(s) com Múltiplos Rótulos', sublabel: 'Cada palavra clicada pode ter seu próprio rótulo (ex: SUJEITO, VERBO...)', grupo: 'Exemplo',
           iconeHtml: badgeIcone(ICONE_ROTULO, '#DB2777'),
           onClick: () => mostrarPreviewNovaTela('exemplo', 'palavraMultiplosRotulos'),
+        },
+        {
+          label: 'Card com imagem', sublabel: 'Mostra uma imagem grande e um texto embaixo, só ilustrativo', grupo: 'Exemplo',
+          iconeHtml: badgeIcone(ICONE_IMAGEM, '#F59E0B'),
+          onClick: () => mostrarPreviewNovaTela('exemplo', 'cardImagem'),
+        },
+        {
+          label: 'Flashcard', sublabel: 'Card com frente e verso — a aluna toca pra virar e ver a resposta', grupo: 'Exemplo',
+          iconeHtml: badgeIcone(ICONE_FLASHCARD, '#0EA5E9'),
+          onClick: () => mostrarPreviewNovaTela('exemplo', 'flashcard'),
         },
         {
           label: 'Questão múltipla escolha', sublabel: 'Crie uma pergunta com alternativas', grupo: 'Questão',
@@ -329,8 +361,12 @@ function abrirMenuTela(event, idx) {
   abrirMenu(event, itens);
 }
 
-function inicializarSeletorAula() {
-  const sel = document.getElementById('seletorAula');
+/** Reconstrói as opções do &lt;select&gt; "Editando a aula" a partir de CICLOS — chamada toda vez
+ * que a aba Conteúdo é aberta (não só na primeira vez), senão uma aula criada depois da primeira
+ * visita não aparece na lista e o seletor fica em branco ao tentar editá-la. Preserva a seleção
+ * atual quando ainda existe. */
+function popularOpcoesSeletorAula(sel) {
+  const atual = sel.value;
   sel.innerHTML = '';
   CICLOS.forEach(ciclo => {
     ciclo.materias.forEach(materia => {
@@ -346,6 +382,12 @@ function inicializarSeletorAula() {
       sel.appendChild(grupo);
     });
   });
+  sel.value = atual;
+}
+
+function inicializarSeletorAula() {
+  const sel = document.getElementById('seletorAula');
+  popularOpcoesSeletorAula(sel);
 
   sel.addEventListener('change', () => {
     const [c, m, a] = sel.value.split(':').map(Number);
@@ -399,6 +441,10 @@ function adicionarItemPasso(tipoLista, variante) {
       novoExemplo.palavraPointLabelExemplo = { titulo: '', tituloDestaque: [], subtitulo: '', subtituloDestaque: [], instrucao: '', instrucaoDestaque: [], sentenca: [], corretas: [], rotulo: '' };
     } else if (variante === 'palavraMultiplosRotulos') {
       novoExemplo.palavraMultiplosRotulos = { instrucao: '', sentenca: [], rotulos: [] };
+    } else if (variante === 'cardImagem') {
+      novoExemplo.cardImagem = { imagemUrl: '', titulo: '', subtitulo: '', texto: '' };
+    } else if (variante === 'flashcard') {
+      novoExemplo.flashcard = { frente: '', verso: '' };
     }
     conteudo.exemplo.push(novoExemplo);
     inserirNaOrdemAntesDoResumo(conteudo, { tipo: 'exemplo', id });
@@ -634,19 +680,41 @@ function ligarTipoIconePicker(container, item, cor, aoMudar) {
 }
 
 /** Campo de URL do ícone externo (só visível quando o "Tipo" selecionado é "externo") — HTML pronto
- * pra colar logo depois do <select> de tipo; quem chama ainda precisa achar o input e ligar o evento. */
+ * pra colar logo depois do <select> de tipo; quem chama ainda precisa achar o input e ligar o evento.
+ * Também tem "Importar arquivo" (vira base64), pra imagens locais irem embutidas no export sem
+ * depender de um link — mesmo padrão do Card com imagem e do Ícone da insígnia. */
 function htmlCampoIconeExterno(item) {
   return `<div class="campo campo-icone-externo" style="${item.tipo === 'externo' ? '' : 'display:none'}">
-    <label>Link do ícone (imagem)</label>
-    <input type="text" data-icone-url placeholder="https://exemplo.com/icone.png">
+    <label>Link do ícone (ou importe um arquivo do computador)</label>
+    <div class="campo-linha-imagem">
+      <input type="text" data-icone-url placeholder="https://exemplo.com/icone.png">
+      <button type="button" class="btn-add-item btn-importar-icone">Importar arquivo</button>
+    </div>
+    <input type="file" accept="image/*" class="input-arquivo-icone" hidden>
   </div>`;
 }
 
-/** Acha o input do htmlCampoIconeExterno() dentro de `container`, preenche com item.iconeUrl e liga o evento. */
+/** Acha o input do htmlCampoIconeExterno() dentro de `container`, preenche com item.iconeUrl e liga
+ * os eventos (digitar o link ou importar um arquivo — os dois escrevem em item.iconeUrl). */
 function ligarCampoIconeExterno(container, item) {
   const input = container.querySelector('[data-icone-url]');
   input.value = item.iconeUrl || '';
   input.addEventListener('input', () => { item.iconeUrl = input.value; renderPreviewAtual(); });
+
+  const btnImportar = container.querySelector('.btn-importar-icone');
+  const inputArquivo = container.querySelector('.input-arquivo-icone');
+  btnImportar.addEventListener('click', () => inputArquivo.click());
+  inputArquivo.addEventListener('change', () => {
+    const arquivo = inputArquivo.files[0];
+    if (!arquivo) return;
+    const leitor = new FileReader();
+    leitor.onload = () => {
+      item.iconeUrl = leitor.result;
+      input.value = leitor.result;
+      renderPreviewAtual();
+    };
+    leitor.readAsDataURL(arquivo);
+  });
 }
 
 /* ---------------------------------------------------------------------- */
@@ -724,6 +792,8 @@ function renderFormAntesComecar(el, conteudo) {
 /** Qual "variante" de exemplo é essa — decidido em "Tipo (Telas)" na criação. Cada uma tem seu
  * próprio formulário focado (renderFormExemplo), sem misturar campos das outras variantes. */
 function varianteDoExemplo(item) {
+  if (item.cardImagem) return 'cardImagem';
+  if (item.flashcard) return 'flashcard';
   if (item.palavraPointLabelExemplo) return 'palavraPointLabelExemplo';
   if (item.palavraMultiplosRotulos) return 'palavraMultiplosRotulos';
   if (item.palavraSelecionavelMultipla) return 'palavraSelecionavelMultipla';
@@ -736,6 +806,8 @@ const RENDER_BLOCO_VARIANTE = {
   palavraSelecionavelMultipla: renderBlocoPalavraSelecionavelMultipla,
   palavraPointLabelExemplo: renderBlocoPalavraPointLabelExemplo,
   palavraMultiplosRotulos: renderBlocoPalavraMultiplosRotulos,
+  cardImagem: renderBlocoCardImagem,
+  flashcard: renderBlocoFlashcard,
 };
 
 function renderFormExemplo(el, conteudo, passo) {
@@ -1053,6 +1125,84 @@ function renderBlocoPalavraMultiplosRotulos(bloco, item) {
     pmr.rotulos = pmr.sentenca.map((_, i) => pmr.rotulos[i] || '');
     renderPalavras();
     renderPreviewAtual();
+  });
+}
+
+/** "Card com imagem" — só ilustrativo (sem clique): uma imagem grande em cima e um texto
+ * embaixo, pra mostrar uma foto/ilustração com uma legenda ou explicação. */
+function renderBlocoCardImagem(bloco, item) {
+  const ci = item.cardImagem;
+  bloco.innerHTML = `
+    <div class="item-card">
+      <div class="item-card-topo"><strong>Card com imagem</strong></div>
+      <div class="campo">
+        <label>Link da imagem (ou importe um arquivo do computador)</label>
+        <div class="campo-linha-imagem">
+          <input type="text" data-cif="imagemUrl" placeholder="https://exemplo.com/imagem.jpg">
+          <button type="button" class="btn-add-item btn-importar-imagem">Importar arquivo</button>
+        </div>
+        <input type="file" accept="image/*" class="input-arquivo-imagem" hidden>
+      </div>
+      <div class="campo">${htmlLabelComEstilo('Título (opcional)', 'titulo')}<input type="text" data-cif="titulo" placeholder="Ex: Título do card"></div>
+      <div class="campo">${htmlLabelComEstilo('Subtítulo (opcional)', 'subtitulo')}<input type="text" data-cif="subtitulo" placeholder="Ex: Subtítulo do card"></div>
+      <div class="campo">${htmlLabelComEstilo('Texto (opcional)', 'texto')}<textarea data-cif="texto"></textarea></div>
+      <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
+      <div id="listaDestaqueCardImagem"></div>
+    </div>`;
+  bloco.querySelectorAll('[data-cif]').forEach(input => {
+    input.value = ci[input.dataset.cif] || '';
+    input.addEventListener('input', () => { ci[input.dataset.cif] = input.value; renderPreviewAtual(); });
+  });
+
+  const inputUrl = bloco.querySelector('[data-cif="imagemUrl"]');
+  const inputArquivo = bloco.querySelector('.input-arquivo-imagem');
+  bloco.querySelector('.btn-importar-imagem').addEventListener('click', () => inputArquivo.click());
+  inputArquivo.addEventListener('change', () => {
+    const arquivo = inputArquivo.files[0];
+    if (!arquivo) return;
+    const leitor = new FileReader();
+    leitor.onload = () => {
+      ci.imagemUrl = leitor.result;
+      inputUrl.value = leitor.result;
+      renderPreviewAtual();
+    };
+    leitor.readAsDataURL(arquivo);
+  });
+
+  ligarBotoesEstiloTexto(bloco, ci);
+  const renderDestaquesCI = montarDestaqueFrases(bloco.querySelector('#listaDestaqueCardImagem'), ci, [
+    { rotulo: 'Título', campo: 'titulo' },
+    { rotulo: 'Subtítulo', campo: 'subtitulo' },
+    { rotulo: 'Texto', campo: 'texto' },
+  ]);
+  bloco.querySelectorAll('[data-cif="titulo"], [data-cif="subtitulo"], [data-cif="texto"]').forEach(input => {
+    input.addEventListener('blur', () => { podarDestaque(ci, input.dataset.cif); renderDestaquesCI(); });
+  });
+}
+
+/** "Flashcard" — só ilustrativo, sem correção: frente e verso, a aluna toca no card pra virar e
+ * ver a resposta (no player de verdade; aqui na prévia do Construtor mostra os dois lados). */
+function renderBlocoFlashcard(bloco, item) {
+  const fc = item.flashcard;
+  bloco.innerHTML = `
+    <div class="item-card">
+      <div class="item-card-topo"><strong>Flashcard</strong></div>
+      <div class="campo">${htmlLabelComEstilo('Frente (pergunta ou termo)', 'frente')}<textarea data-fcf="frente"></textarea></div>
+      <div class="campo">${htmlLabelComEstilo('Verso (resposta ou definição)', 'verso')}<textarea data-fcf="verso"></textarea></div>
+      <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
+      <div id="listaDestaqueFlashcard"></div>
+    </div>`;
+  bloco.querySelectorAll('[data-fcf]').forEach(input => {
+    input.value = fc[input.dataset.fcf] || '';
+    input.addEventListener('input', () => { fc[input.dataset.fcf] = input.value; renderPreviewAtual(); });
+  });
+  ligarBotoesEstiloTexto(bloco, fc);
+  const renderDestaquesFC = montarDestaqueFrases(bloco.querySelector('#listaDestaqueFlashcard'), fc, [
+    { rotulo: 'Frente', campo: 'frente' },
+    { rotulo: 'Verso', campo: 'verso' },
+  ]);
+  bloco.querySelectorAll('[data-fcf]').forEach(input => {
+    input.addEventListener('blur', () => { podarDestaque(fc, input.dataset.fcf); renderDestaquesFC(); });
   });
 }
 
@@ -1485,7 +1635,9 @@ function previewExemplo(item) {
   const temPalavraSelecionavelMultipla = item.palavraSelecionavelMultipla && item.palavraSelecionavelMultipla.sentenca && item.palavraSelecionavelMultipla.sentenca.length;
   const temPalavraPointLabelExemplo = item.palavraPointLabelExemplo && item.palavraPointLabelExemplo.sentenca && item.palavraPointLabelExemplo.sentenca.length;
   const temPalavraMultiplosRotulos = item.palavraMultiplosRotulos && item.palavraMultiplosRotulos.sentenca && item.palavraMultiplosRotulos.sentenca.length;
-  if (!item.texto && !temPalavraSelecionavel && !temPalavraSelecionavelMultipla && !temPalavraPointLabelExemplo && !temPalavraMultiplosRotulos) return '<p class="pp-vazio">Preencha o texto para ver a prévia.</p>';
+  const temCardImagem = item.cardImagem && (item.cardImagem.imagemUrl || item.cardImagem.titulo || item.cardImagem.subtitulo || item.cardImagem.texto);
+  const temFlashcard = item.flashcard && (item.flashcard.frente || item.flashcard.verso);
+  if (!item.texto && !temPalavraSelecionavel && !temPalavraSelecionavelMultipla && !temPalavraPointLabelExemplo && !temPalavraMultiplosRotulos && !temCardImagem && !temFlashcard) return '<p class="pp-vazio">Preencha o texto para ver a prévia.</p>';
   return `
     <div class="pp-exemplo-icone">${iconeTipo(item.tipo, '#4A80F0', item.iconeUrl)}</div>
     ${item.texto ? `<p class="pp-exemplo-texto"${estiloTextoInline(item, 'texto')}>${renderFraseComDestaque(item.texto, item.textoDestaque)}</p>` : ''}
@@ -1496,7 +1648,42 @@ function previewExemplo(item) {
     ${item.palavraSelecionavel ? previewPalavraSelecionavel(item.palavraSelecionavel) : ''}
     ${item.palavraSelecionavelMultipla ? previewPalavraSelecionavelMultipla(item.palavraSelecionavelMultipla) : ''}
     ${item.palavraPointLabelExemplo ? previewPalavraSelecionavelMultipla(item.palavraPointLabelExemplo, 'Exemplo:') : ''}
-    ${item.palavraMultiplosRotulos ? previewPalavraMultiplosRotulos(item.palavraMultiplosRotulos) : ''}`;
+    ${item.palavraMultiplosRotulos ? previewPalavraMultiplosRotulos(item.palavraMultiplosRotulos) : ''}
+    ${item.cardImagem ? previewCardImagem(item.cardImagem) : ''}
+    ${item.flashcard ? previewFlashcard(item.flashcard) : ''}`;
+}
+
+/** Prévia do "Card com imagem" — só ilustrativo: imagem grande em cima, texto embaixo. */
+function previewCardImagem(ci) {
+  if (!ci.imagemUrl && !ci.titulo && !ci.subtitulo && !ci.texto) return '';
+  const temCorpo = ci.titulo || ci.subtitulo || ci.texto;
+  return `
+    <div class="pp-card-imagem">
+      ${ci.imagemUrl ? `<img class="pp-card-imagem-img" src="${escaparHtml(ci.imagemUrl)}" alt="">` : ''}
+      ${temCorpo ? `<div class="pp-card-imagem-corpo">
+        ${ci.titulo ? `<p class="pp-card-imagem-titulo"${estiloTextoInline(ci, 'titulo')}>${renderFraseComDestaque(ci.titulo, ci.tituloDestaque)}</p>` : ''}
+        ${ci.subtitulo ? `<p class="pp-card-imagem-subtitulo"${estiloTextoInline(ci, 'subtitulo')}>${renderFraseComDestaque(ci.subtitulo, ci.subtituloDestaque)}</p>` : ''}
+        ${ci.texto ? `<p class="pp-card-imagem-texto"${estiloTextoInline(ci, 'texto')}>${renderFraseComDestaque(ci.texto, ci.textoDestaque)}</p>` : ''}
+      </div>` : ''}
+    </div>`;
+}
+
+/** Prévia do "Flashcard" — no Construtor mostra os dois lados já abertos, lado a lado (aqui não
+ * dá pra "virar" de verdade); só no player de verdade é que a aluna toca pra virar o card. */
+function previewFlashcard(fc) {
+  if (!fc.frente && !fc.verso) return '';
+  return `
+    <div class="pp-flashcard">
+      <div class="pp-flashcard-lado">
+        <span class="pp-flashcard-rotulo">Frente</span>
+        ${fc.frente ? `<p class="pp-flashcard-texto"${estiloTextoInline(fc, 'frente')}>${renderFraseComDestaque(fc.frente, fc.frenteDestaque)}</p>` : ''}
+      </div>
+      <div class="pp-flashcard-divisor"></div>
+      <div class="pp-flashcard-lado">
+        <span class="pp-flashcard-rotulo">Verso</span>
+        ${fc.verso ? `<p class="pp-flashcard-texto"${estiloTextoInline(fc, 'verso')}>${renderFraseComDestaque(fc.verso, fc.versoDestaque)}</p>` : ''}
+      </div>
+    </div>`;
 }
 
 /** Agrupa índices em blocos contíguos (ex: [1,2,4] -> [[1,2],[4,4]]) — o colchete de cada
@@ -1543,14 +1730,20 @@ function corDoRotulo(rotulo, mapaCores) {
 
 /** Renderiza um texto corrido (Título/Instrução) com algumas palavras em azul de destaque —
  * diferente dos "chips", aqui o texto continua fluindo normalmente, só muda a cor da palavra. */
+/** Quebra por "\n" (Enter no textarea) viram <br> — sem isso o texto sempre saía tudo numa linha
+ * só. Os índices de destaque continuam contando palavra por palavra em sequência ao longo das
+ * linhas (mesma ordem de tokenizarFrase(texto) inteiro), então não invalida destaques já salvos. */
 function renderFraseComDestaque(texto, indices) {
   if (!texto) return '';
-  const tokens = tokenizarFrase(texto);
   const destacadas = new Set(indices || []);
-  const partes = tokens.map((tok, i) =>
-    (destacadas.has(i) && !ehPontuacao(tok)) ? `<span class="pp-destaque-azul">${escaparHtml(tok)}</span>` : escaparHtml(tok)
-  );
-  return partes.join(' ').replace(/ ([.,!?;:]+)/g, '$1');
+  let contador = 0;
+  return texto.split('\n').map(linha => {
+    const partes = tokenizarFrase(linha).map(tok => {
+      const i = contador++;
+      return (destacadas.has(i) && !ehPontuacao(tok)) ? `<span class="pp-destaque-azul">${escaparHtml(tok)}</span>` : escaparHtml(tok);
+    });
+    return partes.join(' ').replace(/ ([.,!?;:]+)/g, '$1');
+  }).join('<br>');
 }
 
 /** Prévia da "palavra selecionável" — mostra a palavra certa já destacada com o rótulo em

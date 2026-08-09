@@ -47,7 +47,7 @@ function paraJsLicao(licao) {
   }`;
 }
 
-function construirPlano(ciclos) {
+function construirPlano(ciclos, trilhas) {
   const etapas = [];
   const niveis = [];
 
@@ -68,10 +68,19 @@ function construirPlano(ciclos) {
       id: ciclo.id,
       titulo: ciclo.titulo,
       etapas: etapaIds,
+      insigniaUrl: ciclo.insigniaUrl || '',
     });
   });
 
-  return { etapas, niveis };
+  // Só entram ciclos que ainda existem de verdade (protege contra referência a um ciclo já excluído).
+  const idsCiclosValidos = new Set(niveis.map(n => n.id));
+  const trilhasPlano = (trilhas || []).map(t => ({
+    id: t.id,
+    titulo: t.titulo,
+    ciclos: (t.cicloIds || []).filter(id => idsCiclosValidos.has(id)),
+  }));
+
+  return { etapas, niveis, trilhas: trilhasPlano };
 }
 
 function gerarModulosJs(plano) {
@@ -94,9 +103,16 @@ ${aulasTexto}
   }).join(',\n');
 
   const niveisTexto = plano.niveis.map(nivel => `  {
-    id:     ${nivel.id},
-    titulo: ${formatarValorJs(nivel.titulo)},
-    etapas: [${nivel.etapas.join(', ')}],
+    id:          ${nivel.id},
+    titulo:      ${formatarValorJs(nivel.titulo)},
+    etapas:      [${nivel.etapas.join(', ')}],
+    insigniaUrl: ${formatarValorJs(nivel.insigniaUrl || '')},
+  }`).join(',\n');
+
+  const trilhasTexto = plano.trilhas.map(t => `  {
+    id:     ${t.id},
+    titulo: ${formatarValorJs(t.titulo)},
+    ciclos: [${t.ciclos.join(', ')}],
   }`).join(',\n');
 
   return `'use strict';
@@ -115,6 +131,15 @@ ${etapasTexto}
  */
 const NIVEIS = [
 ${niveisTexto}
+];
+
+/**
+ * TRILHAS — caminhos opcionais compostos por um subconjunto dos ciclos (NIVEIS). Os ciclos que
+ * não aparecem em nenhuma trilha são a sequência básica, sempre liberada; a aluna só pode
+ * escolher uma trilha depois de concluir todos eles (ver vendor/estudo/js/niveis.mjs).
+ */
+const TRILHAS = [
+${trilhasTexto}
 ];
 `;
 }
@@ -266,7 +291,7 @@ self.addEventListener('fetch', event => {
 }
 
 async function exportarProjeto() {
-  const plano = construirPlano(CICLOS);
+  const plano = construirPlano(CICLOS, TRILHAS);
   const arquivos = carregarArquivosVendor();
   aplicarIdentidadeVisual(arquivos);
 
@@ -301,7 +326,7 @@ async function exportarProjeto() {
  * Access API (Chrome/Edge), grava direto na pasta escolhida; nos outros, baixa o arquivo normal. */
 async function salvarProjetoJson() {
   const git = typeof obterConfigGitSemToken === 'function' ? obterConfigGitSemToken() : null;
-  const dados = { savedAt: new Date().toISOString(), config: CONFIG_APP, ciclos: CICLOS, git };
+  const dados = { savedAt: new Date().toISOString(), config: CONFIG_APP, ciclos: CICLOS, trilhas: TRILHAS, git };
   const conteudoJson = JSON.stringify(dados, null, 2);
 
   if ('showDirectoryPicker' in window) {

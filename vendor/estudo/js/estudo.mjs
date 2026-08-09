@@ -140,6 +140,7 @@ function mostrarIntro(aula, introIdx = 0) {
   const ac = aula.antesComecar || {};
   opcoesEl.innerHTML = `
     <div class="intro-card">
+      ${marcarCartaoHtml('antesComecar')}
       <span class="intro-label">Antes de começar</span>
       <h2 class="intro-titulo"${estiloTextoInline(ac, 'titulo')}>${ac.titulo ? renderFraseComDestaque(ac.titulo, ac.tituloDestaque) : aula.titulo}</h2>
       <p class="intro-desc"${estiloTextoInline(ac, 'descricao')}>${renderFraseComDestaque(ac.descricao || '', ac.descricaoDestaque)}</p>
@@ -171,6 +172,7 @@ function mostrarIntro(aula, introIdx = 0) {
         </div>
       </div>
     </div>`;
+  ativarBotaoMarcar();
 
   // Botão "Começar"
   btnProxima.innerHTML  = 'Começar <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
@@ -357,15 +359,20 @@ function tokenizarFraseSimples(frase) {
 }
 
 /** Renderiza um texto corrido (Título/Instrução) com algumas palavras em azul de destaque —
- * diferente dos word-chips, aqui o texto continua fluindo normalmente como frase. */
+ * diferente dos word-chips, aqui o texto continua fluindo normalmente como frase. Quebras de
+ * linha ("\n", Enter no Construtor de Aulas) viram <br> — os índices de destaque continuam
+ * contando palavra por palavra em sequência ao longo das linhas, sem invalidar destaques salvos. */
 function renderFraseComDestaque(texto, indices) {
   if (!texto) return '';
-  const tokens = tokenizarFraseSimples(texto);
   const destacadas = new Set(indices || []);
-  const partes = tokens.map((tok, i) =>
-    (destacadas.has(i) && !/^[.,!?;:]+$/.test(tok)) ? `<span class="destaque-azul">${tok}</span>` : tok
-  );
-  return partes.join(' ').replace(/ ([.,!?;:]+)/g, '$1');
+  let contador = 0;
+  return texto.split('\n').map(linha => {
+    const partes = tokenizarFraseSimples(linha).map(tok => {
+      const i = contador++;
+      return (destacadas.has(i) && !/^[.,!?;:]+$/.test(tok)) ? `<span class="destaque-azul">${tok}</span>` : tok;
+    });
+    return partes.join(' ').replace(/ ([.,!?;:]+)/g, '$1');
+  }).join('<br>');
 }
 
 /** Monta o atributo style="..." (negrito/itálico) pro texto inteiro de um campo, a partir dos
@@ -736,6 +743,29 @@ function mostrarExemplo(aula, introIdx, i) {
           ).join('') : ''}
         </div></div>
       </div>` : ''}
+      ${ex.cardImagem ? `
+      <div class="card-imagem">
+        ${ex.cardImagem.imagemUrl ? `<img class="card-imagem-img" src="${ex.cardImagem.imagemUrl}" alt="">` : ''}
+        ${(ex.cardImagem.titulo || ex.cardImagem.subtitulo || ex.cardImagem.texto) ? `<div class="card-imagem-corpo">
+          ${ex.cardImagem.titulo ? `<p class="card-imagem-titulo"${estiloTextoInline(ex.cardImagem, 'titulo')}>${renderFraseComDestaque(ex.cardImagem.titulo, ex.cardImagem.tituloDestaque)}</p>` : ''}
+          ${ex.cardImagem.subtitulo ? `<p class="card-imagem-subtitulo"${estiloTextoInline(ex.cardImagem, 'subtitulo')}>${renderFraseComDestaque(ex.cardImagem.subtitulo, ex.cardImagem.subtituloDestaque)}</p>` : ''}
+          ${ex.cardImagem.texto ? `<p class="card-imagem-texto"${estiloTextoInline(ex.cardImagem, 'texto')}>${renderFraseComDestaque(ex.cardImagem.texto, ex.cardImagem.textoDestaque)}</p>` : ''}
+        </div>` : ''}
+      </div>` : ''}
+      ${ex.flashcard ? `
+      <div class="flashcard-wrap">
+        <div class="flashcard" id="flashcardCard" role="button" tabindex="0" aria-label="Toque para virar o card">
+          <div class="flashcard-inner">
+            <div class="flashcard-face flashcard-frente">
+              <p class="flashcard-texto"${estiloTextoInline(ex.flashcard, 'frente')}>${renderFraseComDestaque(ex.flashcard.frente, ex.flashcard.frenteDestaque)}</p>
+            </div>
+            <div class="flashcard-face flashcard-verso">
+              <p class="flashcard-texto"${estiloTextoInline(ex.flashcard, 'verso')}>${renderFraseComDestaque(ex.flashcard.verso, ex.flashcard.versoDestaque)}</p>
+            </div>
+          </div>
+        </div>
+        <p class="flashcard-dica">Toque no card para virar</p>
+      </div>` : ''}
       ${ex.fechamento ? `<p class="exemplo-texto">${ex.fechamento}</p>` : ''}
       ${ex.passo ? `
       <div class="passo-bloco">
@@ -891,6 +921,15 @@ function mostrarExemplo(aula, introIdx, i) {
     renderPalavraSelecionavelMultipla(ex, ex.palavraSelecionavelMultipla, document.getElementById('exemploPalavraSelecionavelMultipla'));
   } else if (ex.palavraMultiplosRotulos) {
     renderPalavraMultiplosRotulos(ex, ex.palavraMultiplosRotulos, document.getElementById('exemploPalavraMultiplosRotulos'));
+  } else if (ex.flashcard) {
+    // Só ilustrativo, sem acerto/erro — vira livremente e não trava o "Próximo".
+    const cardEl = document.getElementById('flashcardCard');
+    const virar = () => cardEl.classList.toggle('virado');
+    cardEl.addEventListener('click', virar);
+    cardEl.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); virar(); }
+    });
+    btnProxima.disabled = false;
   } else {
     btnProxima.disabled = false;
   }
@@ -973,6 +1012,7 @@ function mostrarResumo(aula, introIdx) {
   questaoSubtitulo.textContent = '';
   opcoesEl.innerHTML = `
     <div class="resumo-card">
+      ${marcarCartaoHtml('resumo')}
       <p class="resumo-titulo"${estiloTextoInline(res, 'titulo')}>${renderFraseComDestaque(res.titulo || '', res.tituloDestaque)}</p>
       ${(res.itens || []).map(item => `
       <div class="resumo-item">
@@ -987,6 +1027,7 @@ function mostrarResumo(aula, introIdx) {
         </div>
       </div>`).join('')}
     </div>`;
+  ativarBotaoMarcar();
   btnProxima.innerHTML = 'Próximo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
   btnProxima.disabled  = false;
   questaoArea.scrollTop = 0;
@@ -1003,9 +1044,11 @@ function mostrarLicao(aula, introIdx) {
   questaoSubtitulo.textContent = '';
   opcoesEl.innerHTML = `
     <div class="resumo-card">
+      ${marcarCartaoHtml('licao')}
       <p class="resumo-titulo"${estiloTextoInline(lic, 'titulo')}>${renderFraseComDestaque(lic.titulo || '', lic.tituloDestaque)}</p>
       <div class="licao-corpo">${lic.html || ''}</div>
     </div>`;
+  ativarBotaoMarcar();
   btnProxima.innerHTML = 'Próximo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
   btnProxima.disabled  = false;
   questaoArea.scrollTop = 0;

@@ -16,36 +16,80 @@ function listaAulas() {
   return (MODULOS || []).flatMap(m => m.aulas);
 }
 
-function aulasPadrao() {
-  return listaAulas().map((a, i) => ({
-    id: a.id,
-    status: i === 0 ? 'active' : 'locked',
-    progress: 0,
-    stars: 0,
-    favorita: false,
-  }));
+function aulaIdsDoNivel(nivel) {
+  return (MODULOS || []).filter(m => nivel.etapas.includes(m.id)).flatMap(m => m.aulas.map(a => a.id));
+}
+
+/** Grupos de progresso: a sequência básica (ciclos que não estão em nenhuma trilha, sempre
+ * liberada) e um grupo por trilha (só libera depois que a básica estiver 100% concluída E a
+ * aluna tiver escolhido aquela trilha — ver niveis.mjs). Cada grupo tem sua própria corrente
+ * sequencial independente — terminar uma aula libera a próxima dentro do MESMO grupo, nunca
+ * pulando pra outro. Sem nenhuma trilha cadastrada, isso se comporta exatamente como antes: um
+ * grupo só, com todos os ciclos, numa corrente sequencial única. */
+function gruposDeProgresso() {
+  const niveis = typeof NIVEIS !== 'undefined' ? NIVEIS : [];
+  const trilhas = typeof TRILHAS !== 'undefined' ? TRILHAS : [];
+  const idsEmTrilha = new Set(trilhas.flatMap(t => t.ciclos));
+  const grupos = [{
+    tipo: 'base',
+    aulaIds: niveis.filter(n => !idsEmTrilha.has(n.id)).flatMap(aulaIdsDoNivel),
+  }];
+  trilhas.forEach(t => {
+    grupos.push({
+      tipo: 'trilha',
+      trilhaId: t.id,
+      aulaIds: niveis.filter(n => t.ciclos.includes(n.id)).flatMap(aulaIdsDoNivel),
+    });
+  });
+  return grupos;
+}
+
+/** true quando toda a sequência básica (fora de qualquer trilha) já está concluída — é o que
+ * libera a escolha de trilha na aba Estudos (ver niveis.mjs). Sem nenhum ciclo fora de trilha
+ * (todo ciclo já pertence a alguma trilha), não tem o que concluir — a escolha já começa
+ * liberada (every() de array vazio é true, então isso já "funcionaria sozinho" sem essa nota,
+ * mas documentando pra não virar um "if (!length) return false" por engano de novo). */
+function baseConcluida() {
+  const grupoBase = gruposDeProgresso()[0];
+  return grupoBase.aulaIds.every(id => state.aulas.find(a => a.id === id)?.status === 'completed');
 }
 
 async function carregarProgresso() {
-  const dados = await lerArquivoProgresso();
+  const [dados, trilhasEscolhidas] = await Promise.all([
+    lerArquivoProgresso(),
+    typeof getTrilhasEscolhidas === 'function' ? getTrilhasEscolhidas() : Promise.resolve([]),
+  ]);
   const salvas = Array.isArray(dados?.aulas) ? dados.aulas : [];
-  state.aulas = aulasPadrao().map(padrao => {
-    const salva = salvas.find(a => a.id === padrao.id);
-    return salva ? { ...padrao, ...salva } : padrao;
-  });
+  const buscarSalva = id => salvas.find(a => a.id === id) || { id, status: 'locked', progress: 0, stars: 0, favorita: false };
 
-  // Recalcula o status a partir de "completed": a primeira aula não concluída
-  // fica ativa, tudo depois dela fica bloqueado — nunca confia cegamente no
-  // status salvo (protege contra aula nova inserida no meio, etc).
-  let achouAtiva = false;
-  state.aulas = state.aulas.map(aula => {
-    if (aula.status === 'completed') return aula;
-    if (!achouAtiva) {
-      achouAtiva = true;
-      return aula.status === 'active' ? aula : { ...aula, status: 'active' };
-    }
-    return aula.status === 'locked' ? aula : { ...aula, status: 'locked', progress: 0, stars: 0 };
+  // Dentro de um grupo desbloqueado: a partir de "completed" salvo, a primeira aula não
+  // concluída fica ativa e tudo depois dela fica bloqueado — nunca confia cegamente no status
+  // salvo (protege contra aula nova inserida no meio, etc). Grupo bloqueado: tudo fica 'locked',
+  // mesmo que tivesse progresso salvo de antes (ex: trilha desmarcada depois de já ter começado).
+  function processarGrupo(aulaIds, desbloqueado) {
+    let achouAtiva = false;
+    return aulaIds.map(id => {
+      const salva = buscarSalva(id);
+      if (!desbloqueado) return { ...salva, status: 'locked' };
+      if (salva.status === 'completed') return salva;
+      if (!achouAtiva) { achouAtiva = true; return { ...salva, status: 'active' }; }
+      return { ...salva, status: 'locked', progress: 0, stars: 0 };
+    });
+  }
+
+  const grupos = gruposDeProgresso();
+  const aulasBase = processarGrupo(grupos[0].aulaIds, true);
+  // Sem ciclo nenhum fora de trilha, a "base" é vazia — nada bloqueia a escolha de trilha nesse
+  // caso (every() de array vazio já é true sozinho, mas fica explícito aqui pra não reintroduzir
+  // um "length > 0 &&" por engano, que travava a escolha pra sempre quando não sobra nada de fora).
+  const baseOk = aulasBase.every(a => a.status === 'completed');
+
+  let todasAulas = aulasBase;
+  grupos.slice(1).forEach(grupo => {
+    const desbloqueado = baseOk && trilhasEscolhidas.includes(grupo.trilhaId);
+    todasAulas = todasAulas.concat(processarGrupo(grupo.aulaIds, desbloqueado));
   });
+  state.aulas = todasAulas;
 }
 
 async function salvarProgresso() {
@@ -72,8 +116,16 @@ function aplicarResultado(r) {
   const atual = state.aulas[idx];
   if (r.concluida) {
     state.aulas[idx] = { ...atual, status: 'completed', progress: 100, stars: r.estrelas };
-    const proxima = state.aulas[idx + 1];
-    if (proxima && proxima.status === 'locked') state.aulas[idx + 1] = { ...proxima, status: 'active', progress: 0 };
+    // Libera a próxima aula dentro do MESMO grupo (base ou trilha) — não necessariamente a
+    // próxima posição no array, já que os grupos ficam concatenados nele em sequência.
+    const grupo = gruposDeProgresso().find(g => g.aulaIds.includes(r.aulaId));
+    const proximoId = grupo ? grupo.aulaIds[grupo.aulaIds.indexOf(r.aulaId) + 1] : undefined;
+    if (proximoId != null) {
+      const idxProxima = state.aulas.findIndex(a => a.id === proximoId);
+      if (idxProxima !== -1 && state.aulas[idxProxima].status === 'locked') {
+        state.aulas[idxProxima] = { ...state.aulas[idxProxima], status: 'active', progress: 0 };
+      }
+    }
   } else {
     state.aulas[idx] = { ...atual, status: 'active', progress: Math.round((r.acertos / r.total) * 100), stars: r.estrelas };
   }
@@ -369,6 +421,7 @@ function configurarBottomNav() {
       document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n === item));
       if (view === 'erros') renderCadernoAtivo();
       if (view === 'niveis') renderNiveis();
+      if (view === 'desempenho' && typeof renderDesempenho === 'function') renderDesempenho();
     });
   });
 }
@@ -378,6 +431,7 @@ function configurarBottomNav() {
 /* ---------------------------------------------------------------------- */
 
 document.addEventListener('DOMContentLoaded', async () => {
+  if (typeof garantirInicializado === 'function') await garantirInicializado();
   montarEtapas();
   if (listaAulas().length === 0) return;
 
@@ -387,6 +441,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     aplicarResultado(resultado);
     await salvarProgresso();
   }
+  if (typeof verificarInsignias === 'function') await verificarInsignias();
 
   atualizarSeletoresDeNivel();
   renderAulas();

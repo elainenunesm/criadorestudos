@@ -38,6 +38,12 @@ function novoConteudo() {
 
 const CICLOS = [];
 
+/** Trilhas — caminhos opcionais compostos por um subconjunto dos ciclos (ex: "Auditor Fiscal",
+ * "Tribunais"), além da sequência básica (os ciclos que não pertencem a nenhuma trilha). No
+ * player exportado, a aluna só pode escolher uma trilha depois de concluir todos os ciclos
+ * básicos — e pode escolher mais de uma ao mesmo tempo. Ver js/script.js (abrirModalTrilhas). */
+const TRILHAS = [];
+
 /** Tipos de ícone reconhecidos pelo player (estudos/js/estudo.js:RESUMO_ICONES). */
 const TIPOS_ICONE = [
   'acao', 'estado', 'mudanca', 'fenomeno', 'infinito', 'conjugar', 'gota',

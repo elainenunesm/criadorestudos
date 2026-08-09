@@ -312,6 +312,21 @@ function inicializarConfig() {
   });
   campoImagemUrl.addEventListener('input', () => { CONFIG_APP.imagemUrl = campoImagemUrl.value; renderPreviewConfig(); });
 
+  const btnImportarImagem = document.getElementById('configImportarImagemBtn');
+  const inputImagemArquivo = document.getElementById('configImagemArquivo');
+  btnImportarImagem.addEventListener('click', () => inputImagemArquivo.click());
+  inputImagemArquivo.addEventListener('change', () => {
+    const arquivo = inputImagemArquivo.files[0];
+    if (!arquivo) return;
+    const leitor = new FileReader();
+    leitor.onload = () => {
+      CONFIG_APP.imagemUrl = leitor.result;
+      campoImagemUrl.value = leitor.result;
+      renderPreviewConfig();
+    };
+    leitor.readAsDataURL(arquivo);
+  });
+
   campoTitulo.addEventListener('input', () => { CONFIG_APP.titulo = campoTitulo.value; renderPreviewConfig(); });
   campoSubtitulo.addEventListener('input', () => { CONFIG_APP.subtitulo = campoSubtitulo.value; renderPreviewConfig(); });
   campoCor.addEventListener('input', () => {

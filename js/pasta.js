@@ -80,7 +80,7 @@ async function escreverJsonNaPastaConectada() {
     const permissao = await pastaConectadaHandle.queryPermission({ mode: 'readwrite' });
     if (permissao !== 'granted') return;
     const git = typeof obterConfigGitSemToken === 'function' ? obterConfigGitSemToken() : null;
-    const dados = { savedAt: new Date().toISOString(), config: CONFIG_APP, ciclos: CICLOS, git };
+    const dados = { savedAt: new Date().toISOString(), config: CONFIG_APP, ciclos: CICLOS, trilhas: TRILHAS, git };
     const arquivoHandle = await pastaConectadaHandle.getFileHandle('construtor-aulas.json', { create: true });
     const writable = await arquivoHandle.createWritable();
     await writable.write(JSON.stringify(dados, null, 2));
@@ -111,6 +111,10 @@ async function aplicarDadosDaPastaConectada() {
   if (Array.isArray(dados.ciclos)) {
     CICLOS.length = 0;
     dados.ciclos.forEach(c => CICLOS.push(c));
+  }
+  if (Array.isArray(dados.trilhas)) {
+    TRILHAS.length = 0;
+    dados.trilhas.forEach(t => TRILHAS.push(t));
   }
   if (dados.config && typeof dados.config === 'object') {
     Object.assign(CONFIG_APP, dados.config);
