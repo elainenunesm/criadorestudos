@@ -290,7 +290,10 @@ self.addEventListener('fetch', event => {
 `;
 }
 
-async function exportarProjeto() {
+/** Monta o mapa completo de arquivos do projeto pronto pra rodar (caminho -> conteúdo, string ou
+ * Uint8Array pros binários) — o mesmo conteúdo que vira o .zip do "Exportar projeto", reaproveitado
+ * também pela sincronização com o Git (js/git.js), que manda o projeto inteiro, não só os dados. */
+async function gerarArquivosProjeto() {
   const plano = construirPlano(CICLOS, TRILHAS);
   const arquivos = carregarArquivosVendor();
   aplicarIdentidadeVisual(arquivos);
@@ -309,6 +312,11 @@ async function exportarProjeto() {
   arquivos['manifest.json'] = gerarManifestExport(icones);
   arquivos['sw.js'] = gerarSwExport(Object.keys(arquivos));
 
+  return arquivos;
+}
+
+async function exportarProjeto() {
+  const arquivos = await gerarArquivosProjeto();
   const blob = criarZip(arquivos);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

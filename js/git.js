@@ -119,8 +119,24 @@ async function limparDiretorioVirtual(pfs, dir) {
   }
 }
 
-/** Clona/atualiza o repositório, escreve o JSON com o estado atual, comita e envia — chamado
- * tanto pelo botão "Conectar e sincronizar" quanto automaticamente a cada mudança. */
+/** Escreve `conteudo` em `dir/caminhoRelativo`, criando as pastas intermediárias que faltarem
+ * (LightningFS não cria pasta pai sozinha, precisa existir antes do writeFile). */
+async function escreverArquivoComDiretorios(pfs, dir, caminhoRelativo, conteudo) {
+  const partes = caminhoRelativo.split('/');
+  partes.pop();
+  let atual = dir;
+  for (const parte of partes) {
+    atual += `/${parte}`;
+    await pfs.mkdir(atual).catch(() => {});
+  }
+  // Texto (string) precisa dizer o encoding; binário (Uint8Array, ex: ícones PNG) vai puro.
+  const opcoes = typeof conteudo === 'string' ? 'utf8' : undefined;
+  await pfs.writeFile(`${dir}/${caminhoRelativo}`, conteudo, opcoes);
+}
+
+/** Clona/atualiza o repositório, escreve o projeto exportado inteiro (mesmos arquivos do
+ * "Exportar projeto (.zip)" — index.html, css/js/vendor, aulas, ícones...), comita e envia —
+ * chamado tanto pelo botão "Conectar e sincronizar" quanto automaticamente a cada mudança. */
 async function sincronizarComGit() {
   const config = lerConfigGit();
   if (!config || !config.repoUrl || !config.token) throw new Error('Configure o repositório e o token primeiro.');
@@ -133,6 +149,15 @@ async function sincronizarComGit() {
   await limparDiretorioVirtual(pfs, GIT_DIR);
   await pfs.mkdir(GIT_DIR).catch(() => {});
 
+  /** Mostra o erro original completo (nome/código/stack) no console antes de reembrulhar numa
+   * mensagem amigável pra tela — sem isso, a causa real (ex: NotFoundError vs GitPushError vs
+   * erro de rede) se perde e só sobra o texto genérico. Abra o console (F12) pra ver o detalhe. */
+  function relancarComDetalhe(etapa, e) {
+    console.error(`Erro original ao ${etapa}:`, e);
+    const detalhe = e && e.code ? `${e.code}: ${e.message}` : (e && e.message) || e;
+    throw new Error(`${etapa.charAt(0).toUpperCase() + etapa.slice(1)}: ${detalhe}`);
+  }
+
   try {
     await git.clone({
       fs: _gitFs, http: window.gitHttp, dir: GIT_DIR,
@@ -142,28 +167,37 @@ async function sincronizarComGit() {
   } catch (e) {
     // Repositório novo/vazio (sem nenhum commit ainda) não tem branch nenhuma pra clonar —
     // nesse caso, começa um repositório local do zero; o primeiro push cria a branch lá.
-    if (!/could not find/i.test(e.message || '')) throw new Error(`Ao clonar: ${e.message || e}`);
+    if (!/could not find/i.test(e.message || '')) relancarComDetalhe('ao clonar', e);
     try {
       await limparDiretorioVirtual(pfs, GIT_DIR);
       await pfs.mkdir(GIT_DIR).catch(() => {});
       await git.init({ fs: _gitFs, dir: GIT_DIR, defaultBranch: branch });
       await git.addRemote({ fs: _gitFs, dir: GIT_DIR, remote: 'origin', url: config.repoUrl });
     } catch (e2) {
-      throw new Error(`Ao iniciar repositório novo: ${e2.message || e2}`);
+      relancarComDetalhe('ao iniciar repositório novo', e2);
     }
+  }
+
+  mostrarStatusGit('Montando o projeto...', null);
+  let arquivos;
+  try {
+    arquivos = await gerarArquivosProjeto();
+  } catch (e) {
+    relancarComDetalhe('ao montar o projeto', e);
   }
 
   mostrarStatusGit('Salvando...', null);
   try {
-    const dados = { savedAt: new Date().toISOString(), config: CONFIG_APP, ciclos: CICLOS, trilhas: TRILHAS };
-    await pfs.writeFile(`${GIT_DIR}/construtor-aulas.json`, JSON.stringify(dados, null, 2), 'utf8');
-    await git.add({ fs: _gitFs, dir: GIT_DIR, filepath: 'construtor-aulas.json' });
+    for (const [caminho, conteudo] of Object.entries(arquivos)) {
+      await escreverArquivoComDiretorios(pfs, GIT_DIR, caminho, conteudo);
+    }
+    await git.add({ fs: _gitFs, dir: GIT_DIR, filepath: '.' });
   } catch (e) {
-    throw new Error(`Ao salvar o arquivo: ${e.message || e}`);
+    relancarComDetalhe('ao salvar o arquivo', e);
   }
 
-  const status = await git.statusMatrix({ fs: _gitFs, dir: GIT_DIR, filepaths: ['construtor-aulas.json'] });
-  const semMudanca = status.length && status[0][1] === status[0][2] && status[0][2] === status[0][3];
+  const status = await git.statusMatrix({ fs: _gitFs, dir: GIT_DIR });
+  const semMudanca = status.every(linha => linha[1] === linha[2] && linha[2] === linha[3]);
   if (semMudanca) {
     mostrarStatusGit(`Já está tudo sincronizado (${new Date().toLocaleTimeString('pt-BR')}).`, 'ok');
     return;
@@ -172,11 +206,11 @@ async function sincronizarComGit() {
   try {
     await git.commit({
       fs: _gitFs, dir: GIT_DIR,
-      message: `Atualização automática — ${new Date().toLocaleString('pt-BR')}`,
+      message: `Atualização do projeto — ${new Date().toLocaleString('pt-BR')}`,
       author: { name: config.autorNome || 'Construtor de Aulas', email: config.autorEmail || 'construtor@local' },
     });
   } catch (e) {
-    throw new Error(`Ao comitar: ${e.message || e}`);
+    relancarComDetalhe('ao comitar', e);
   }
 
   mostrarStatusGit('Enviando pro repositório...', null);
@@ -186,7 +220,7 @@ async function sincronizarComGit() {
       remote: 'origin', ref: branch, corsProxy: GIT_CORS_PROXY, onAuth,
     });
   } catch (e) {
-    throw new Error(`Ao enviar (push): ${e.message || e}`);
+    relancarComDetalhe('ao enviar (push)', e);
   }
 
   mostrarStatusGit(`Sincronizado às ${new Date().toLocaleTimeString('pt-BR')}.`, 'ok');
@@ -205,6 +239,8 @@ async function conectarGit() {
   }
 
   salvarConfigGit({ repoUrl, branch, token, autorNome, autorEmail });
+  const btnDesconectar = document.getElementById('gitDesconectarBtn');
+  if (btnDesconectar) btnDesconectar.style.display = '';
 
   const btn = document.getElementById('gitConectarBtn');
   if (btn) btn.disabled = true;
@@ -255,6 +291,29 @@ function inicializarGit() {
   document.getElementById('gitAutorEmail').value = config.autorEmail || '';
   if (config.repoUrl && config.token) {
     mostrarStatusGit(`Configurado: ${config.repoUrl} (branch ${config.branch || 'main'}).`, null);
+    const btnDesconectar = document.getElementById('gitDesconectarBtn');
+    if (btnDesconectar) btnDesconectar.style.display = '';
+  }
+}
+
+/** Apaga a configuração do Git salva neste navegador (token incluso) — volta pro estado "nunca
+ * conectado". Não mexe no repositório remoto, só para de sincronizar automaticamente daqui. */
+function desconectarGit() {
+  localStorage.removeItem(GIT_CONFIG_KEY);
+  clearTimeout(_gitSyncTimeout);
+  ['gitRepoUrl', 'gitBranch', 'gitToken', 'gitAutorNome', 'gitAutorEmail'].forEach(id => {
+    const campo = document.getElementById(id);
+    if (campo) campo.value = '';
+  });
+  mostrarStatusGit('Ainda não conectado.', null);
+  const btnDesconectar = document.getElementById('gitDesconectarBtn');
+  if (btnDesconectar) btnDesconectar.style.display = 'none';
+  // Limpa a cópia local do repositório (só um cache, não mexe no remoto) — assim a próxima
+  // conexão parte de um clone limpo em vez de reaproveitar o estado de outra conta/token.
+  if (_gitFs) {
+    indexedDB.deleteDatabase('construtor-aulas-git');
+    _gitFs = null;
+    _gitPfs = null;
   }
 }
 
