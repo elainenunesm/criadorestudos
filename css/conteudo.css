@@ -299,6 +299,11 @@
   overflow: hidden;
   box-shadow: 0 12px 30px rgba(var(--cor-primaria-rgb, 91,43,203), 0.18);
   font-family: 'Inter', sans-serif;
+  /* Continua com largura de celular mesmo com o Construtor alargado no PC (ver .app em
+     css/style.css) — é uma prévia de como fica no aparelho da aluna, não deve esticar. */
+  max-width: 420px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .player-preview .pp-header {

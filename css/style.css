@@ -45,6 +45,14 @@ body {
   flex-direction: column;
 }
 
+/* Em telas de PC sobra muita área cinza dos dois lados com a largura de celular — alarga o
+   Construtor (ferramenta de edição, não precisa simular tela de telefone) nesses casos. O
+   pré-visualizador do player (.player-preview, dentro da aba Conteúdo) continua com sua própria
+   largura de celular, já que é ele que precisa parecer um app de verdade. */
+@media (min-width: 900px) {
+  .app { max-width: 760px; }
+}
+
 /* Header */
 header {
   background: rgba(255,255,255,0.82);
