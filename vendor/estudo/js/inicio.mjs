@@ -131,6 +131,25 @@ function aplicarResultado(r) {
   }
 }
 
+/** Depois de voltar de uma aula (concluída ou não), rola a Início até a PRÓXIMA aula que a aluna
+ * deve fazer — a que ficou "active" no mesmo grupo (base ou trilha) de onde ela voltou — e destaca
+ * com uma animação, pra ela não precisar procurar. Só roda nesse retorno de aula (tem resultado de
+ * sessão salvo), não em toda visita normal à Início. */
+function destacarProximaAula(aulaOrigemId) {
+  const grupo = gruposDeProgresso().find(g => g.aulaIds.includes(aulaOrigemId));
+  if (!grupo) return;
+  const aulaAlvo = grupo.aulaIds
+    .map(id => state.aulas.find(a => a.id === id))
+    .find(a => a && a.status === 'active');
+  if (!aulaAlvo) return; // grupo todo concluído agora — nada pra destacar (a celebração de insígnia toma conta)
+  const node = document.querySelector(`[data-aula="${aulaAlvo.id}"]`);
+  const card = node?.querySelector('.aula-card');
+  if (!node || !card) return;
+  node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  card.classList.add('proxima-destaque');
+  setTimeout(() => card.classList.remove('proxima-destaque'), 2400);
+}
+
 /* ---------------------------------------------------------------------- */
 /* Ícones                                                                   */
 /* ---------------------------------------------------------------------- */
@@ -450,4 +469,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   configurarEventosAulas();
   configurarEventosCadernos();
   configurarBottomNav();
+  // Espera a transição de abrir/fechar etapa (.25s no CSS) assentar antes de rolar — senão o
+  // scrollIntoView mira numa posição que ainda vai se mexer.
+  if (resultado) setTimeout(() => destacarProximaAula(resultado.aulaId), 350);
 });

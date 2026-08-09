@@ -105,6 +105,12 @@ body { background: #fff; min-height: 100vh; }
   text-align: center;
 }
 .aula-card.locked { background: #f9fafb; border-color: #e5e7eb; box-shadow: none; }
+
+@keyframes aula-card-destaque {
+  0%, 100% { box-shadow: 0 6px 20px rgba(var(--cor-primaria-rgb),0.08); border-color: var(--cor-borda-clara); }
+  50%      { box-shadow: 0 0 0 8px rgba(var(--cor-primaria-rgb),0.15), 0 6px 24px rgba(var(--cor-primaria-rgb),0.35); border-color: var(--cor-primaria); }
+}
+.aula-card.proxima-destaque { animation: aula-card-destaque 1.1s ease-in-out 2; }
 .aula-card h3 { font-size: 18px; font-weight: 700; color: #1a1a2e; margin-bottom: 6px; }
 .aula-card.locked h3 { color: #6b7280; }
 .status { font-size: 14px; color: #6b7280; margin-bottom: 14px; }
