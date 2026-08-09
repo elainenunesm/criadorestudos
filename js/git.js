@@ -105,7 +105,14 @@ async function limparDiretorioVirtual(pfs, dir) {
     const stat = await pfs.stat(caminho);
     if (stat.isDirectory()) {
       await limparDiretorioVirtual(pfs, caminho);
-      await pfs.rmdir(caminho);
+      try {
+        await pfs.rmdir(caminho);
+      } catch (e) {
+        // ENOTEMPTY: alguma coisa apareceu ali de novo entre o passo acima e agora (ex: duas
+        // sincronizações rodando ao mesmo tempo) — tenta limpar mais uma vez antes de desistir.
+        await limparDiretorioVirtual(pfs, caminho);
+        await pfs.rmdir(caminho);
+      }
     } else {
       await pfs.unlink(caminho);
     }
@@ -202,10 +209,11 @@ async function conectarGit() {
   const btn = document.getElementById('gitConectarBtn');
   if (btn) btn.disabled = true;
   try {
-    await sincronizarComGit();
-  } catch (e) {
-    console.error('Falha ao sincronizar com o Git:', e);
-    mostrarStatusGit('Não deu pra sincronizar: ' + (e.message || e), 'erro');
+    // Passa pela mesma fila/mutex do autosave (ver executarSincronizacaoGitAutomatica) — clicar
+    // aqui enquanto uma sincronização automática já está rodando não pode disparar uma segunda
+    // ao mesmo tempo: as duas mexeriam no mesmo diretório virtual junto e corrompiam ele
+    // (era a causa do erro "ENOTEMPTY" ao limpar a pasta antes de clonar/iniciar de novo).
+    await executarSincronizacaoGitAutomatica();
   } finally {
     if (btn) btn.disabled = false;
   }
