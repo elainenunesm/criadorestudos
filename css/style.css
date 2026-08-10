@@ -211,6 +211,7 @@ section { margin-top: 18px; }
 .card-stat .num.blue { color: var(--blue); }
 .card-stat .num.green { color: var(--green); }
 .card-stat .num.orange { color: var(--orange); }
+.card-stat .num.teal { color: #0D9488; }
 
 .card-stat .label {
   font-size: 11.5px; font-weight: 600; color: var(--text-sec); margin-top: 6px;

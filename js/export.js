@@ -144,10 +144,10 @@ ${trilhasTexto}
 `;
 }
 
-/** Ordem final de exibição das telas, como tokens simples ('antesComecar', 'exemplo0', 'checagem1', 'resumo', 'licao')
+/** Ordem final de exibição das telas, como tokens simples ('antesComecar', 'exemplo0', 'checagem1', 'lista0', 'resumo', 'licao')
  * — reaproveita montarPassos() (js/conteudo.js) pra garantir que os índices batem exatamente com os arrays exportados abaixo. */
 function serializarOrdem(conteudo) {
-  return montarPassos(conteudo).map(p => (p.tipo === 'exemplo' || p.tipo === 'checagem') ? `${p.tipo}${p.idx}` : p.tipo);
+  return montarPassos(conteudo).map(p => (p.tipo === 'exemplo' || p.tipo === 'checagem' || p.tipo === 'lista') ? `${p.tipo}${p.idx}` : p.tipo);
 }
 
 function gerarAulaJs(aula, tituloEtapa) {
@@ -175,6 +175,8 @@ window.AULA_DATA = {
   resumo: ${paraJs(c.resumo)},
 
   licao: ${paraJsLicao(c.licao)},
+
+  lista: ${paraJs(c.lista)},
 
   questoes: [],
 };
@@ -334,7 +336,7 @@ async function exportarProjeto() {
  * Access API (Chrome/Edge), grava direto na pasta escolhida; nos outros, baixa o arquivo normal. */
 async function salvarProjetoJson() {
   const git = typeof obterConfigGitSemToken === 'function' ? obterConfigGitSemToken() : null;
-  const dados = { savedAt: new Date().toISOString(), config: CONFIG_APP, ciclos: CICLOS, trilhas: TRILHAS, git };
+  const dados = { savedAt: new Date().toISOString(), config: CONFIG_APP, grupos: GRUPOS, ciclos: CICLOS, trilhas: TRILHAS, git };
   const conteudoJson = JSON.stringify(dados, null, 2);
 
   if ('showDirectoryPicker' in window) {

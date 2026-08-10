@@ -15,7 +15,7 @@ function novoConteudo() {
   return {
     // Ordem em que as telas aparecem pra aluna — livre, editável em "Estrutura
     // das telas". Cada item é {tipo} (antesComecar/resumo/licao, únicos) ou
-    // {tipo, id} (exemplo/checagem, um por item, referenciado pelo _id abaixo).
+    // {tipo, id} (exemplo/checagem/lista, um por item, referenciado pelo _id abaixo).
     ordem: [{ tipo: 'antesComecar' }, { tipo: 'resumo' }, { tipo: 'licao' }],
     antesComecar: {
       titulo: '',
@@ -33,8 +33,25 @@ function novoConteudo() {
       titulo: '',
       html: '',
     },
+    // "Lista" (título + lista de ícones/textos + descrição) é repetível, igual exemplo/checagem —
+    // não nasce com a aula, a professora adiciona pelo "Tipo (Telas)" quantas vezes quiser.
+    lista: [],
   };
 }
+
+/** Hierarquia da tela (Construtor): Ciclo > Etapa > Matéria > Aula.
+ *
+ * IMPORTANTE pra quem for mexer aqui depois: os nomes internos NÃO acompanham os rótulos
+ * novos da tela — só o texto visível pra usuária mudou, os nomes de variável/função ficaram
+ * como estavam antes, pra não precisar reescrever a busca de aula por id, o seletor "Editando
+ * a aula", a exportação inteira e o salvamento em pasta/Git, que já tratam CICLOS como uma
+ * lista plana. Ou seja:
+ *   GRUPOS         = nível "Ciclo" na tela (novo, o mais de fora)
+ *   CICLOS         = nível "Etapa" na tela (cada item ganhou um `grupoId`, apontando pro Ciclo/GRUPOS pai)
+ *   ciclo.materias = nível "Matéria" na tela (nome já bate, sem mudança)
+ * O app exportado (vendor/estudo) e js/export.js não sabem nada de GRUPOS/grupoId — pra eles
+ * nada mudou (Nível = uma "Etapa"/CICLOS de hoje, exatamente como sempre foi). */
+const GRUPOS = [];
 
 const CICLOS = [];
 
@@ -48,7 +65,7 @@ const TRILHAS = [];
 const TIPOS_ICONE = [
   'acao', 'estado', 'mudanca', 'fenomeno', 'infinito', 'conjugar', 'gota',
   'peca', 'foguete', 'sujeito', 'fala', 'busca', 'tarefa', 'pergunta',
-  'dica', 'predVerbal', 'predNominal', 'predVerboNominal', 'semSujeito',
+  'dica', 'predVerbal', 'predNominal', 'predVerboNominal', 'semSujeito', 'livro',
 ];
 
 /** Localiza {ciclo, materia, aula} por ids. */
@@ -73,6 +90,19 @@ function listarTodasAulas() {
     });
   });
   return lista;
+}
+
+/** Migração pra quando o Ciclo (GRUPOS) ainda não existia: se sobrar alguma Etapa (CICLOS) sem
+ * `grupoId` válido — arquivo salvo antes desse nível existir, ou GRUPOS vazio mesmo com Etapas —
+ * cria um Ciclo "Ciclo 1" e agrupa todas ali dentro, sem perder nada. Chamada ao carregar dados
+ * de uma pasta conectada (js/pasta.js). */
+function garantirGrupoPadrao() {
+  const idsValidos = new Set(GRUPOS.map(g => g.id));
+  const orfaos = CICLOS.filter(c => !idsValidos.has(c.grupoId));
+  if (!orfaos.length) return;
+  const grupo = { id: Math.max(0, ...GRUPOS.map(g => g.id)) + 1, titulo: 'Ciclo 1' };
+  GRUPOS.push(grupo);
+  orfaos.forEach(c => { c.grupoId = grupo.id; });
 }
 
 /* ---------------------------------------------------------------------- */

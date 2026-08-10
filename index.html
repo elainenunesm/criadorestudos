@@ -22,7 +22,7 @@
 
     <div class="header-text">
       <h1>Construtor de Aulas</h1>
-      <p>Organize ciclos, etapas e aulas</p>
+      <p>Organize ciclos, etapas, matérias e aulas</p>
     </div>
 
     <button class="icon-btn" aria-label="Salvar tudo numa pasta (.json)" title="Salvar tudo numa pasta (.json)" onclick="salvarProjetoJson()">
@@ -89,23 +89,30 @@
     <p class="busca-sem-resultado" id="arvoreVazia" style="display:none">Nenhum ciclo ainda. Clique em "Novo ciclo" pra começar.</p>
     <p class="busca-sem-resultado" id="buscaEstruturaVazia" style="display:none">Nada encontrado.</p>
 
-    <button class="btn-outline" onclick="novoCiclo()" aria-label="Novo ciclo">
+    <button class="btn-outline" onclick="novoGrupo()" aria-label="Novo ciclo">
       <span aria-hidden="true">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       </span>
       Novo ciclo
     </button>
 
+    <button class="btn-outline" onclick="novoCiclo()" aria-label="Nova etapa">
+      <span aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </span>
+      Nova etapa
+    </button>
+
     <div class="actions-row" aria-label="Ações rápidas">
-      <button class="action-card" onclick="novaEtapa()" aria-label="Nova etapa">
+      <button class="action-card" onclick="novaEtapa()" aria-label="Nova matéria">
         <span aria-hidden="true">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7B3FF2" stroke-width="2.2" stroke-linecap="round"><path d="M3 3v18h18"/><path d="M7 16l4-6 3 4 4-6"/></svg>
         </span>
-        Nova etapa
+        Nova matéria
       </button>
     </div>
 
-    <button class="btn-outline" onclick="abrirModalTrilhas()" id="btnTrilha" aria-label="Trilhas" title="Crie ciclos primeiro para montar uma trilha">
+    <button class="btn-outline" onclick="abrirModalTrilhas()" id="btnTrilha" aria-label="Trilhas" title="Crie etapas primeiro para montar uma trilha">
       <span aria-hidden="true">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M6 9v6"/><path d="M18 6a9 9 0 0 1-9 9"/><circle cx="18" cy="6" r="3"/></svg>
       </span>
@@ -280,8 +287,16 @@
 
         <div class="stats" role="list" aria-label="Estatísticas">
           <article class="card-stat" role="listitem">
-            <div class="num purple" id="statCiclos">0</div>
+            <div class="num teal" id="statGrupos">0</div>
             <div class="label">Ciclos</div>
+            <div class="icon-circle" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0D9488" stroke-width="2.2"><path d="M3 3v18h18"/><path d="M7 16l4-6 3 4 4-6"/></svg>
+            </div>
+          </article>
+
+          <article class="card-stat" role="listitem">
+            <div class="num purple" id="statCiclos">0</div>
+            <div class="label">Etapas</div>
             <div class="icon-circle" aria-hidden="true">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7B3FF2" stroke-width="2.2"><path d="M3 3v18h18"/><path d="M7 16l4-6 3 4 4-6"/></svg>
             </div>
@@ -289,7 +304,7 @@
 
           <article class="card-stat" role="listitem">
             <div class="num blue" id="statEtapas">0</div>
-            <div class="label">Etapas</div>
+            <div class="label">Matérias</div>
             <div class="icon-circle" aria-hidden="true">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4A7AEA" stroke-width="2.2"><line x1="4" y1="10" x2="20" y2="10"/><line x1="4" y1="14" x2="20" y2="14"/><line x1="4" y1="6" x2="10" y2="6"/></svg>
             </div>
@@ -422,7 +437,7 @@
   <div class="modal-overlay" id="modalTrilhas">
     <div class="modal-card modal-card-lista">
       <p class="modal-titulo-lista">Trilhas</p>
-      <p class="modal-sub-lista">Cada trilha é um caminho opcional com um grupo de ciclos — a aluna escolhe qual seguir depois de terminar os ciclos que não estão em nenhuma trilha.</p>
+      <p class="modal-sub-lista">Cada trilha é um caminho opcional com um grupo de etapas — a aluna escolhe qual seguir depois de terminar as etapas que não estão em nenhuma trilha.</p>
       <div class="modal-lista" id="modalTrilhasLista"></div>
       <button type="button" class="btn-add-item" id="btnNovaTrilha" style="width:100%;justify-content:center;margin-bottom:10px;">+ Nova trilha</button>
       <button type="button" class="modal-btn-cancelar" id="modalTrilhasFechar" style="width:100%">Fechar</button>
@@ -436,7 +451,7 @@
         <label>Nome da trilha</label>
         <input type="text" id="trilhaNomeInput" placeholder="Ex: Auditor Fiscal">
       </div>
-      <div class="secao-titulo-editor">Quais ciclos fazem parte dessa trilha</div>
+      <div class="secao-titulo-editor">Quais etapas fazem parte dessa trilha</div>
       <div class="modal-lista" id="trilhaCiclosLista"></div>
       <div class="modal-botoes">
         <button type="button" class="modal-btn-cancelar" id="trilhaCancelar">Cancelar</button>

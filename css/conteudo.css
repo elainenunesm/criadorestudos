@@ -40,6 +40,7 @@
 .tela-row-icone.tipo-checagem { background: #4A7AEA; }
 .tela-row-icone.tipo-resumo { background: #F08A2A; }
 .tela-row-icone.tipo-licao { background: #1FAA6B; }
+.tela-row-icone.tipo-lista { background: #0D9488; }
 .tela-row-label { flex: 1; font-size: 13.5px; font-weight: 600; color: var(--text-main); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tela-row-seta { color: var(--text-sec); flex-shrink: 0; }
 
@@ -227,6 +228,20 @@
 }
 .btn-estilo-texto.ativo { background: var(--purple, #7B3FF2); border-color: var(--purple, #7B3FF2); color: #fff; }
 
+.campo-alinhamento-wrap { position: relative; }
+.menu-alinhamento {
+  position: absolute; top: 28px; right: 0; z-index: 20;
+  display: flex; gap: 2px; padding: 4px;
+  background: #fff; border: 1.5px solid rgba(30,27,46,0.12); border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(30,27,46,0.12);
+}
+.menu-alinhamento button {
+  width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+  border-radius: 5px; border: none; background: transparent; color: var(--text-sec); cursor: pointer; padding: 0;
+}
+.menu-alinhamento button:hover { background: var(--purple-hover, #EFEAFD); color: var(--purple, #7B3FF2); }
+.menu-alinhamento[hidden] { display: none; }
+
 .linha-tipo-icone { display: flex; gap: 8px; }
 .btn-icone-externo {
   flex-shrink: 0; width: 38px; height: 38px;
@@ -315,7 +330,7 @@
 .player-preview .pp-seg.respondida { background: #fff; }
 .player-preview .pp-seg.atual { background: rgba(255,255,255,0.7); }
 
-.player-preview .pp-body { padding: 20px 16px; min-height: 160px; }
+.player-preview .pp-body { padding: 20px 16px; min-height: 160px; position: relative; }
 .player-preview .pp-titulo { font-size: 18px; color: #1a1a2e; margin-bottom: 6px; }
 .player-preview .pp-subtitulo { font-size: 13.5px; color: #6b7280; margin-bottom: 14px; }
 
@@ -386,7 +401,7 @@
 }
 .player-preview .pp-feedback.acerto { background: #f0fdf4; border: 2px solid #86efac; color: #16a34a; }
 .player-preview .pp-feedback.erro { background: #fef2f2; border: 2px solid #fca5a5; color: #dc2626; }
-.player-preview .pp-feedback-texto { font-size: 13px; line-height: 1.4; }
+.player-preview .pp-feedback-texto { font-size: 13px; line-height: 1.4; white-space: pre-line; }
 
 /* toggle acerto/erro no preview de checagem */
 .preview-toggle { display: flex; gap: 8px; margin-top: 10px; }
@@ -397,19 +412,35 @@
 .preview-toggle button.ativo { border-color: var(--purple); color: var(--purple); background: rgba(123,63,242,0.06); }
 
 /* antes de começar */
-.player-preview .pp-icone-circulo {
-  width: 72px; height: 72px; border-radius: 50%; background: #eef2ff; display: grid; place-items: center;
-  margin: 0 auto 14px; color: #4A80F0;
+.player-preview .pp-intro-label {
+  display: block; font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: #4A80F0; margin-bottom: 6px;
 }
-.player-preview .pp-intro-desc { font-size: 14px; color: #4b5563; line-height: 1.5; margin-bottom: 14px; text-align: center; }
-.player-preview .pp-info-box { background: #f5f8ff; border: 1px solid #d9e6fc; border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; }
-.player-preview .pp-info-box h3 { font-size: 12.5px; font-weight: 700; color: #4A80F0; margin-bottom: 4px; }
-.player-preview .pp-info-box p { font-size: 13px; color: #374151; line-height: 1.45; }
+.player-preview .pp-intro-desc { font-size: 14px; color: #4b5563; line-height: 1.5; margin-bottom: 14px; text-align: justify; }
+.player-preview .pp-ac-info { background: #f5f8ff; border: 1.5px solid #d9e6fc; border-radius: 14px; padding: 14px 12px; }
+.player-preview .pp-ac-info-item { display: flex; align-items: flex-start; gap: 10px; }
+.player-preview .pp-ac-info-item + .pp-ac-info-item { margin-top: 12px; padding-top: 12px; border-top: 1px solid #d9e6fc; }
+.player-preview .pp-ac-info-icone-wrap { width: 34px; height: 34px; border-radius: 50%; background: #eef2ff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+/* marca-página "marcar para revisão" — só decorativo aqui (a aluna que marca,
+   na tela real); existe na prévia só pra bater visualmente com o player. */
+.player-preview .pp-marcar-cartao {
+  position: absolute; top: 6px; right: 12px; width: 30px; height: 37px;
+  background: #ffffff; border: 2px solid #dbe4fb; border-top: none; border-radius: 0 0 7px 7px;
+  display: flex; align-items: center; justify-content: center; color: #b9c6f0;
+}
+.player-preview .pp-marcar-cartao svg { width: 16px; height: 16px; }
+.player-preview .pp-ac-info-icone-wrap svg { width: 18px; height: 18px; }
+.player-preview .pp-ac-info-texto h3 { font-size: 12.5px; font-weight: 700; color: #4A80F0; margin-bottom: 4px; }
+.player-preview .pp-ac-info-texto p { font-size: 13px; color: #374151; line-height: 1.45; }
 
 /* exemplo */
 .player-preview .pp-exemplo-icone { width: 64px; height: 48px; border-radius: 14px; background: #eef2ff; display: grid; place-items: center; margin: 0 auto 12px; color: #4A80F0; }
 .player-preview .pp-exemplo-texto { font-size: 14.5px; color: #1a1a2e; line-height: 1.5; margin-bottom: 8px; }
 .player-preview .pp-exemplo-conclusao { font-size: 14px; color: #1a1a2e; margin-bottom: 8px; }
+.player-preview .pp-exemplo-obs-box { display: flex; align-items: center; gap: 8px; background: #eef2ff; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+.player-preview .pp-exemplo-obs-icone { flex-shrink: 0; display: flex; }
+.player-preview .pp-exemplo-obs-texto { font-size: 13px; color: #1a1a2e; line-height: 1.4; }
 .player-preview .pp-pontos { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
 .player-preview .pp-ponto { display: flex; align-items: center; gap: 10px; }
 .player-preview .pp-ponto-icone { width: 40px; height: 40px; border-radius: 50%; background: #eef2ff; display: grid; place-items: center; color: #4A80F0; flex-shrink: 0; }
@@ -455,6 +486,10 @@
 .player-preview .pp-resumo-info { display: flex; flex-direction: column; }
 .player-preview .pp-resumo-titulo-item { font-size: 14px; }
 .player-preview .pp-resumo-exemplos { font-size: 12.5px; color: #64748b; }
+
+/* lista (ícone + texto numa linha só, com descrição depois) */
+.player-preview .pp-lista-item-texto { font-size: 14px; color: #1a1a2e; }
+.player-preview .pp-lista-descricao { font-size: 14px; color: #4b5563; line-height: 1.6; margin-top: 10px; text-align: justify; }
 
 /* lição */
 .player-preview .pp-licao-corpo { font-size: 14px; color: #1a1a2e; line-height: 1.6; }

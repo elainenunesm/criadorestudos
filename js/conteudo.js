@@ -22,28 +22,33 @@ function conteudoAulaAtual() {
   return info ? info.aula : null;
 }
 
-/** Próximo _id livre pra um novo item de exemplo/checagem (referenciado em conteudo.ordem). */
+/** Próximo _id livre pra um novo item de exemplo/checagem/lista (referenciado em conteudo.ordem). */
 function proximoIdItem(conteudo) {
-  const ids = [...conteudo.exemplo, ...conteudo.checagem].map(i => i._id || 0);
+  const ids = [...conteudo.exemplo, ...conteudo.checagem, ...conteudo.lista].map(i => i._id || 0);
   return Math.max(0, ...ids) + 1;
 }
 
 /**
  * Garante que conteudo.ordem existe e reflete exatamente os itens atuais de
- * exemplo/checagem (dá _id a quem não tem, inclui item novo no fim antes do
+ * exemplo/checagem/lista (dá _id a quem não tem, inclui item novo no fim antes do
  * resumo, remove entrada de item excluído). Chamada sempre antes de ler a
  * ordem — assim aulas antigas (sem "ordem" salvo) se auto-reparam na hora.
  */
 function garantirOrdem(conteudo) {
   if (!Array.isArray(conteudo.ordem)) conteudo.ordem = [];
+  // Migração: aulas criadas antes da tela "Lista" existir tinham esse campo como objeto único
+  // (ou nem tinham) — "Lista" agora é repetível, igual Exemplo/Checagem, então é sempre um array.
+  if (!Array.isArray(conteudo.lista)) conteudo.lista = [];
 
   conteudo.exemplo.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
   conteudo.checagem.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
+  conteudo.lista.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
 
   // Remove entradas de itens que não existem mais.
   conteudo.ordem = conteudo.ordem.filter(t => {
     if (t.tipo === 'exemplo') return conteudo.exemplo.some(i => i._id === t.id);
     if (t.tipo === 'checagem') return conteudo.checagem.some(i => i._id === t.id);
+    if (t.tipo === 'lista') return conteudo.lista.some(i => i._id === t.id);
     return true;
   });
 
@@ -55,18 +60,24 @@ function garantirOrdem(conteudo) {
   conteudo.checagem.forEach(item => {
     if (!presentes.has(`checagem:${item._id}`)) conteudo.ordem.push({ tipo: 'checagem', id: item._id });
   });
-  if (!presentes.has('resumo:')) conteudo.ordem.push({ tipo: 'resumo' });
-  if (!presentes.has('licao:')) conteudo.ordem.push({ tipo: 'licao' });
+  conteudo.lista.forEach(item => {
+    if (!presentes.has(`lista:${item._id}`)) conteudo.ordem.push({ tipo: 'lista', id: item._id });
+  });
+  // Resumo/Lição nascem junto com a aula, mas podem ser excluídos (ver removerPassoAtual) — nesse
+  // caso NÃO voltam sozinhos aqui, só se a professora clicar em "Tipo (Telas)" pra adicionar de novo.
+  if (!presentes.has('resumo:') && !conteudo.resumoRemovido) conteudo.ordem.push({ tipo: 'resumo' });
+  if (!presentes.has('licao:') && !conteudo.licaoRemovido) conteudo.ordem.push({ tipo: 'licao' });
 }
 
 const TITULO_TELA_FIXO = { antesComecar: 'Antes de começar', resumo: 'Resumo', licao: 'Lição' };
 
 /** Monta a lista de passos a partir de conteudo.ordem — a numeração de "Exemplo N"/
- * "Checagem N" segue a posição na sequência (não a posição de criação). */
+ * "Checagem N"/"Lista N" segue a posição na sequência (não a posição de criação). */
 function montarPassos(conteudo) {
   garantirOrdem(conteudo);
   let numExemplo = 0;
   let numChecagem = 0;
+  let numLista = 0;
   return conteudo.ordem.map(token => {
     if (token.tipo === 'exemplo') {
       numExemplo++;
@@ -79,6 +90,10 @@ function montarPassos(conteudo) {
     if (token.tipo === 'checagem') {
       numChecagem++;
       return { tipo: 'checagem', idx: conteudo.checagem.findIndex(i => i._id === token.id), id: token.id, titulo: `Checagem ${numChecagem}` };
+    }
+    if (token.tipo === 'lista') {
+      numLista++;
+      return { tipo: 'lista', idx: conteudo.lista.findIndex(i => i._id === token.id), id: token.id, titulo: `Lista ${numLista}` };
     }
     return { tipo: token.tipo, titulo: TITULO_TELA_FIXO[token.tipo] };
   });
@@ -127,6 +142,7 @@ const ICONE_TELA = {
   checagem: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
   resumo: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="12" height="18" rx="2"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/></svg>',
   licao: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+  lista: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="4.5" cy="6" r="1.3" fill="#fff" stroke="none"/><circle cx="4.5" cy="12" r="1.3" fill="#fff" stroke="none"/><circle cx="4.5" cy="18" r="1.3" fill="#fff" stroke="none"/><line x1="9" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="9" y1="18" x2="21" y2="18"/></svg>',
 };
 
 /** Dados de mentira só pra prévia de "que tipo de tela é essa" — nunca chegam a entrar
@@ -191,6 +207,14 @@ const DADOS_FICTICIOS_TELA = {
     rotulos: ['SUJEITO', 'SUJEITO', 'VERBO;PREDICADO', 'PREDICADO', 'PREDICADO', ''],
     mostrarRespostaCadaItem: true, multiplosRotulos: true,
   },
+  lista: {
+    titulo: 'Assim vai aparecer o título da lista.',
+    itens: [
+      { tipo: 'tarefa', cor: '#5B2BCB', corFundo: '#f0eaff', texto: 'Assim vai aparecer o texto do item.' },
+      { tipo: 'tarefa', cor: '#5B2BCB', corFundo: '#f0eaff', texto: 'E aqui outro item da lista.' },
+    ],
+    descricao: 'Assim vai aparecer a descrição, depois da lista.',
+  },
 };
 
 const NOME_TELA_ADICIONAR = {
@@ -208,6 +232,9 @@ const NOME_TELA_ADICIONAR = {
   'checagem:palavra': 'Selecione a palavra',
   'checagem:certoErrado': 'Questão certo ou errado',
   'checagem:multiplosRotulos': 'Múltiplos Rótulos (questão)',
+  resumo: 'Resumo',
+  licao: 'Lição',
+  lista: 'Adicionar lista',
 };
 
 /** Tipo (e, se aplicável, a variante) escolhidos no popup "Tipo (Telas)" — ainda não
@@ -245,6 +272,14 @@ function mostrarPreviewNovaTela(tipo, modo) {
   const body = document.getElementById('previewNovaTelaBody');
   if (tipo === 'exemplo') {
     body.innerHTML = previewExemplo(DADOS_EXEMPLO_POR_MODO[modo] || DADOS_FICTICIOS_TELA.exemplo);
+  } else if (tipo === 'resumo') {
+    // Mostra o resumo que já estava preenchido antes de excluir (conteúdo não se perde ao
+    // excluir a tela — só sai da ordem — então volta exatamente como estava).
+    body.innerHTML = previewResumo(aula.conteudo.resumo);
+  } else if (tipo === 'licao') {
+    body.innerHTML = previewLicao(aula.conteudo.licao);
+  } else if (tipo === 'lista') {
+    body.innerHTML = previewLista(DADOS_FICTICIOS_TELA.lista);
   } else {
     const DADOS_CHECAGEM_POR_MODO = {
       palavra: DADOS_FICTICIOS_TELA.checagemPalavra,
@@ -303,7 +338,7 @@ function renderEstruturaTelas() {
     const ICONE_MICROFONE = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
     const ICONE_MICROFONE_ALUNO = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/><circle cx="19" cy="5" r="4" fill="#fff" stroke="none"/></svg>';
     btnAdicionar.onclick = () => {
-      abrirEscolha('Tipo (Telas)', [
+      const itens = [
         {
           label: 'Adicionar exemplo', sublabel: 'Inclua um exemplo prático', grupo: 'Exemplo',
           iconeHtml: badgeIcone(ICONE_TELA.exemplo, '#4A80F0'),
@@ -374,7 +409,30 @@ function renderEstruturaTelas() {
           iconeHtml: badgeIcone(ICONE_ROTULO, '#0D9488'),
           onClick: () => mostrarPreviewNovaTela('checagem', 'multiplosRotulos'),
         },
-      ]);
+        {
+          label: 'Adicionar lista', sublabel: 'Título + lista de ícones e textos + descrição', grupo: 'Lista',
+          iconeHtml: badgeIcone(ICONE_TELA.lista, '#0D9488'),
+          onClick: () => mostrarPreviewNovaTela('lista'),
+        },
+      ];
+      // "Resumo" e "Lição" são fixos por padrão (toda aula nasce com os dois) — só aparecem aqui
+      // pra adicionar de volta se a professora tiver excluído antes (ver abrirMenuTela/removerPassoAtual).
+      // "Lista" é repetível (igual Exemplo/Checagem, ver acima) — não entra aqui.
+      if (aula.conteudo.resumoRemovido) {
+        itens.push({
+          label: 'Resumo', sublabel: 'Você excluiu — adicione de volta se quiser', grupo: 'Telas fixas',
+          iconeHtml: badgeIcone(ICONE_TELA.resumo, '#F59E0B'),
+          onClick: () => mostrarPreviewNovaTela('resumo'),
+        });
+      }
+      if (aula.conteudo.licaoRemovido) {
+        itens.push({
+          label: 'Lição', sublabel: 'Você excluiu — adicione de volta se quiser', grupo: 'Telas fixas',
+          iconeHtml: badgeIcone(ICONE_TELA.licao, '#16A34A'),
+          onClick: () => mostrarPreviewNovaTela('licao'),
+        });
+      }
+      abrirEscolha('Tipo (Telas)', itens);
     };
   }
   document.getElementById('btnCancelarAddTela').onclick = () => esconderPreviewNovaTela();
@@ -409,7 +467,9 @@ function abrirMenuTela(event, idx) {
 
   if (podeMoverTela(passos, idx, -1)) itens.push({ acao: 'subir', label: '⬆️ Mover para cima', onClick: () => moverTela(idx, -1) });
   if (podeMoverTela(passos, idx, 1)) itens.push({ acao: 'descer', label: '⬇️ Mover para baixo', onClick: () => moverTela(idx, 1) });
-  if (passo.tipo === 'exemplo' || passo.tipo === 'checagem') {
+  // Resumo e Lição são opcionais (podem ser excluídos e depois adicionados de volta pelo "Tipo
+  // (Telas)"), diferente de "Antes de começar", que é sempre obrigatório.
+  if (passo.tipo === 'exemplo' || passo.tipo === 'checagem' || passo.tipo === 'resumo' || passo.tipo === 'licao' || passo.tipo === 'lista') {
     itens.push({
       acao: 'excluir', label: '🗑 Excluir esta tela', onClick: () => {
         conteudoEstado.passoIndex = idx;
@@ -523,6 +583,17 @@ function adicionarItemPasso(tipoLista, variante) {
       : { ...base, opcoes: ['', ''] };
     conteudo.checagem.push(novaChecagem);
     inserirNaOrdemAntesDoResumo(conteudo, { tipo: 'checagem', id });
+  } else if (tipoLista === 'lista') {
+    conteudo.lista.push({ _id: id, titulo: '', itens: [], descricao: '' });
+    inserirNaOrdemAntesDoResumo(conteudo, { tipo: 'lista', id });
+  } else if (tipoLista === 'resumo' || tipoLista === 'licao') {
+    // Só existe uma de cada — o conteúdo (texto já preenchido antes de excluir) não se perde,
+    // então "adicionar de volta" é só religar a tela na ordem, via garantirOrdem().
+    conteudo[`${tipoLista}Removido`] = false;
+    garantirOrdem(conteudo);
+    conteudoEstado.passoIndex = conteudo.ordem.findIndex(t => t.tipo === tipoLista);
+    renderizarConteudo();
+    return;
   } else {
     return;
   }
@@ -538,6 +609,9 @@ function removerPassoAtual() {
   const passo = passos[conteudoEstado.passoIndex];
   if (passo.tipo === 'exemplo') conteudo.exemplo.splice(passo.idx, 1);
   else if (passo.tipo === 'checagem') conteudo.checagem.splice(passo.idx, 1);
+  else if (passo.tipo === 'lista') conteudo.lista.splice(passo.idx, 1);
+  else if (passo.tipo === 'resumo') conteudo.resumoRemovido = true;
+  else if (passo.tipo === 'licao') conteudo.licaoRemovido = true;
   else return;
   conteudo.ordem = conteudo.ordem.filter(t => !(t.tipo === passo.tipo && t.id === passo.id));
   conteudoEstado.passoIndex = Math.max(0, conteudoEstado.passoIndex - 1);
@@ -592,19 +666,32 @@ function montarDestaqueFrases(wrapEl, obj, campos) {
       const c = presentes.find(p => p.campo === selecionado);
       if (!c) return;
       const destaqueCampo = `${c.campo}Destaque`;
+      const negritoCampo = `${c.campo}DestaqueNegrito`;
       if (!obj[destaqueCampo]) obj[destaqueCampo] = [];
+      if (!obj[negritoCampo]) obj[negritoCampo] = [];
       const tokens = tokenizarFrase(obj[c.campo]);
       tokens.forEach((tok, i) => {
         if (ehPontuacao(tok)) return;
-        const label = document.createElement('label');
-        label.style.cssText = 'font-size:13px;display:flex;align-items:center;gap:8px;';
-        label.innerHTML = `<input type="checkbox" ${obj[destaqueCampo].includes(i) ? 'checked' : ''}> "${escaparHtml(tok)}"`;
-        label.querySelector('input').addEventListener('change', e => {
+        const linha = document.createElement('div');
+        linha.style.cssText = 'font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:8px;';
+        linha.innerHTML = `
+          <label style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
+            <input type="checkbox" data-destaque ${obj[destaqueCampo].includes(i) ? 'checked' : ''}> "${escaparHtml(tok)}"
+          </label>
+          <button type="button" class="btn-estilo-texto${obj[negritoCampo].includes(i) ? ' ativo' : ''}" data-negrito title="Deixar essa palavra em negrito"><strong>B</strong></button>`;
+        linha.querySelector('[data-destaque]').addEventListener('change', e => {
           if (e.target.checked) { if (!obj[destaqueCampo].includes(i)) obj[destaqueCampo].push(i); }
           else { const pos = obj[destaqueCampo].indexOf(i); if (pos !== -1) obj[destaqueCampo].splice(pos, 1); }
           renderPreviewAtual();
         });
-        checklistArea.appendChild(label);
+        const btnNegrito = linha.querySelector('[data-negrito]');
+        btnNegrito.addEventListener('click', () => {
+          const pos = obj[negritoCampo].indexOf(i);
+          if (pos === -1) obj[negritoCampo].push(i); else obj[negritoCampo].splice(pos, 1);
+          btnNegrito.classList.toggle('ativo', obj[negritoCampo].includes(i));
+          renderPreviewAtual();
+        });
+        checklistArea.appendChild(linha);
       });
     }
     renderChecklist();
@@ -622,28 +709,46 @@ function montarDestaqueFrases(wrapEl, obj, campos) {
  * pontuação) depois de editar o texto do campo — evita que uma vírgula/ponto fique azul só
  * porque o texto mudou e empurrou a pontuação pra posição de uma palavra que já estava marcada. */
 function podarDestaque(obj, campo) {
-  const destaqueCampo = `${campo}Destaque`;
   const tokens = tokenizarFrase(obj[campo] || '');
-  obj[destaqueCampo] = (obj[destaqueCampo] || []).filter(i => i < tokens.length && !ehPontuacao(tokens[i]));
+  const valido = i => i < tokens.length && !ehPontuacao(tokens[i]);
+  obj[`${campo}Destaque`] = (obj[`${campo}Destaque`] || []).filter(valido);
+  obj[`${campo}DestaqueNegrito`] = (obj[`${campo}DestaqueNegrito`] || []).filter(valido);
 }
 
-/** Linha de label com botões "B"/"I" pra ligar/desligar negrito e itálico no texto inteiro
- * daquele campo — usa no lugar de um `<label>` simples. `campo` é o nome do campo no objeto
- * (os flags ficam em `${campo}Negrito`/`${campo}Italico`). */
+const ICONES_ALINHAMENTO = {
+  esquerda: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>',
+  centro: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="5" y1="18" x2="19" y2="18"/></svg>',
+  direita: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/></svg>',
+};
+
+/** Linha de label com botões "B"/"I"/alinhamento pra ligar/desligar negrito e itálico e escolher
+ * o alinhamento do texto inteiro daquele campo — usa no lugar de um `<label>` simples. `campo` é
+ * o nome do campo no objeto (os flags ficam em `${campo}Negrito`/`${campo}Italico`/
+ * `${campo}Alinhamento`). O botão de alinhamento abre um menuzinho com Esquerda/Centro/Direita. */
 function htmlLabelComEstilo(label, campo) {
   return `<div class="campo-label-linha">
     <label>${label}</label>
     <div class="campo-estilo-botoes">
       <button type="button" class="btn-estilo-texto" data-estilo-campo="${campo}" data-estilo-tipo="Negrito" title="Negrito"><strong>B</strong></button>
       <button type="button" class="btn-estilo-texto" data-estilo-campo="${campo}" data-estilo-tipo="Italico" title="Itálico"><em>I</em></button>
+      <div class="campo-alinhamento-wrap">
+        <button type="button" class="btn-estilo-texto btn-alinhamento" data-alinhamento-campo="${campo}" title="Alinhamento do texto">${ICONES_ALINHAMENTO.esquerda}</button>
+        <div class="menu-alinhamento" hidden>
+          <button type="button" data-alinhar="esquerda" title="Esquerda">${ICONES_ALINHAMENTO.esquerda}</button>
+          <button type="button" data-alinhar="centro" title="Centro">${ICONES_ALINHAMENTO.centro}</button>
+          <button type="button" data-alinhar="direita" title="Direita">${ICONES_ALINHAMENTO.direita}</button>
+        </div>
+      </div>
     </div>
   </div>`;
 }
 
-/** Liga todos os botões "B"/"I" (de htmlLabelComEstilo) dentro de `container` — cada clique liga/
- * desliga `obj[campo + 'Negrito']` ou `obj[campo + 'Italico']` e atualiza a prévia. */
+/** Liga todos os botões "B"/"I" e de alinhamento (de htmlLabelComEstilo) dentro de `container` —
+ * B/I ligam/desligam `obj[campo + 'Negrito']`/`obj[campo + 'Italico']`; o botão de alinhamento
+ * abre um menuzinho com Esquerda/Centro/Direita que escreve em `obj[campo + 'Alinhamento']`.
+ * Sempre atualiza a prévia depois de qualquer mudança. */
 function ligarBotoesEstiloTexto(container, obj) {
-  container.querySelectorAll('.btn-estilo-texto').forEach(btn => {
+  container.querySelectorAll('.btn-estilo-texto[data-estilo-tipo]').forEach(btn => {
     const flagCampo = `${btn.dataset.estiloCampo}${btn.dataset.estiloTipo}`;
     btn.classList.toggle('ativo', !!obj[flagCampo]);
     btn.addEventListener('click', () => {
@@ -652,15 +757,55 @@ function ligarBotoesEstiloTexto(container, obj) {
       renderPreviewAtual();
     });
   });
+
+  container.querySelectorAll('.btn-alinhamento').forEach(btn => {
+    const campo = btn.dataset.alinhamentoCampo;
+    const alinhamentoCampo = `${campo}Alinhamento`;
+    const wrap = btn.closest('.campo-alinhamento-wrap');
+    const menu = wrap.querySelector('.menu-alinhamento');
+
+    function aplicarIcone() {
+      const atual = obj[alinhamentoCampo] || 'esquerda';
+      btn.innerHTML = ICONES_ALINHAMENTO[atual];
+      btn.classList.toggle('ativo', atual !== 'esquerda');
+    }
+    aplicarIcone();
+
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const jaAberto = !menu.hidden;
+      document.querySelectorAll('.menu-alinhamento').forEach(m => { m.hidden = true; });
+      menu.hidden = jaAberto;
+    });
+    menu.querySelectorAll('[data-alinhar]').forEach(opcao => {
+      opcao.addEventListener('click', e => {
+        e.stopPropagation();
+        obj[alinhamentoCampo] = opcao.dataset.alinhar;
+        aplicarIcone();
+        menu.hidden = true;
+        renderPreviewAtual();
+      });
+    });
+  });
 }
 
-/** Monta o atributo style="..." (negrito/itálico) pro texto inteiro de um campo, a partir dos
- * flags `${campo}Negrito`/`${campo}Italico` ligados pelos botões B/I. */
+// Fecha qualquer menu de alinhamento aberto ao clicar fora dele — um só listener no documento
+// (não um por menu) porque o formulário inteiro é recriado a cada troca de passo/campo.
+document.addEventListener('click', () => {
+  document.querySelectorAll('.menu-alinhamento').forEach(m => { m.hidden = true; });
+});
+
+/** Monta o atributo style="..." (negrito/itálico/alinhamento) pro texto inteiro de um campo, a
+ * partir dos flags `${campo}Negrito`/`${campo}Italico`/`${campo}Alinhamento` ligados pelos
+ * botões B/I/alinhamento. */
 function estiloTextoInline(obj, campo, extraCss) {
   const partes = [];
   if (extraCss) partes.push(extraCss);
   if (obj[`${campo}Negrito`]) partes.push('font-weight:700');
   if (obj[`${campo}Italico`]) partes.push('font-style:italic');
+  const alinhamento = obj[`${campo}Alinhamento`];
+  if (alinhamento === 'centro') partes.push('text-align:center');
+  else if (alinhamento === 'direita') partes.push('text-align:right');
   return partes.length ? ` style="${partes.join(';')}"` : '';
 }
 
@@ -686,7 +831,7 @@ const NOME_TIPO_ICONE = {
   conjugar: 'Conjugação', gota: 'Gota', peca: 'Peça', foguete: 'Foguete', sujeito: 'Sujeito',
   fala: 'Fala', busca: 'Busca', tarefa: 'Tarefa', pergunta: 'Pergunta', dica: 'Dica',
   predVerbal: 'Predicado verbal', predNominal: 'Predicado nominal', predVerboNominal: 'Predicado verbo-nominal',
-  semSujeito: 'Oração sem sujeito', externo: 'Ícone externo (link)',
+  semSujeito: 'Oração sem sujeito', livro: 'Livro', externo: 'Ícone externo (link)',
 };
 const DESC_TIPO_ICONE = {
   acao: 'Verbo que indica uma ação', estado: 'Verbo de ligação/estado', mudanca: 'Indica mudança ou transformação',
@@ -695,7 +840,8 @@ const DESC_TIPO_ICONE = {
   sujeito: 'Sujeito da oração', fala: 'Fala ou discurso direto', busca: 'Busca ou pesquisa',
   tarefa: 'Tarefa ou lista', pergunta: 'Pergunta', dica: 'Dica ou observação',
   predVerbal: 'Predicado verbal', predNominal: 'Predicado nominal', predVerboNominal: 'Predicado verbo-nominal',
-  semSujeito: 'Oração sem sujeito', externo: 'Envie o link de uma imagem em vez de escolher um ícone pronto',
+  semSujeito: 'Oração sem sujeito', livro: 'Ícone de livro/leitura',
+  externo: 'Envie o link de uma imagem em vez de escolher um ícone pronto',
 };
 
 /** Selo/badge quadrado arredondado com um ícone dentro — usado nas linhas dos popups de escolha
@@ -819,6 +965,7 @@ function renderizarConteudo() {
     checagem: renderFormChecagem,
     resumo: renderFormResumo,
     licao: renderFormLicao,
+    lista: renderFormLista,
   };
   renderers[passo.tipo](formEl, aula.conteudo, passo);
 
@@ -1837,6 +1984,80 @@ function renderFormResumo(el, conteudo) {
   });
 }
 
+function renderFormLista(el, conteudo, passo) {
+  const li = conteudo.lista[passo.idx];
+  el.innerHTML = `
+    <div class="form-secao">
+      <div class="campo">${htmlLabelComEstilo('Título', 'titulo')}<input type="text" id="listaTitulo"></div>
+      <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
+      <div id="listaDestaqueListaTitulo"></div>
+      <div class="secao-titulo-editor">Itens (ícone + texto)</div>
+      <div class="lista-itens" id="listaListaItens"></div>
+      <button class="btn-add-item" type="button" id="btnAddListaItem">+ Adicionar item</button>
+      <div class="campo" style="margin-top:16px">${htmlLabelComEstilo('Descrição (depois da lista)', 'descricao')}<textarea id="listaDescricao" rows="4"></textarea></div>
+      <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
+      <div id="listaDestaqueListaDescricao"></div>
+    </div>`;
+  el.querySelector('#listaTitulo').value = li.titulo || '';
+  el.querySelector('#listaTitulo').addEventListener('input', e => { li.titulo = e.target.value; renderPreviewAtual(); });
+  el.querySelector('#listaDescricao').value = li.descricao || '';
+  el.querySelector('#listaDescricao').addEventListener('input', e => { li.descricao = e.target.value; renderPreviewAtual(); });
+  ligarBotoesEstiloTexto(el, li);
+
+  const renderDestaquesListaTitulo = montarDestaqueFrases(el.querySelector('#listaDestaqueListaTitulo'), li, [
+    { rotulo: 'Título', campo: 'titulo' },
+  ]);
+  el.querySelector('#listaTitulo').addEventListener('blur', () => { podarDestaque(li, 'titulo'); renderDestaquesListaTitulo(); });
+
+  const renderDestaquesListaDescricao = montarDestaqueFrases(el.querySelector('#listaDestaqueListaDescricao'), li, [
+    { rotulo: 'Descrição', campo: 'descricao' },
+  ]);
+  el.querySelector('#listaDescricao').addEventListener('blur', () => { podarDestaque(li, 'descricao'); renderDestaquesListaDescricao(); });
+
+  const lista = el.querySelector('#listaListaItens');
+  function renderItens() {
+    lista.innerHTML = '';
+    li.itens.forEach((it, i) => {
+      const card = document.createElement('div');
+      card.className = 'item-card';
+      card.innerHTML = `
+        <div class="item-card-topo"><strong>Item ${i + 1}</strong><button class="btn-remover-item" type="button">Remover</button></div>
+        <div class="campo">${htmlTipoIconePicker(it, it.cor || '#5B2BCB')}</div>
+        ${htmlCampoIconeExterno(it)}
+        <div class="campo-linha">
+          <div class="campo"><label>Cor</label><input type="color" data-lf="cor"></div>
+          <div class="campo"><label>Fundo</label><input type="color" data-lf="corFundo"></div>
+        </div>
+        <div class="campo">${htmlLabelComEstilo('Texto', 'texto')}<input type="text" data-lf="texto" placeholder="Ex: Construir escolas."></div>
+        <div class="secao-titulo-editor" style="margin-top:12px">Destaque nas frases (palavras em azul)</div>
+        <div id="listaDestaqueListaItem${i}"></div>`;
+      card.querySelector('[data-lf="cor"]').value = it.cor || '#5B2BCB';
+      card.querySelector('[data-lf="corFundo"]').value = it.corFundo || '#f0eaff';
+      card.querySelector('[data-lf="texto"]').value = it.texto || '';
+      card.querySelectorAll('[data-lf]').forEach(input => {
+        input.addEventListener('input', () => { it[input.dataset.lf] = input.value; renderPreviewAtual(); });
+      });
+      ligarBotoesEstiloTexto(card, it);
+      const renderDestaquesListaItem = montarDestaqueFrases(card.querySelector(`#listaDestaqueListaItem${i}`), it, [
+        { rotulo: 'Texto', campo: 'texto' },
+      ]);
+      card.querySelector('[data-lf="texto"]').addEventListener('blur', () => { podarDestaque(it, 'texto'); renderDestaquesListaItem(); });
+      ligarCampoIconeExterno(card, it);
+      ligarTipoIconePicker(card, it, it.cor || '#5B2BCB', renderPreviewAtual);
+      card.querySelector('[data-lf="cor"]').addEventListener('input', () => {
+        card.querySelector('.campo-tipo-icone-preview').innerHTML = iconeTipo(it.tipo, it.cor || '#5B2BCB', it.iconeUrl);
+      });
+      card.querySelector('.btn-remover-item').addEventListener('click', () => { li.itens.splice(i, 1); renderItens(); renderPreviewAtual(); });
+      lista.appendChild(card);
+    });
+  }
+  renderItens();
+  el.querySelector('#btnAddListaItem').addEventListener('click', () => {
+    li.itens.push({ tipo: 'acao', cor: '#5B2BCB', corFundo: '#f0eaff', texto: '' });
+    renderItens(); renderPreviewAtual();
+  });
+}
+
 function renderFormLicao(el, conteudo) {
   const l = conteudo.licao;
   el.innerHTML = `
@@ -1872,7 +2093,6 @@ function renderPreviewAtual() {
   renderPreviewAula();
 }
 
-const ICONE_GENERICO = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.2H22l-6 4.6 2.3 7.2-6.3-4.5-6.3 4.5 2.3-7.2-6-4.6h7.6z"/></svg>';
 
 /** Um por valor de TIPOS_ICONE (js/data.js) — cópia exata de RESUMO_ICONES do motor real
  * (vendor/estudo/js/estudo.mjs), pra prévia mostrar o mesmo ícone que a aluna vai ver de verdade. */
@@ -1896,6 +2116,7 @@ const ICONES_TIPO = {
   predNominal:     cor => `<circle cx="12" cy="12" r="8" fill="none" stroke="${cor}" stroke-width="1.8"/><line x1="8" y1="12" x2="16" y2="12" stroke="${cor}" stroke-width="1.8" stroke-linecap="round"/>`,
   predVerboNominal: cor => `<path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M9 17H7a5 5 0 1 1 0-10h2M15 7h2a5 5 0 1 1 0 10h-2M8 12h8"/>`,
   semSujeito: cor => `<line x1="-1" y1="6"  x2="2" y2="6"  stroke="${cor}" stroke-width="1.6" stroke-linecap="round" opacity="0.5"/><line x1="-1" y1="10" x2="2" y2="10" stroke="${cor}" stroke-width="1.6" stroke-linecap="round" opacity="0.5"/><line x1="-1" y1="14" x2="2" y2="14" stroke="${cor}" stroke-width="1.6" stroke-linecap="round" opacity="0.5"/><circle cx="11" cy="8" r="4" fill="none" stroke="${cor}" stroke-width="1.8"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" d="M4 21v-1a6 6 0 0 1 6-6h1.5"/><circle cx="18" cy="17" r="5" fill="none" stroke="${cor}" stroke-width="1.7"/><line x1="16.1" y1="15.1" x2="19.9" y2="18.9" stroke="${cor}" stroke-width="1.7" stroke-linecap="round"/><line x1="19.9" y1="15.1" x2="16.1" y2="18.9" stroke="${cor}" stroke-width="1.7" stroke-linecap="round"/>`,
+  livro: cor => `<path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>`,
 };
 
 /** Ícone de um "tipo" (TIPOS_ICONE), na cor pedida — pronto pra colar num pp-*-icone. Se
@@ -1915,6 +2136,7 @@ function corpoDoPasso(aula, passo, resp) {
   if (passo.tipo === 'checagem') return { html: previewChecagemCorpo(aula.conteudo.checagem[passo.idx], resp), temToggle: true, item: aula.conteudo.checagem[passo.idx] };
   if (passo.tipo === 'resumo') return { html: previewResumo(aula.conteudo.resumo), temToggle: false };
   if (passo.tipo === 'licao') return { html: previewLicao(aula.conteudo.licao), temToggle: false };
+  if (passo.tipo === 'lista') return { html: previewLista(aula.conteudo.lista[passo.idx]), temToggle: false };
   return { html: '', temToggle: false };
 }
 
@@ -1978,14 +2200,36 @@ function irParaPassoAula(delta) {
   renderPreviewAula();
 }
 
+// Ícones fixos do "Antes de começar" (livro/lâmpada) — cópia exata dos usados no player real
+// (vendor/estudo/js/estudo.mjs:mostrarIntro), pra prévia mostrar o mesmo que a aluna vai ver.
+// Não são escolhidos pela professora (ver TIPOS_ICONE) — ficam sempre fixos nesses dois campos.
+const ICONE_PP_LIVRO = '<svg viewBox="0 0 24 24" fill="none" stroke="#4A80F0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>';
+const ICONE_PP_LAMPADA = '<svg viewBox="0 0 24 24" fill="none" stroke="#4A80F0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>';
+
 function previewAntesComecar(d) {
   if (!d.titulo && !d.descricao) return '<p class="pp-vazio">Preencha os campos ao lado para ver a prévia.</p>';
+  const itemAprender = d.aprender ? `
+    <div class="pp-ac-info-item">
+      <div class="pp-ac-info-icone-wrap">${ICONE_PP_LIVRO}</div>
+      <div class="pp-ac-info-texto">
+        <h3>O que você vai aprender</h3>
+        <p${estiloTextoInline(d, 'aprender')}>${renderFraseComDestaque(d.aprender, d.aprenderDestaque, d.aprenderDestaqueNegrito)}</p>
+      </div>
+    </div>` : '';
+  const itemImportancia = d.importancia ? `
+    <div class="pp-ac-info-item">
+      <div class="pp-ac-info-icone-wrap">${ICONE_PP_LAMPADA}</div>
+      <div class="pp-ac-info-texto">
+        <h3>Por que isso é importante</h3>
+        <p${estiloTextoInline(d, 'importancia')}>${renderFraseComDestaque(d.importancia, d.importanciaDestaque, d.importanciaDestaqueNegrito)}</p>
+      </div>
+    </div>` : '';
   return `
-    <div class="pp-icone-circulo">${ICONE_GENERICO}</div>
-    <p class="pp-titulo"${estiloTextoInline(d, 'titulo', 'text-align:center')}>${renderFraseComDestaque(d.titulo, d.tituloDestaque)}</p>
-    <p class="pp-intro-desc"${estiloTextoInline(d, 'descricao')}>${renderFraseComDestaque(d.descricao, d.descricaoDestaque)}</p>
-    ${d.aprender ? `<div class="pp-info-box"><h3>Você vai aprender</h3><p${estiloTextoInline(d, 'aprender')}>${renderFraseComDestaque(d.aprender, d.aprenderDestaque)}</p></div>` : ''}
-    ${d.importancia ? `<div class="pp-info-box"><h3>Por que importa</h3><p${estiloTextoInline(d, 'importancia')}>${renderFraseComDestaque(d.importancia, d.importanciaDestaque)}</p></div>` : ''}`;
+    <span class="pp-marcar-cartao"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg></span>
+    <span class="pp-intro-label">Antes de começar</span>
+    <p class="pp-titulo"${estiloTextoInline(d, 'titulo')}>${renderFraseComDestaque(d.titulo, d.tituloDestaque, d.tituloDestaqueNegrito)}</p>
+    <p class="pp-intro-desc"${estiloTextoInline(d, 'descricao')}>${renderFraseComDestaque(d.descricao, d.descricaoDestaque, d.descricaoDestaqueNegrito)}</p>
+    ${(itemAprender || itemImportancia) ? `<div class="pp-ac-info">${itemAprender}${itemImportancia}</div>` : ''}`;
 }
 
 function previewExemplo(item) {
@@ -2001,11 +2245,15 @@ function previewExemplo(item) {
   if (!item.texto && !temPalavraSelecionavel && !temPalavraSelecionavelMultipla && !temPalavraPointLabelExemplo && !temPalavraMultiplosRotulos && !temCardImagem && !temFlashcard && !temAudio && !temGravacao && !temGravacaoAluno) return '<p class="pp-vazio">Preencha o texto para ver a prévia.</p>';
   return `
     <div class="pp-exemplo-icone">${iconeTipo(item.tipo, '#4A80F0', item.iconeUrl)}</div>
-    ${item.texto ? `<p class="pp-exemplo-texto"${estiloTextoInline(item, 'texto')}>${renderFraseComDestaque(item.texto, item.textoDestaque)}</p>` : ''}
-    ${item.conclusao ? `<p class="pp-exemplo-conclusao"${estiloTextoInline(item, 'conclusao')}>${renderFraseComDestaque(item.conclusao, item.conclusaoDestaque)}</p>` : ''}
-    ${item.obs ? `<p class="pp-exemplo-texto"${estiloTextoInline(item, 'obs')}>${renderFraseComDestaque(item.obs, item.obsDestaque)}</p>` : ''}
+    ${item.texto ? `<p class="pp-exemplo-texto"${estiloTextoInline(item, 'texto')}>${renderFraseComDestaque(item.texto, item.textoDestaque, item.textoDestaqueNegrito)}</p>` : ''}
+    ${item.conclusao ? `<p class="pp-exemplo-conclusao"${estiloTextoInline(item, 'conclusao')}>${renderFraseComDestaque(item.conclusao, item.conclusaoDestaque, item.conclusaoDestaqueNegrito)}</p>` : ''}
+    ${item.obs ? `
+    <div class="pp-exemplo-obs-box">
+      <span class="pp-exemplo-obs-icone"><svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="#4A80F0"/><rect x="11" y="10" width="2" height="7" rx="1" fill="#fff"/><rect x="11" y="6.5" width="2" height="2" rx="1" fill="#fff"/></svg></span>
+      <p class="pp-exemplo-obs-texto"${estiloTextoInline(item, 'obs')}>${renderFraseComDestaque(item.obs, item.obsDestaque, item.obsDestaqueNegrito)}</p>
+    </div>` : ''}
     ${(item.pontos && item.pontos.length) ? `<div class="pp-pontos">${item.pontos.map(p => `
-      <div class="pp-ponto"><div class="pp-ponto-icone">${iconeTipo(p.tipo, '#4A80F0', p.iconeUrl)}</div><p class="pp-ponto-texto"${estiloTextoInline(p, 'texto')}>${renderFraseComDestaque(p.texto, p.textoDestaque)}</p></div>`).join('')}</div>` : ''}
+      <div class="pp-ponto"><div class="pp-ponto-icone">${iconeTipo(p.tipo, '#4A80F0', p.iconeUrl)}</div><p class="pp-ponto-texto"${estiloTextoInline(p, 'texto')}>${renderFraseComDestaque(p.texto, p.textoDestaque, p.textoDestaqueNegrito)}</p></div>`).join('')}</div>` : ''}
     ${item.palavraSelecionavel ? previewPalavraSelecionavel(item.palavraSelecionavel) : ''}
     ${item.palavraSelecionavelMultipla ? previewPalavraSelecionavelMultipla(item.palavraSelecionavelMultipla) : ''}
     ${item.palavraPointLabelExemplo ? previewPalavraSelecionavelMultipla(item.palavraPointLabelExemplo, 'Exemplo:') : ''}
@@ -2031,9 +2279,9 @@ function previewCardImagem(ci) {
     <div class="pp-card-imagem">
       ${ci.imagemUrl ? `<img class="pp-card-imagem-img" src="${escaparHtml(ci.imagemUrl)}" alt="">` : ''}
       ${temCorpo ? `<div class="pp-card-imagem-corpo">
-        ${ci.titulo ? `<p class="pp-card-imagem-titulo"${estiloTextoInline(ci, 'titulo')}>${renderFraseComDestaque(ci.titulo, ci.tituloDestaque)}</p>` : ''}
-        ${ci.subtitulo ? `<p class="pp-card-imagem-subtitulo"${estiloTextoInline(ci, 'subtitulo')}>${renderFraseComDestaque(ci.subtitulo, ci.subtituloDestaque)}</p>` : ''}
-        ${ci.texto ? `<p class="pp-card-imagem-texto"${estiloTextoInline(ci, 'texto')}>${renderFraseComDestaque(ci.texto, ci.textoDestaque)}</p>` : ''}
+        ${ci.titulo ? `<p class="pp-card-imagem-titulo"${estiloTextoInline(ci, 'titulo')}>${renderFraseComDestaque(ci.titulo, ci.tituloDestaque, ci.tituloDestaqueNegrito)}</p>` : ''}
+        ${ci.subtitulo ? `<p class="pp-card-imagem-subtitulo"${estiloTextoInline(ci, 'subtitulo')}>${renderFraseComDestaque(ci.subtitulo, ci.subtituloDestaque, ci.subtituloDestaqueNegrito)}</p>` : ''}
+        ${ci.texto ? `<p class="pp-card-imagem-texto"${estiloTextoInline(ci, 'texto')}>${renderFraseComDestaque(ci.texto, ci.textoDestaque, ci.textoDestaqueNegrito)}</p>` : ''}
       </div>` : ''}
     </div>`;
 }
@@ -2047,11 +2295,11 @@ function previewAudioCard(a) {
     <div class="pp-card-audio">
       ${tagObrigatorio(a)}
       ${(a.titulo || a.subtitulo) ? `<div class="pp-card-audio-cabecalho">
-        ${a.titulo ? `<p class="pp-card-audio-titulo"${estiloTextoInline(a, 'titulo')}>${renderFraseComDestaque(a.titulo, a.tituloDestaque)}</p>` : ''}
-        ${a.subtitulo ? `<p class="pp-card-audio-subtitulo"${estiloTextoInline(a, 'subtitulo')}>${renderFraseComDestaque(a.subtitulo, a.subtituloDestaque)}</p>` : ''}
+        ${a.titulo ? `<p class="pp-card-audio-titulo"${estiloTextoInline(a, 'titulo')}>${renderFraseComDestaque(a.titulo, a.tituloDestaque, a.tituloDestaqueNegrito)}</p>` : ''}
+        ${a.subtitulo ? `<p class="pp-card-audio-subtitulo"${estiloTextoInline(a, 'subtitulo')}>${renderFraseComDestaque(a.subtitulo, a.subtituloDestaque, a.subtituloDestaqueNegrito)}</p>` : ''}
       </div>` : ''}
       ${a.audioUrl ? `<audio class="pp-card-audio-player" controls src="${escaparHtml(a.audioUrl)}"></audio>` : ''}
-      ${a.texto ? `<p class="pp-card-audio-texto"${estiloTextoInline(a, 'texto')}>${renderFraseComDestaque(a.texto, a.textoDestaque)}</p>` : ''}
+      ${a.texto ? `<p class="pp-card-audio-texto"${estiloTextoInline(a, 'texto')}>${renderFraseComDestaque(a.texto, a.textoDestaque, a.textoDestaqueNegrito)}</p>` : ''}
     </div>`;
 }
 
@@ -2062,12 +2310,12 @@ function previewGravacaoAlunoCard(g) {
     <div class="pp-card-audio pp-card-gravacao-aluno">
       ${tagObrigatorio(g)}
       ${(g.titulo || g.subtitulo) ? `<div class="pp-card-audio-cabecalho">
-        ${g.titulo ? `<p class="pp-card-audio-titulo"${estiloTextoInline(g, 'titulo')}>${renderFraseComDestaque(g.titulo, g.tituloDestaque)}</p>` : ''}
-        ${g.subtitulo ? `<p class="pp-card-audio-subtitulo"${estiloTextoInline(g, 'subtitulo')}>${renderFraseComDestaque(g.subtitulo, g.subtituloDestaque)}</p>` : ''}
+        ${g.titulo ? `<p class="pp-card-audio-titulo"${estiloTextoInline(g, 'titulo')}>${renderFraseComDestaque(g.titulo, g.tituloDestaque, g.tituloDestaqueNegrito)}</p>` : ''}
+        ${g.subtitulo ? `<p class="pp-card-audio-subtitulo"${estiloTextoInline(g, 'subtitulo')}>${renderFraseComDestaque(g.subtitulo, g.subtituloDestaque, g.subtituloDestaqueNegrito)}</p>` : ''}
       </div>` : ''}
       <div class="pp-gravacao-aluno-mock">🎙️ Gravar áudio</div>
       <p class="pp-gravacao-aluno-mock-nota">A aluna grava aqui, ao estudar a aula.</p>
-      ${g.texto ? `<p class="pp-card-audio-texto"${estiloTextoInline(g, 'texto')}>${renderFraseComDestaque(g.texto, g.textoDestaque)}</p>` : ''}
+      ${g.texto ? `<p class="pp-card-audio-texto"${estiloTextoInline(g, 'texto')}>${renderFraseComDestaque(g.texto, g.textoDestaque, g.textoDestaqueNegrito)}</p>` : ''}
     </div>`;
 }
 
@@ -2079,12 +2327,12 @@ function previewFlashcard(fc) {
     <div class="pp-flashcard">
       <div class="pp-flashcard-lado">
         <span class="pp-flashcard-rotulo">Frente</span>
-        ${fc.frente ? `<p class="pp-flashcard-texto"${estiloTextoInline(fc, 'frente')}>${renderFraseComDestaque(fc.frente, fc.frenteDestaque)}</p>` : ''}
+        ${fc.frente ? `<p class="pp-flashcard-texto"${estiloTextoInline(fc, 'frente')}>${renderFraseComDestaque(fc.frente, fc.frenteDestaque, fc.frenteDestaqueNegrito)}</p>` : ''}
       </div>
       <div class="pp-flashcard-divisor"></div>
       <div class="pp-flashcard-lado">
         <span class="pp-flashcard-rotulo">Verso</span>
-        ${fc.verso ? `<p class="pp-flashcard-texto"${estiloTextoInline(fc, 'verso')}>${renderFraseComDestaque(fc.verso, fc.versoDestaque)}</p>` : ''}
+        ${fc.verso ? `<p class="pp-flashcard-texto"${estiloTextoInline(fc, 'verso')}>${renderFraseComDestaque(fc.verso, fc.versoDestaque, fc.versoDestaqueNegrito)}</p>` : ''}
       </div>
     </div>`;
 }
@@ -2169,19 +2417,27 @@ function corDoRotulo(rotulo, mapaCores) {
   return mapaCores.get(rotulo);
 }
 
-/** Renderiza um texto corrido (Título/Instrução) com algumas palavras em azul de destaque —
- * diferente dos "chips", aqui o texto continua fluindo normalmente, só muda a cor da palavra. */
+/** Renderiza um texto corrido (Título/Instrução) com algumas palavras em azul de destaque e/ou em
+ * negrito — diferente dos "chips", aqui o texto continua fluindo normalmente, só muda o estilo da
+ * palavra. Uma palavra pode ser só azul, só negrito, ou as duas coisas ao mesmo tempo. */
 /** Quebra por "\n" (Enter no textarea) viram <br> — sem isso o texto sempre saía tudo numa linha
  * só. Os índices de destaque continuam contando palavra por palavra em sequência ao longo das
  * linhas (mesma ordem de tokenizarFrase(texto) inteiro), então não invalida destaques já salvos. */
-function renderFraseComDestaque(texto, indices) {
+function renderFraseComDestaque(texto, indices, indicesNegrito) {
   if (!texto) return '';
   const destacadas = new Set(indices || []);
+  const negritos = new Set(indicesNegrito || []);
   let contador = 0;
   return texto.split('\n').map(linha => {
     const partes = tokenizarFrase(linha).map(tok => {
       const i = contador++;
-      return (destacadas.has(i) && !ehPontuacao(tok)) ? `<span class="pp-destaque-azul">${escaparHtml(tok)}</span>` : escaparHtml(tok);
+      if (ehPontuacao(tok)) return escaparHtml(tok);
+      const azul = destacadas.has(i);
+      const negrito = negritos.has(i);
+      if (!azul && !negrito) return escaparHtml(tok);
+      const classe = azul ? ' class="pp-destaque-azul"' : '';
+      const estilo = negrito ? ' style="font-weight:700"' : '';
+      return `<span${classe}${estilo}>${escaparHtml(tok)}</span>`;
     });
     return partes.join(' ').replace(/ ([.,!?;:]+)/g, '$1');
   }).join('<br>');
@@ -2203,7 +2459,7 @@ function previewPalavraSelecionavel(ps, instrucaoPadrao) {
     <div class="pp-palavra-select">
       <div class="pp-palavra-select-cabecalho">
         <div class="pp-palavra-select-icone">${iconeTipo('tarefa', '#4A80F0')}</div>
-        <p class="pp-palavra-select-instrucao"${estiloTextoInline(ps, 'instrucao')}>${ps.instrucao ? renderFraseComDestaque(ps.instrucao, ps.instrucaoDestaque) : escaparHtml(instrucaoPadrao || 'Selecione a palavra abaixo:')}</p>
+        <p class="pp-palavra-select-instrucao"${estiloTextoInline(ps, 'instrucao')}>${ps.instrucao ? renderFraseComDestaque(ps.instrucao, ps.instrucaoDestaque, ps.instrucaoDestaqueNegrito) : escaparHtml(instrucaoPadrao || 'Selecione a palavra abaixo:')}</p>
       </div>
       <div class="pp-frase-anotada">${chips}${colchete}</div>
     </div>`;
@@ -2225,12 +2481,12 @@ function previewPalavraSelecionavelMultipla(psm, instrucaoPadrao) {
     : `<div class="pp-chip-bracket pp-chip-bracket-vazio" style="grid-column:${ini + 1}/span ${fim - ini + 1};grid-row:2">Rótulo</div>`
   ).join('');
   return `
-    ${psm.titulo ? `<p class="pp-palavra-select-titulo"${estiloTextoInline(psm, 'titulo')}>${renderFraseComDestaque(psm.titulo, psm.tituloDestaque)}</p>` : ''}
-    ${psm.subtitulo ? `<p class="pp-palavra-select-subtitulo"${estiloTextoInline(psm, 'subtitulo')}>${renderFraseComDestaque(psm.subtitulo, psm.subtituloDestaque)}</p>` : ''}
+    ${psm.titulo ? `<p class="pp-palavra-select-titulo"${estiloTextoInline(psm, 'titulo')}>${renderFraseComDestaque(psm.titulo, psm.tituloDestaque, psm.tituloDestaqueNegrito)}</p>` : ''}
+    ${psm.subtitulo ? `<p class="pp-palavra-select-subtitulo"${estiloTextoInline(psm, 'subtitulo')}>${renderFraseComDestaque(psm.subtitulo, psm.subtituloDestaque, psm.subtituloDestaqueNegrito)}</p>` : ''}
     <div class="pp-palavra-select">
       <div class="pp-palavra-select-cabecalho">
         <div class="pp-palavra-select-icone">${iconeTipo('tarefa', '#4A80F0')}</div>
-        <p class="pp-palavra-select-instrucao"${estiloTextoInline(psm, 'instrucao')}>${psm.instrucao ? renderFraseComDestaque(psm.instrucao, psm.instrucaoDestaque) : escaparHtml(instrucaoPadrao || 'Selecione as palavras abaixo:')}</p>
+        <p class="pp-palavra-select-instrucao"${estiloTextoInline(psm, 'instrucao')}>${psm.instrucao ? renderFraseComDestaque(psm.instrucao, psm.instrucaoDestaque, psm.instrucaoDestaqueNegrito) : escaparHtml(instrucaoPadrao || 'Selecione as palavras abaixo:')}</p>
       </div>
       <div class="pp-frase-anotada">${chips}${colchetes}</div>
     </div>`;
@@ -2260,7 +2516,7 @@ function previewPalavraMultiplosRotulos(pmr) {
     <div class="pp-palavra-select">
       <div class="pp-palavra-select-cabecalho">
         <div class="pp-palavra-select-icone">${iconeTipo('tarefa', '#4A80F0')}</div>
-        <p class="pp-palavra-select-instrucao"${estiloTextoInline(pmr, 'instrucao')}>${pmr.instrucao ? renderFraseComDestaque(pmr.instrucao, pmr.instrucaoDestaque) : escaparHtml('Classifique cada palavra:')}</p>
+        <p class="pp-palavra-select-instrucao"${estiloTextoInline(pmr, 'instrucao')}>${pmr.instrucao ? renderFraseComDestaque(pmr.instrucao, pmr.instrucaoDestaque, pmr.instrucaoDestaqueNegrito) : escaparHtml('Classifique cada palavra:')}</p>
       </div>
       <div class="pp-frase-anotada">${chips}${colchetes}</div>
     </div>`;
@@ -2292,7 +2548,7 @@ function previewChecagemMultiplosRotulos(item) {
     ).join('')
   ).join('');
   return `
-    <p class="pp-titulo"${estiloTextoInline(item, 'titulo')}>${renderFraseComDestaque(item.titulo || '', item.tituloDestaque)}</p>
+    <p class="pp-titulo"${estiloTextoInline(item, 'titulo')}>${renderFraseComDestaque(item.titulo || '', item.tituloDestaque, item.tituloDestaqueNegrito)}</p>
     <div class="pp-modo-toggle">${botoes}</div>
     <div class="pp-frase-anotada">${chips}${colchetes}</div>
     <button type="button" class="pp-btn-confirmar" disabled>Confirmar resposta</button>`;
@@ -2307,8 +2563,8 @@ function previewChecagemCorpo(item, resp) {
     if (!item.titulo && (item.opcoes || []).every(o => !o)) return '<p class="pp-vazio">Preencha o exercício para ver a prévia.</p>';
     const letras = 'ABCDEFGH';
     const cabecalho = item.invertido
-      ? `<p class="pp-subtitulo"${estiloTextoInline(item, 'subtitulo')}>${renderFraseComDestaque(item.subtitulo || '', item.subtituloDestaque)}</p><p class="pp-titulo"${estiloTextoInline(item, 'titulo')}>${renderFraseComDestaque(item.titulo || '', item.tituloDestaque)}</p>`
-      : `<p class="pp-titulo"${estiloTextoInline(item, 'titulo')}>${renderFraseComDestaque(item.titulo || '', item.tituloDestaque)}</p>${item.subtitulo ? `<p class="pp-subtitulo"${estiloTextoInline(item, 'subtitulo')}>${renderFraseComDestaque(item.subtitulo, item.subtituloDestaque)}</p>` : ''}`;
+      ? `<p class="pp-subtitulo"${estiloTextoInline(item, 'subtitulo')}>${renderFraseComDestaque(item.subtitulo || '', item.subtituloDestaque, item.subtituloDestaqueNegrito)}</p><p class="pp-titulo"${estiloTextoInline(item, 'titulo')}>${renderFraseComDestaque(item.titulo || '', item.tituloDestaque, item.tituloDestaqueNegrito)}</p>`
+      : `<p class="pp-titulo"${estiloTextoInline(item, 'titulo')}>${renderFraseComDestaque(item.titulo || '', item.tituloDestaque, item.tituloDestaqueNegrito)}</p>${item.subtitulo ? `<p class="pp-subtitulo"${estiloTextoInline(item, 'subtitulo')}>${renderFraseComDestaque(item.subtitulo, item.subtituloDestaque, item.subtituloDestaqueNegrito)}</p>` : ''}`;
     const opcoes = (item.opcoes || []).map((texto, i) => {
       let cls = '';
       if (resp !== 'padrao') {
@@ -2319,7 +2575,7 @@ function previewChecagemCorpo(item, resp) {
       if ((item.opcoesNegrito || [])[i]) partesEstilo.push('font-weight:700');
       if ((item.opcoesItalico || [])[i]) partesEstilo.push('font-style:italic');
       const estiloOpcao = partesEstilo.length ? ` style="${partesEstilo.join(';')}"` : '';
-      return `<button class="pp-opcao ${cls}"><span class="pp-letra">${letras[i] || i + 1}</span><span${estiloOpcao}>${renderFraseComDestaque(texto, (item.opcoesDestaque || [])[i])}</span></button>`;
+      return `<button class="pp-opcao ${cls}"><span class="pp-letra">${letras[i] || i + 1}</span><span${estiloOpcao}>${renderFraseComDestaque(texto, (item.opcoesDestaque || [])[i], (item.opcoesDestaqueNegrito || [])[i])}</span></button>`;
     }).join('');
     return `${cabecalho}<div class="pp-opcoes">${opcoes}</div>`;
   }
@@ -2334,7 +2590,7 @@ function previewChecagemCorpo(item, resp) {
     }
     return `<span class="pp-chip ${cls}">${escaparHtml(tok)}</span>`;
   }).join('');
-  return `<p class="pp-titulo"${estiloTextoInline(item, 'titulo')}>${renderFraseComDestaque(item.titulo || '', item.tituloDestaque)}</p>${item.subtitulo ? `<p class="pp-subtitulo"${estiloTextoInline(item, 'subtitulo')}>${renderFraseComDestaque(item.subtitulo, item.subtituloDestaque)}</p>` : ''}<div class="pp-sentenca">${chips}</div>`;
+  return `<p class="pp-titulo"${estiloTextoInline(item, 'titulo')}>${renderFraseComDestaque(item.titulo || '', item.tituloDestaque, item.tituloDestaqueNegrito)}</p>${item.subtitulo ? `<p class="pp-subtitulo"${estiloTextoInline(item, 'subtitulo')}>${renderFraseComDestaque(item.subtitulo, item.subtituloDestaque, item.subtituloDestaqueNegrito)}</p>` : ''}<div class="pp-sentenca">${chips}</div>`;
 }
 
 function proximoIndiceErrado(item) {
@@ -2349,20 +2605,32 @@ function proximoIndiceErradoPalavra(item) {
 function previewResumo(r) {
   if (!r.itens.length) return '<p class="pp-vazio">Adicione itens para ver a prévia.</p>';
   return `
-    ${r.titulo ? `<p class="pp-titulo"${estiloTextoInline(r, 'titulo')}>${renderFraseComDestaque(r.titulo, r.tituloDestaque)}</p>` : ''}
+    ${r.titulo ? `<p class="pp-titulo"${estiloTextoInline(r, 'titulo')}>${renderFraseComDestaque(r.titulo, r.tituloDestaque, r.tituloDestaqueNegrito)}</p>` : ''}
     ${r.itens.map(it => `
       <div class="pp-resumo-item">
         <div class="pp-resumo-icone" style="background:${it.corFundo || '#eef2ff'};color:${it.cor || '#4A80F0'}">${iconeTipo(it.tipo, it.cor || '#4A80F0', it.iconeUrl)}</div>
         <div class="pp-resumo-info">
-          <span class="pp-resumo-titulo-item"${estiloTextoInline(it, 'titulo', `color:${it.cor || '#1a1a2e'}`)}>${renderFraseComDestaque(it.titulo, it.tituloDestaque)}</span>
-          <span class="pp-resumo-exemplos"${estiloTextoInline(it, 'exemplos')}>${renderFraseComDestaque(it.exemplos, it.exemplosDestaque)}</span>
+          <span class="pp-resumo-titulo-item"${estiloTextoInline(it, 'titulo', `color:${it.cor || '#1a1a2e'}`)}>${renderFraseComDestaque(it.titulo, it.tituloDestaque, it.tituloDestaqueNegrito)}</span>
+          <span class="pp-resumo-exemplos"${estiloTextoInline(it, 'exemplos')}>${renderFraseComDestaque(it.exemplos, it.exemplosDestaque, it.exemplosDestaqueNegrito)}</span>
         </div>
       </div>`).join('')}`;
 }
 
+function previewLista(li) {
+  if (!li.itens.length && !li.descricao) return '<p class="pp-vazio">Adicione itens para ver a prévia.</p>';
+  return `
+    ${li.titulo ? `<p class="pp-titulo"${estiloTextoInline(li, 'titulo')}>${renderFraseComDestaque(li.titulo, li.tituloDestaque, li.tituloDestaqueNegrito)}</p>` : ''}
+    ${li.itens.map(it => `
+      <div class="pp-resumo-item">
+        <div class="pp-resumo-icone" style="background:${it.corFundo || '#eef2ff'};color:${it.cor || '#4A80F0'}">${iconeTipo(it.tipo, it.cor || '#4A80F0', it.iconeUrl)}</div>
+        <span class="pp-lista-item-texto"${estiloTextoInline(it, 'texto')}>${renderFraseComDestaque(it.texto, it.textoDestaque, it.textoDestaqueNegrito)}</span>
+      </div>`).join('')}
+    ${li.descricao ? `<p class="pp-lista-descricao"${estiloTextoInline(li, 'descricao')}>${renderFraseComDestaque(li.descricao, li.descricaoDestaque, li.descricaoDestaqueNegrito)}</p>` : ''}`;
+}
+
 function previewLicao(l) {
   if (!l.html && !l.titulo) return '<p class="pp-vazio">Preencha para ver a prévia.</p>';
-  return `<p class="pp-titulo"${estiloTextoInline(l, 'titulo')}>📖 ${renderFraseComDestaque(l.titulo, l.tituloDestaque)}</p><div class="pp-licao-corpo">${l.html}</div>`;
+  return `<p class="pp-titulo"${estiloTextoInline(l, 'titulo')}>📖 ${renderFraseComDestaque(l.titulo, l.tituloDestaque, l.tituloDestaqueNegrito)}</p><div class="pp-licao-corpo">${l.html}</div>`;
 }
 
 /* ---------------------------------------------------------------------- */

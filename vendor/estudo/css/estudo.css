@@ -438,6 +438,27 @@ body {
   text-align: justify;
 }
 
+.exemplo-obs-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #eef2ff;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.exemplo-obs-icone {
+  flex-shrink: 0;
+  display: flex;
+}
+
+.exemplo-obs-texto {
+  font-size: 14.5px;
+  color: #1a1a2e;
+  line-height: 1.4;
+  text-align: left;
+}
+
 .exemplo-pontos {
   display: flex;
   flex-direction: column;
@@ -1002,6 +1023,20 @@ body {
 .resumo-item-exemplos {
   font-size: 14px;
   color: #64748b;
+}
+
+/* TELA DE LISTA — mesmo cartão do resumo, mas cada item é uma linha só (ícone +
+   texto, sem título/exemplos separados) e uma descrição livre depois da lista. */
+.lista-item-texto {
+  font-size: 16px;
+  color: #1a1a2e;
+}
+
+.lista-descricao {
+  font-size: 16px;
+  color: #4b5563;
+  line-height: 1.6;
+  text-align: justify;
 }
 
 /* TELA DE IDENTIFICAÇÃO */
@@ -1717,6 +1752,7 @@ body {
 .feedback-explicacao {
   display: block;
   font-weight: 400;
+  white-space: pre-line;
 }
 
 .feedback-correta {
