@@ -184,6 +184,13 @@ const DADOS_FICTICIOS_TELA = {
   },
   checagemMultipla: { titulo: 'Assim vai aparecer a pergunta da checagem.', opcoes: ['Alternativa A', 'Alternativa B', 'Alternativa C'], correta: 0 },
   checagemPalavra: { titulo: 'Assim vai aparecer a instrução da checagem.', sentenca: ['A', 'Maria', 'estudou', 'muito', '.'], correta: 2 },
+  checagemCertoErrado: { titulo: 'Assim vai aparecer a afirmação da checagem.', opcoes: ['Certo', 'Errado'], correta: 0, certoErrado: true },
+  checagemMultiplosRotulos: {
+    titulo: 'Assim vai aparecer a instrução da checagem.',
+    sentenca: ['O', 'menino', 'leu', 'o', 'livro', '.'],
+    rotulos: ['SUJEITO', 'SUJEITO', 'VERBO;PREDICADO', 'PREDICADO', 'PREDICADO', ''],
+    mostrarRespostaCadaItem: true, multiplosRotulos: true,
+  },
 };
 
 const NOME_TELA_ADICIONAR = {
@@ -199,6 +206,8 @@ const NOME_TELA_ADICIONAR = {
   'exemplo:gravacaoAluno': 'Card de gravação do aluno',
   'checagem:multipla': 'Questão múltipla escolha',
   'checagem:palavra': 'Selecione a palavra',
+  'checagem:certoErrado': 'Questão certo ou errado',
+  'checagem:multiplosRotulos': 'Múltiplos Rótulos (questão)',
 };
 
 /** Tipo (e, se aplicável, a variante) escolhidos no popup "Tipo (Telas)" — ainda não
@@ -237,7 +246,12 @@ function mostrarPreviewNovaTela(tipo, modo) {
   if (tipo === 'exemplo') {
     body.innerHTML = previewExemplo(DADOS_EXEMPLO_POR_MODO[modo] || DADOS_FICTICIOS_TELA.exemplo);
   } else {
-    const dados = modo === 'palavra' ? DADOS_FICTICIOS_TELA.checagemPalavra : DADOS_FICTICIOS_TELA.checagemMultipla;
+    const DADOS_CHECAGEM_POR_MODO = {
+      palavra: DADOS_FICTICIOS_TELA.checagemPalavra,
+      certoErrado: DADOS_FICTICIOS_TELA.checagemCertoErrado,
+      multiplosRotulos: DADOS_FICTICIOS_TELA.checagemMultiplosRotulos,
+    };
+    const dados = DADOS_CHECAGEM_POR_MODO[modo] || DADOS_FICTICIOS_TELA.checagemMultipla;
     body.innerHTML = previewChecagemCorpo(dados, 'padrao');
   }
 
@@ -281,6 +295,7 @@ function renderEstruturaTelas() {
   const btnAdicionar = document.getElementById('btnAdicionarTela');
   if (btnAdicionar) {
     const ICONE_PALAVRA = '<svg width="15" height="15" viewBox="0 0 24 24" fill="#fff" stroke="none"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>';
+    const ICONE_CERTO_ERRADO = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12 9 17 20 6"/></svg>';
     const ICONE_ROTULO = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8 8a2 2 0 0 0 2.828 0l7.172-7.172a2 2 0 0 0 0-2.828z"/><circle cx="7.5" cy="7.5" r="1.5" fill="#fff" stroke="none"/></svg>';
     const ICONE_IMAGEM = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>';
     const ICONE_FLASHCARD = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="15" height="12" rx="2"/><path d="M7 2h13a2 2 0 0 1 2 2v12"/></svg>';
@@ -348,6 +363,16 @@ function renderEstruturaTelas() {
           label: 'Selecione a palavra', sublabel: 'A aluna clica na palavra certa da frase', grupo: 'Questão',
           iconeHtml: badgeIcone(ICONE_PALAVRA, '#0EA5E9'),
           onClick: () => mostrarPreviewNovaTela('checagem', 'palavra'),
+        },
+        {
+          label: 'Questão certo ou errado', sublabel: 'Afirmação com duas alternativas fixas: Certo ou Errado', grupo: 'Questão',
+          iconeHtml: badgeIcone(ICONE_CERTO_ERRADO, '#16A34A'),
+          onClick: () => mostrarPreviewNovaTela('checagem', 'certoErrado'),
+        },
+        {
+          label: 'Múltiplos Rótulos (questão)', sublabel: 'A aluna clica na(s) palavra(s) certa(s) pra cada rótulo (ex: verbo, sujeito, predicado)', grupo: 'Questão',
+          iconeHtml: badgeIcone(ICONE_ROTULO, '#0D9488'),
+          onClick: () => mostrarPreviewNovaTela('checagem', 'multiplosRotulos'),
         },
       ]);
     };
@@ -492,7 +517,11 @@ function adicionarItemPasso(tipoLista, variante) {
     inserirNaOrdemAntesDoResumo(conteudo, { tipo: 'exemplo', id });
   } else if (tipoLista === 'checagem') {
     const base = { _id: id, titulo: '', correta: 0, feedbackCorreto: '', feedbackErrado: '' };
-    conteudo.checagem.push(variante === 'palavra' ? { ...base, sentenca: [], classes: [] } : { ...base, opcoes: ['', ''] });
+    const novaChecagem = variante === 'palavra' ? { ...base, sentenca: [], classes: [] }
+      : variante === 'certoErrado' ? { ...base, opcoes: ['Certo', 'Errado'], certoErrado: true }
+      : variante === 'multiplosRotulos' ? { ...base, sentenca: [], rotulos: [], mostrarRespostaCadaItem: true, multiplosRotulos: true }
+      : { ...base, opcoes: ['', ''] };
+    conteudo.checagem.push(novaChecagem);
     inserirNaOrdemAntesDoResumo(conteudo, { tipo: 'checagem', id });
   } else {
     return;
@@ -1129,6 +1158,7 @@ function renderBlocoPalavraMultiplosRotulos(bloco, item) {
       <div class="campo">${htmlLabelComEstilo('Instrução (opcional)', 'instrucao')}<input type="text" data-pmrf="instrucao" placeholder="Ex: Classifique cada palavra da frase:"></div>
       <div class="campo"><label>Frase (edite e clique fora para gerar as palavras)</label><textarea id="pmrFraseTexto" placeholder="Ex: A Maria estudou muito."></textarea></div>
       <div class="secao-titulo-editor">Rótulo de cada palavra (deixe em branco se não tiver rótulo)</div>
+      <p class="pp-vazio" style="margin:0 0 10px">Uma palavra pode ter mais de um rótulo ao mesmo tempo — separe com ; (ex: "jogaram" pode ser <strong>VERBO;PREDICADO</strong>, ficando no colchete de cima E no colchete mais largo embaixo).</p>
       <div class="lista-itens" id="listaPalavrasMultiplosRotulos"></div>
       <div class="secao-titulo-editor" style="margin-top:12px">Destaque nas frases (palavras em azul)</div>
       <div id="listaDestaquePMR"></div>
@@ -1158,7 +1188,7 @@ function renderBlocoPalavraMultiplosRotulos(bloco, item) {
       card.innerHTML = `
         <div class="campo-linha">
           <strong style="min-width:70px;display:flex;align-items:center;">"${escaparHtml(tok)}"</strong>
-          <input type="text" data-rotulo placeholder="Rótulo (opcional)">
+          <input type="text" data-rotulo placeholder="Ex: VERBO ou VERBO;PREDICADO">
         </div>`;
       card.querySelector('[data-rotulo]').value = pmr.rotulos[i] || '';
       card.querySelector('[data-rotulo]').addEventListener('input', e => { pmr.rotulos[i] = e.target.value; renderPreviewAtual(); });
@@ -1451,19 +1481,29 @@ function renderBlocoGravacaoAluno(bloco, item) {
 
 function renderFormChecagem(el, conteudo, passo) {
   const item = conteudo.checagem[passo.idx];
-  const modo = Array.isArray(item.sentenca) ? 'palavra' : 'multipla';
+  // multiplosRotulos também usa "sentenca" (array), então precisa ser conferido ANTES de "palavra".
+  const modo = item.multiplosRotulos ? 'multiplosRotulos'
+    : Array.isArray(item.sentenca) ? 'palavra'
+    : (item.certoErrado ? 'certoErrado' : 'multipla');
+  const ROTULO_MODO = {
+    palavra: '🖱️ Selecione a palavra',
+    certoErrado: '✅❌ Certo ou errado',
+    multipla: '☑️ Questão múltipla escolha',
+    multiplosRotulos: '🏷️ Múltiplos Rótulos',
+  };
 
   // O tipo de exercício já foi escolhido em "Tipo (Telas)" ao criar essa checagem — sem seletor
   // duplicado aqui, só um rótulo indicando qual é.
   el.innerHTML = `
     <div class="form-secao">
-      <div class="checagem-modo-rotulo">${modo === 'palavra' ? '🖱️ Selecione a palavra' : '☑️ Questão múltipla escolha'}</div>
+      <div class="checagem-modo-rotulo">${ROTULO_MODO[modo]}</div>
       <div id="corpoChecagem"></div>
     </div>`;
 
   const corpo = el.querySelector('#corpoChecagem');
-  if (modo === 'multipla') renderCorpoChecagemMultipla(corpo, item);
-  else renderCorpoChecagemPalavra(corpo, item);
+  if (modo === 'multiplosRotulos') renderCorpoChecagemMultiplosRotulos(corpo, item);
+  else if (modo === 'palavra') renderCorpoChecagemPalavra(corpo, item);
+  else renderCorpoChecagemMultipla(corpo, item);
 }
 
 function renderCorpoChecagemMultipla(corpo, item) {
@@ -1480,9 +1520,9 @@ function renderCorpoChecagemMultipla(corpo, item) {
     <div class="campo">${htmlLabelComEstilo('Título / pergunta', 'titulo')}<textarea data-f="titulo"></textarea></div>
     <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
     <div id="listaDestaqueChecMultipla"></div>
-    <div class="secao-titulo-editor">Alternativas (marque a correta)</div>
+    <div class="secao-titulo-editor">${item.certoErrado ? 'Certo ou Errado (marque a correta)' : 'Alternativas (marque a correta)'}</div>
     <div class="lista-itens" id="listaOpcoes"></div>
-    <button class="btn-add-item" type="button" id="btnAddOpcao">+ Adicionar alternativa</button>
+    ${item.certoErrado ? '' : '<button class="btn-add-item" type="button" id="btnAddOpcao">+ Adicionar alternativa</button>'}
     <div class="campo" style="margin-top:12px"><label>✅ Feedback quando ACERTAR</label><textarea data-f="feedbackCorreto"></textarea></div>
     <div class="campo"><label>❌ Feedback quando ERRAR</label><textarea data-f="feedbackErrado"></textarea></div>`;
 
@@ -1518,7 +1558,7 @@ function renderCorpoChecagemMultipla(corpo, item) {
             <button type="button" class="btn-estilo-texto" data-opcao-estilo="Negrito" title="Negrito"><strong>B</strong></button>
             <button type="button" class="btn-estilo-texto" data-opcao-estilo="Italico" title="Itálico"><em>I</em></button>
           </div>
-          <button class="btn-remover-item" type="button">Remover</button>
+          ${item.certoErrado ? '' : '<button class="btn-remover-item" type="button">Remover</button>'}
         </div>
         <input type="text" data-of>
         <div class="pp-destaque-opcao-checklist"></div>`;
@@ -1556,7 +1596,8 @@ function renderCorpoChecagemMultipla(corpo, item) {
       }
       renderDestaqueOpcao();
       card.querySelector('[data-of]').addEventListener('blur', renderDestaqueOpcao);
-      card.querySelector('.btn-remover-item').addEventListener('click', () => {
+      const btnRemover = card.querySelector('.btn-remover-item');
+      if (btnRemover) btnRemover.addEventListener('click', () => {
         item.opcoes.splice(i, 1);
         item.opcoesNegrito.splice(i, 1);
         item.opcoesItalico.splice(i, 1);
@@ -1568,7 +1609,8 @@ function renderCorpoChecagemMultipla(corpo, item) {
     });
   }
   renderOpcoes();
-  corpo.querySelector('#btnAddOpcao').addEventListener('click', () => {
+  const btnAddOpcao = corpo.querySelector('#btnAddOpcao');
+  if (btnAddOpcao) btnAddOpcao.addEventListener('click', () => {
     item.opcoes.push('');
     item.opcoesNegrito.push(false);
     item.opcoesItalico.push(false);
@@ -1647,6 +1689,79 @@ function renderCorpoChecagemPalavra(corpo, item) {
   fraseInput.addEventListener('blur', () => {
     item.sentenca = tokenizarFrase(fraseInput.value);
     if (item.correta >= item.sentenca.length) item.correta = 0;
+    renderPalavras();
+    renderPreviewAtual();
+  });
+}
+
+/** "Múltiplos Rótulos (questão)" — versão de CHECAGEM (com correção) do card de Exemplo "Palavra(s)
+ * com Múltiplos Rótulos": a aluna escolhe um papel (os botões vêm dos rótulos que você escrever
+ * aqui — não são fixos, podem ser qualquer nome: VERBO/SUJEITO/PREDICADO, ou qualquer outra coisa)
+ * e clica nas palavras certas de cada um; uma palavra pode ter mais de um papel ao mesmo tempo,
+ * separando com ";" — mesma regra do card de Exemplo. */
+function renderCorpoChecagemMultiplosRotulos(corpo, item) {
+  if (!Array.isArray(item.sentenca)) item.sentenca = [];
+  if (!Array.isArray(item.rotulos)) item.rotulos = [];
+  if (item.mostrarRespostaCadaItem === undefined) item.mostrarRespostaCadaItem = true;
+  migrarFeedbackChecagem(item);
+  const fraseAtual = item.sentenca.join(' ').replace(/ ([.,!?;:])/g, '$1');
+
+  corpo.innerHTML = `
+    <div class="campo">${htmlLabelComEstilo('Título / instrução', 'titulo')}<textarea data-f="titulo" placeholder="Ex: Clique no verbo, no sujeito e no predicado da frase:"></textarea></div>
+    <div class="campo"><label>Frase (edite e clique fora para gerar as palavras)</label><textarea id="mrFraseTexto" placeholder="Ex: O menino leu o livro."></textarea></div>
+    <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
+    <div id="listaDestaqueChecMr"></div>
+    <div class="secao-titulo-editor">Rótulo de cada palavra (deixe em branco se não tiver)</div>
+    <p class="pp-vazio" style="margin:0 0 10px">Os botões que a aluna vê vêm dos nomes que você escrever aqui (ex: VERBO, SUJEITO, PREDICADO). Uma palavra pode ter mais de um rótulo — separe com ; (ex: "leu" pode ser <strong>VERBO;PREDICADO</strong>).</p>
+    <div class="lista-itens" id="listaPalavrasChecMr"></div>
+    <div class="campo"><label class="campo-check"><input type="checkbox" id="chkMostrarRespostaCadaItem"> Mostrar "Resposta de cada item" ao confirmar</label></div>
+    <div class="campo" style="margin-top:12px"><label>✅ Feedback quando ACERTAR</label><textarea data-f="feedbackCorreto"></textarea></div>
+    <div class="campo"><label>❌ Feedback quando ERRAR</label><textarea data-f="feedbackErrado"></textarea></div>`;
+
+  corpo.querySelectorAll('[data-f]').forEach(input => {
+    input.value = item[input.dataset.f] || '';
+    input.addEventListener('input', () => { item[input.dataset.f] = input.value; renderPreviewAtual(); });
+  });
+  ligarBotoesEstiloTexto(corpo, item);
+
+  corpo.querySelector('#chkMostrarRespostaCadaItem').checked = item.mostrarRespostaCadaItem;
+  corpo.querySelector('#chkMostrarRespostaCadaItem').addEventListener('change', e => {
+    item.mostrarRespostaCadaItem = e.target.checked;
+    renderPreviewAtual();
+  });
+
+  const renderDestaquesChecMr = montarDestaqueFrases(corpo.querySelector('#listaDestaqueChecMr'), item, [
+    { rotulo: 'Título / instrução', campo: 'titulo' },
+  ]);
+  corpo.querySelector('[data-f="titulo"]').addEventListener('blur', () => { podarDestaque(item, 'titulo'); renderDestaquesChecMr(); });
+
+  const fraseInput = corpo.querySelector('#mrFraseTexto');
+  fraseInput.value = fraseAtual;
+
+  const listaPalavras = corpo.querySelector('#listaPalavrasChecMr');
+  function renderPalavras() {
+    listaPalavras.innerHTML = '';
+    item.sentenca.forEach((tok, i) => {
+      if (ehPontuacao(tok)) return;
+      if (item.rotulos[i] === undefined) item.rotulos[i] = '';
+      const card = document.createElement('div');
+      card.className = 'item-card';
+      card.innerHTML = `
+        <div class="campo-linha">
+          <strong style="min-width:70px;display:flex;align-items:center;">"${escaparHtml(tok)}"</strong>
+          <input type="text" data-rotulo placeholder="Ex: VERBO ou VERBO;PREDICADO">
+        </div>`;
+      card.querySelector('[data-rotulo]').value = item.rotulos[i] || '';
+      card.querySelector('[data-rotulo]').addEventListener('input', e => { item.rotulos[i] = e.target.value; renderPreviewAtual(); });
+      listaPalavras.appendChild(card);
+    });
+    if (!item.sentenca.length) listaPalavras.innerHTML = '<p class="pp-vazio">Escreva a frase acima pra marcar os rótulos.</p>';
+  }
+  renderPalavras();
+
+  fraseInput.addEventListener('blur', () => {
+    item.sentenca = tokenizarFrase(fraseInput.value);
+    item.rotulos = item.sentenca.map((_, i) => item.rotulos[i] || '');
     renderPalavras();
     renderPreviewAtual();
   });
@@ -2008,6 +2123,44 @@ function agruparRotulos(rotulos) {
   return grupos;
 }
 
+/** Uma palavra pode ter mais de um rótulo ao mesmo tempo (ex: "jogaram" é VERBO e também faz
+ * parte do PREDICADO) — nesse caso, separa os rótulos por ";" no campo de texto. Retorna a lista
+ * (vazia se não tiver rótulo nenhum). */
+function listaRotulos(rotuloTexto) {
+  return String(rotuloTexto || '').split(';').map(s => s.trim()).filter(Boolean);
+}
+
+/** Decide em que "linha" (nível de colchete) cada rótulo distinto vai ficar: um rótulo que nunca
+ * aparece sozinho — só como o 2º (ou 3º...) de uma palavra com vários — fica numa linha mais
+ * abaixo, pra caber o colchete mais largo embaixo dos colchetes menores (ex: SUJEITO/VERBO em
+ * cima, PREDICADO — mais largo, cobre também o VERBO — embaixo). A linha de um rótulo é sempre a
+ * MAIOR posição em que ele aparece em qualquer palavra, pra não pular de linha conforme a frase
+ * muda de palavra em palavra. */
+function linhaPorRotulo(n, rotulosBrutos) {
+  const linha = new Map();
+  for (let i = 0; i < n; i++) {
+    listaRotulos(rotulosBrutos[i]).forEach((r, pos) => {
+      linha.set(r, Math.max(linha.get(r) ?? 0, pos));
+    });
+  }
+  return linha;
+}
+
+/** A partir da linha de cada rótulo (linhaPorRotulo), monta um array por linha — cada um no
+ * formato que agruparRotulos() espera (uma entrada por palavra, '' se não tiver rótulo NESSA
+ * linha). `rotulosBrutos` pode já vir filtrado (ex: só os rótulos das palavras reveladas). */
+function porLinha(n, rotulosBrutos, linhaDoRotulo) {
+  const totalLinhas = linhaDoRotulo.size ? Math.max(...linhaDoRotulo.values()) + 1 : 0;
+  const linhas = Array.from({ length: totalLinhas }, () => Array(n).fill(''));
+  for (let i = 0; i < n; i++) {
+    listaRotulos(rotulosBrutos[i]).forEach(r => {
+      const l = linhaDoRotulo.get(r);
+      if (l !== undefined) linhas[l][i] = r;
+    });
+  }
+  return linhas;
+}
+
 /** Paleta usada pra dar uma cor diferente a cada rótulo distinto (ex: SUJEITO roxo, VERBO verde) —
  * a cor é sempre a mesma pro mesmo texto de rótulo, na ordem em que aparecem na frase. */
 const PALETA_ROTULOS = ['#7B3FF2', '#0D9488', '#DB2777', '#EA580C', '#0EA5E9', '#65A30D', '#DC2626', '#9333EA'];
@@ -2088,15 +2241,20 @@ function previewPalavraSelecionavelMultipla(psm, instrucaoPadrao) {
 function previewPalavraMultiplosRotulos(pmr) {
   if (!pmr.sentenca || !pmr.sentenca.length) return '';
   const mapaCores = new Map();
+  const rotulosBrutos = pmr.rotulos || [];
+  const linhaDoRotulo = linhaPorRotulo(pmr.sentenca.length, rotulosBrutos);
   const chips = pmr.sentenca.map((tok, i) => {
     const pontuacao = ehPontuacao(tok);
-    const rotulo = pmr.rotulos[i];
-    const estiloCor = rotulo ? `;border-color:${corDoRotulo(rotulo, mapaCores)};background:${corDoRotulo(rotulo, mapaCores)}1a;color:${corDoRotulo(rotulo, mapaCores)}` : '';
+    // A palavra fica colorida se tiver um rótulo "de primeira linha" — quando o único rótulo dela
+    // é mais largo/embaixo (ex: só PREDICADO), fica sem cor própria, igual ao colchete de baixo.
+    const rotuloLinha0 = listaRotulos(rotulosBrutos[i]).find(r => linhaDoRotulo.get(r) === 0);
+    const estiloCor = rotuloLinha0 ? `;border-color:${corDoRotulo(rotuloLinha0, mapaCores)};background:${corDoRotulo(rotuloLinha0, mapaCores)}1a;color:${corDoRotulo(rotuloLinha0, mapaCores)}` : '';
     return `<span class="pp-chip${pontuacao ? ' pontuacao' : ''}" style="grid-column:${i + 1};grid-row:1${estiloCor}">${escaparHtml(tok)}</span>`;
   }).join('');
-  const grupos = agruparRotulos(pmr.rotulos || []);
-  const colchetes = grupos.map(g =>
-    `<div class="pp-chip-bracket" style="grid-column:${g.inicio + 1}/span ${g.fim - g.inicio + 1};grid-row:2;color:${corDoRotulo(g.rotulo, mapaCores)}">${escaparHtml(g.rotulo)}</div>`
+  const colchetes = porLinha(pmr.sentenca.length, rotulosBrutos, linhaDoRotulo).map((linhaArr, linhaIdx) =>
+    agruparRotulos(linhaArr).map(g =>
+      `<div class="pp-chip-bracket" style="grid-column:${g.inicio + 1}/span ${g.fim - g.inicio + 1};grid-row:${linhaIdx + 2};color:${corDoRotulo(g.rotulo, mapaCores)}">${escaparHtml(g.rotulo)}</div>`
+    ).join('')
   ).join('');
   return `
     <div class="pp-palavra-select">
@@ -2108,8 +2266,41 @@ function previewPalavraMultiplosRotulos(pmr) {
     </div>`;
 }
 
+/** Prévia da questão "Múltiplos Rótulos" — mostra os botões de papel (rótulos distintos usados na
+ * frase) e a frase com os colchetes da resposta CERTA já resolvidos, mais um "Confirmar resposta"
+ * só ilustrativo (não dá pra clicar de verdade aqui; a interação de verdade é no player). */
+function previewChecagemMultiplosRotulos(item) {
+  if (!item.titulo && (!item.sentenca || item.sentenca.length === 0)) return '<p class="pp-vazio">Preencha o exercício para ver a prévia.</p>';
+  const mapaCores = new Map();
+  const rotulosBrutos = item.rotulos || [];
+  const papeis = [];
+  rotulosBrutos.forEach(r => listaRotulos(r).forEach(rot => { if (!papeis.includes(rot)) papeis.push(rot); }));
+  const botoes = papeis.map(papel => {
+    const cor = corDoRotulo(papel, mapaCores);
+    return `<span class="pp-modo-btn" style="border-color:${cor};color:${cor}"><span class="pp-modo-dot" style="background:${cor}"></span>${escaparHtml(papel.toUpperCase())}</span>`;
+  }).join('');
+  const linhaDoRotulo = linhaPorRotulo(item.sentenca.length, rotulosBrutos);
+  const chips = item.sentenca.map((tok, i) => {
+    const pontuacao = ehPontuacao(tok);
+    const rotuloLinha0 = listaRotulos(rotulosBrutos[i]).find(r => linhaDoRotulo.get(r) === 0);
+    const estiloCor = rotuloLinha0 ? `;border-color:${corDoRotulo(rotuloLinha0, mapaCores)};background:${corDoRotulo(rotuloLinha0, mapaCores)}1a;color:${corDoRotulo(rotuloLinha0, mapaCores)}` : '';
+    return `<span class="pp-chip${pontuacao ? ' pontuacao' : ''}" style="grid-column:${i + 1};grid-row:1${estiloCor}">${escaparHtml(tok)}</span>`;
+  }).join('');
+  const colchetes = porLinha(item.sentenca.length, rotulosBrutos, linhaDoRotulo).map((linhaArr, linhaIdx) =>
+    agruparRotulos(linhaArr).map(g =>
+      `<div class="pp-chip-bracket" style="grid-column:${g.inicio + 1}/span ${g.fim - g.inicio + 1};grid-row:${linhaIdx + 2};color:${corDoRotulo(g.rotulo, mapaCores)}">${escaparHtml(g.rotulo)}</div>`
+    ).join('')
+  ).join('');
+  return `
+    <p class="pp-titulo"${estiloTextoInline(item, 'titulo')}>${renderFraseComDestaque(item.titulo || '', item.tituloDestaque)}</p>
+    <div class="pp-modo-toggle">${botoes}</div>
+    <div class="pp-frase-anotada">${chips}${colchetes}</div>
+    <button type="button" class="pp-btn-confirmar" disabled>Confirmar resposta</button>`;
+}
+
 /** Corpo puro do exercício de checagem (sem tocar em feedback/toggle) — reaproveitado pelas duas caixas de preview. */
 function previewChecagemCorpo(item, resp) {
+  if (item.multiplosRotulos) return previewChecagemMultiplosRotulos(item);
   const modo = Array.isArray(item.sentenca) ? 'palavra' : 'multipla';
 
   if (modo === 'multipla') {

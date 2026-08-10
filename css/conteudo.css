@@ -355,7 +355,7 @@
 .player-preview .pp-palavra-select-instrucao { font-size: 13.5px; color: #1a1a2e; margin: 0; }
 .player-preview .pp-palavra-select-titulo { font-size: 16px; color: #1a1a2e; margin: 14px 0 4px; }
 .player-preview .pp-palavra-select-subtitulo { font-size: 13px; color: var(--text-sec, #6E6A7A); margin: 0 0 10px; }
-.player-preview .pp-frase-anotada { display: inline-grid; column-gap: 6px; row-gap: 4px; align-items: end; grid-template-rows: auto auto; }
+.player-preview .pp-frase-anotada { display: inline-grid; column-gap: 6px; row-gap: 4px; align-items: end; grid-template-rows: auto minmax(30px, auto) minmax(30px, auto); }
 .player-preview .pp-chip-alvo { border-color: var(--cor-primaria, #5B2BCB); background: var(--cor-clara, #f5f0ff); color: var(--cor-primaria, #5B2BCB); }
 .player-preview .pp-chip-bracket {
   position: relative; text-align: center; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em;
@@ -368,6 +368,12 @@
 .player-preview .pp-chip-bracket::before { left: 0; }
 .player-preview .pp-chip-bracket::after { right: 0; }
 .player-preview .pp-chip-bracket-vazio { color: var(--text-sec, #8a8a99); opacity: 0.55; border-top-style: dashed; }
+
+/* questão "Múltiplos Rótulos" — botões de papel + "Confirmar resposta" só ilustrativos */
+.player-preview .pp-modo-toggle { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.player-preview .pp-modo-btn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 10px; border: 1.5px solid; font-size: 11.5px; font-weight: 700; background: #fff; }
+.player-preview .pp-modo-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.player-preview .pp-btn-confirmar { margin-top: 12px; width: 100%; padding: 10px; border-radius: 12px; border: none; background: #e5e7eb; color: #9ca3af; font-weight: 700; font-size: 13px; cursor: default; }
 .player-preview .pp-destaque-azul { color: #3B82F6; }
 .pp-destaque-frases-lista { margin-bottom: 10px; }
 .pp-destaque-frase-item { font-size: 13px; color: var(--text-main); margin: 0 0 4px; }

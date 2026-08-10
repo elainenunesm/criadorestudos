@@ -553,6 +553,43 @@ function agruparRotulos(rotulos) {
   return grupos;
 }
 
+/** Uma palavra pode ter mais de um rótulo ao mesmo tempo (ex: "jogaram" é VERBO e também faz
+ * parte do PREDICADO) — nesse caso o Construtor de Aulas separa os rótulos por ";" no campo de
+ * texto. Retorna a lista (vazia se não tiver rótulo nenhum). */
+function listaRotulos(rotuloTexto) {
+  return String(rotuloTexto || '').split(';').map(s => s.trim()).filter(Boolean);
+}
+
+/** Decide em que "linha" (nível de colchete) cada rótulo distinto vai ficar: um rótulo que nunca
+ * aparece sozinho — só como o 2º (ou 3º...) de uma palavra com vários — fica numa linha mais
+ * abaixo, pra caber o colchete mais largo embaixo dos colchetes menores (ex: SUJEITO/VERBO em
+ * cima, PREDICADO — mais largo, cobre também o VERBO — embaixo). Calculada a partir dos rótulos DE
+ * VERDADE (não dos já revelados), pra não pular de linha conforme a aluna vai clicando. */
+function linhaPorRotulo(n, rotulosBrutos) {
+  const linha = new Map();
+  for (let i = 0; i < n; i++) {
+    listaRotulos(rotulosBrutos[i]).forEach((r, pos) => {
+      linha.set(r, Math.max(linha.get(r) ?? 0, pos));
+    });
+  }
+  return linha;
+}
+
+/** A partir da linha de cada rótulo (linhaPorRotulo), monta um array por linha — cada um no
+ * formato que agruparRotulos() espera (uma entrada por palavra, '' se não tiver rótulo NESSA
+ * linha). `rotulosBrutos` pode já vir filtrado (ex: só os rótulos das palavras reveladas). */
+function porLinha(n, rotulosBrutos, linhaDoRotulo) {
+  const totalLinhas = linhaDoRotulo.size ? Math.max(...linhaDoRotulo.values()) + 1 : 0;
+  const linhas = Array.from({ length: totalLinhas }, () => Array(n).fill(''));
+  for (let i = 0; i < n; i++) {
+    listaRotulos(rotulosBrutos[i]).forEach(r => {
+      const l = linhaDoRotulo.get(r);
+      if (l !== undefined) linhas[l][i] = r;
+    });
+  }
+  return linhas;
+}
+
 /** Paleta usada pra dar uma cor diferente a cada rótulo distinto (ex: SUJEITO roxo, VERBO verde) —
  * a cor é sempre a mesma pro mesmo texto de rótulo, na ordem em que aparecem na frase. */
 const PALETA_ROTULOS = ['#7B3FF2', '#0D9488', '#DB2777', '#EA580C', '#0EA5E9', '#65A30D', '#DC2626', '#9333EA'];
@@ -560,21 +597,24 @@ function corDoRotulo(rotulo, mapaCores) {
   if (!mapaCores.has(rotulo)) mapaCores.set(rotulo, PALETA_ROTULOS[mapaCores.size % PALETA_ROTULOS.length]);
   return mapaCores.get(rotulo);
 }
-function mapaCoresRotulos(rotulos) {
+function mapaCoresRotulos(rotulosBrutos) {
   const mapa = new Map();
-  (rotulos || []).forEach(r => { if (r) corDoRotulo(r, mapa); });
+  (rotulosBrutos || []).forEach(r => { listaRotulos(r).forEach(rot => corDoRotulo(rot, mapa)); });
   return mapa;
 }
 
-/** Igual a anotarRotuloGenericoMultiplo, mas cada palavra JÁ REVELADA mostra o SEU PRÓPRIO rótulo
- * (não um rótulo único pra todo mundo) — só agrupa em um colchete se as palavras reveladas forem
- * adjacentes E tiverem o mesmo rótulo. Cada colchete usa a cor do seu rótulo. */
-function anotarRotulosMultiplos(wrap, indicesRevelados, rotulos, mapaCores) {
+/** Igual a anotarRotuloGenericoMultiplo, mas cada palavra JÁ REVELADA mostra o(s) SEU(S) PRÓPRIO(S)
+ * rótulo(s) (não um rótulo único pra todo mundo) — cada linha (linhaDoRotulo) só agrupa num
+ * colchete se as palavras reveladas forem adjacentes E tiverem o mesmo rótulo NESSA linha. Cada
+ * colchete usa a cor do seu rótulo. */
+function anotarRotulosMultiplos(wrap, indicesRevelados, rotulosBrutos, mapaCores, linhaDoRotulo) {
   const revelados = new Set(indicesRevelados);
-  const rotulosVisiveis = rotulos.map((r, i) => revelados.has(i) ? r : '');
-  agruparRotulos(rotulosVisiveis).forEach(g => {
-    wrap.insertAdjacentHTML('beforeend',
-      `<div class="anotacao-generica" style="grid-column:${g.inicio + 1}/span ${g.fim - g.inicio + 1};grid-row:2;color:${corDoRotulo(g.rotulo, mapaCores)}">${g.rotulo}</div>`);
+  const rotulosVisiveis = rotulosBrutos.map((r, i) => revelados.has(i) ? r : '');
+  porLinha(rotulosBrutos.length, rotulosVisiveis, linhaDoRotulo).forEach((linhaArr, linhaIdx) => {
+    agruparRotulos(linhaArr).forEach(g => {
+      wrap.insertAdjacentHTML('beforeend',
+        `<div class="anotacao-generica" style="grid-column:${g.inicio + 1}/span ${g.fim - g.inicio + 1};grid-row:${linhaIdx + 2};color:${corDoRotulo(g.rotulo, mapaCores)}">${g.rotulo}</div>`);
+    });
   });
 }
 
@@ -589,6 +629,7 @@ function renderPalavraMultiplosRotulos(ex, pmr, wrap) {
   const todasReveladas = indicesComRotulo.length > 0 && indicesComRotulo.every(idx => ex._reveladosPmr.includes(idx));
   btnProxima.disabled = !todasReveladas;
   const mapaCores = mapaCoresRotulos(pmr.rotulos);
+  const linhaDoRotulo = linhaPorRotulo(pmr.sentenca.length, pmr.rotulos);
 
   pmr.sentenca.forEach((palavra, idx) => {
     const btn = document.createElement('button');
@@ -602,10 +643,15 @@ function renderPalavraMultiplosRotulos(ex, pmr, wrap) {
       btn.disabled = true;
     } else if (jaRevelada) {
       btn.disabled = true;
-      const cor = corDoRotulo(pmr.rotulos[idx], mapaCores);
-      btn.style.borderColor = cor;
-      btn.style.background  = `${cor}1a`;
-      btn.style.color       = cor;
+      // Só colore a palavra se ela tiver um rótulo "de primeira linha" — quando o único rótulo
+      // dela é mais largo/embaixo (ex: só PREDICADO), fica sem cor própria, igual ao colchete.
+      const rotuloLinha0 = listaRotulos(pmr.rotulos[idx]).find(r => linhaDoRotulo.get(r) === 0);
+      if (rotuloLinha0) {
+        const cor = corDoRotulo(rotuloLinha0, mapaCores);
+        btn.style.borderColor = cor;
+        btn.style.background  = `${cor}1a`;
+        btn.style.color       = cor;
+      }
     } else if (todasReveladas) {
       btn.disabled = true;
     } else {
@@ -622,7 +668,7 @@ function renderPalavraMultiplosRotulos(ex, pmr, wrap) {
     wrap.appendChild(btn);
   });
 
-  if (ex._reveladosPmr.length) anotarRotulosMultiplos(wrap, ex._reveladosPmr, pmr.rotulos, mapaCores);
+  if (ex._reveladosPmr.length) anotarRotulosMultiplos(wrap, ex._reveladosPmr, pmr.rotulos, mapaCores, linhaDoRotulo);
 }
 
 // Passo de exemplo com mais de uma palavra clicável pro mesmo papel (ex:
@@ -1219,7 +1265,19 @@ function mostrarIdentificacao(aula, introIdx) {
 // a resposta como objeto {verbo, sujeito:[]} em vez de um índice único,
 // então usam dados._correta (booleano) pra saber se acertou.
 function acertouChecagem(dados) {
-  return (dados.sujeito || dados.banco) ? dados._correta === true : dados._escolhida === dados.correta;
+  return (dados.multiplosRotulos || dados.sujeito || dados.banco) ? dados._correta === true : dados._escolhida === dados.correta;
+}
+
+/** Papéis (rótulos) distintos usados numa questão "Múltiplos Rótulos" — na ordem em que aparecem
+ * pela primeira vez na frase, olhando palavra por palavra (não em ordem alfabética). São os
+ * botões que a aluna vê pra marcar cada palavra (ex: VERBO, SUJEITO, PREDICADO — os nomes vêm de
+ * como a professora escreveu no Construtor, não são fixos). */
+function papeisDaQuestaoMultiplosRotulos(rotulosBrutos) {
+  const vistos = [];
+  (rotulosBrutos || []).forEach(r => {
+    listaRotulos(r).forEach(rot => { if (!vistos.includes(rot)) vistos.push(rot); });
+  });
+  return vistos;
 }
 
 function mostrarChecagem(aula, introIdx, dados, checagemIdx, origemAulaId = aulaId) {
@@ -1250,13 +1308,16 @@ function mostrarChecagem(aula, introIdx, dados, checagemIdx, origemAulaId = aula
        <h2 class="questao-titulo checagem-titulo"${estiloTextoInline(dados, 'titulo')}>${renderFraseComDestaque(dados.titulo || '', dados.tituloDestaque)}</h2>`
     : `<h2 class="questao-titulo checagem-instrucao"${estiloTextoInline(dados, 'titulo')}>${renderFraseComDestaque(dados.titulo || '', dados.tituloDestaque)}</h2>` +
       (dados.banco ? '' : `<p class="questao-subtitulo checagem-frase"${estiloTextoInline(dados, 'subtitulo')}>${renderFraseComDestaque(dados.subtitulo || '', dados.subtituloDestaque)}</p>`)) +
-    (dados.predicado ? '<div class="tri-select-wrap" id="triSelectWrap"></div>'
+    (dados.multiplosRotulos ? '<div class="mr-select-wrap" id="mrSelectWrap"></div>'
+      : dados.predicado ? '<div class="tri-select-wrap" id="triSelectWrap"></div>'
       : dados.sujeito ? '<div class="dual-select-wrap" id="dualSelectWrap"></div>'
       : dados.banco ? '<div class="reordenar-wrap" id="reordenarWrap"></div>'
       : dados.sentenca ? '<div class="sentence-display" id="sentenceDisplay"></div>' : '');
   ativarBotaoMarcar();
 
-  if (dados.predicado) {
+  if (dados.multiplosRotulos) {
+    mostrarChecagemMultiplosRotulos(aula, introIdx, dados, checagemIdx, origemAulaId, respondida);
+  } else if (dados.predicado) {
     mostrarChecagemTripla(aula, introIdx, dados, checagemIdx, origemAulaId, respondida);
   } else if (dados.sujeito) {
     mostrarChecagemDupla(aula, introIdx, dados, checagemIdx, origemAulaId, respondida);
@@ -1365,6 +1426,164 @@ function mostrarChecagem(aula, introIdx, dados, checagemIdx, origemAulaId = aula
 // podendo ter mais de uma palavra) antes de confirmar. Não conta como
 // respondida até clicar em "Confirmar resposta".
 const PONTUACAO_RE = /^[.,!?;:]+$/;
+
+/** "Questão: Múltiplos Rótulos" (Construtor de Aulas) — versão de CHECAGEM (com correção) do
+ * card de Exemplo "Palavra(s) com Múltiplos Rótulos": a aluna escolhe um papel (os botões vêm dos
+ * rótulos que a professora escreveu — não são fixos tipo verbo/sujeito/predicado, podem ser
+ * qualquer nome) e clica nas palavras que pertencem a ele. Uma palavra pode pertencer a mais de
+ * um papel ao mesmo tempo (ex: "jogaram" é VERBO e também PREDICADO), igual ao Exemplo — os
+ * colchetes (um por "linha") usam a mesma lógica de linhaPorRotulo()/porLinha(). Não exige um
+ * mínimo pra liberar "Confirmar resposta" (mais simples que a checagem tripla/dupla antiga). A
+ * lista "Resposta de cada item" no final é opcional (dados.mostrarRespostaCadaItem, configurado
+ * no Construtor). */
+function mostrarChecagemMultiplosRotulos(aula, introIdx, dados, checagemIdx, origemAulaId, respondida) {
+  const wrap = document.getElementById('mrSelectWrap');
+  const N = dados.sentenca.length;
+  const papeis = papeisDaQuestaoMultiplosRotulos(dados.rotulos);
+  const mapaCores = mapaCoresRotulos(dados.rotulos);
+
+  if (!respondida) {
+    if (!dados._pendente) dados._pendente = { modoAtivo: papeis[0] || null, porPapel: {} };
+    const p = dados._pendente;
+    papeis.forEach(papel => { if (!p.porPapel[papel]) p.porPapel[papel] = []; });
+
+    wrap.innerHTML = `
+      <div class="modo-toggle">
+        ${papeis.map(papel => {
+          const ativo = p.modoAtivo === papel;
+          const cor = corDoRotulo(papel, mapaCores);
+          return `<button type="button" class="modo-btn" data-papel="${papel}"${ativo ? ` style="border-color:${cor};background:${cor}14;color:${cor}"` : ''}>
+            <span class="modo-dot" style="background:${cor}"></span> ${papel.toUpperCase()}
+          </button>`;
+        }).join('')}
+      </div>
+      <div class="frase-anotada-wrap"><div class="frase-anotada" id="fraseAnotadaMr" style="grid-template-columns:repeat(${N},auto)"></div></div>
+      <button type="button" class="btn-confirmar-duplo" id="btnConfirmarMr">Confirmar resposta</button>`;
+
+    const grid = document.getElementById('fraseAnotadaMr');
+    dados.sentenca.forEach((palavra, i) => {
+      const ehPontuacao = PONTUACAO_RE.test(palavra);
+      const btn = document.createElement('button');
+      btn.className = 'word-chip' + (ehPontuacao ? ' pontuacao' : '');
+      btn.textContent = palavra;
+      btn.style.gridColumn = String(i + 1);
+      btn.style.gridRow = '1';
+      if (ehPontuacao) {
+        btn.disabled = true;
+      } else {
+        // Colore com o primeiro papel (na ordem dos botões) que essa palavra já tem marcado —
+        // só uma pista visual; se ela pertencer a mais de um papel, isso aparece nos colchetes.
+        const papelPrincipal = papeis.find(papel => p.porPapel[papel].includes(i));
+        if (papelPrincipal) {
+          const cor = corDoRotulo(papelPrincipal, mapaCores);
+          btn.style.borderColor = cor;
+          btn.style.background  = `${cor}1a`;
+          btn.style.color       = cor;
+        }
+        btn.addEventListener('click', () => {
+          if (!p.modoAtivo) return;
+          const set = p.porPapel[p.modoAtivo];
+          const idx = set.indexOf(i);
+          if (idx === -1) set.push(i); else set.splice(idx, 1);
+          mostrarChecagemMultiplosRotulos(aula, introIdx, dados, checagemIdx, origemAulaId, false);
+        });
+      }
+      grid.appendChild(btn);
+    });
+
+    // Colchetes com o que já foi marcado até agora (um por "linha", igual ao Exemplo).
+    const rotulosMarcados = dados.sentenca.map((_, i) => papeis.filter(papel => p.porPapel[papel].includes(i)).join(';'));
+    porLinha(N, rotulosMarcados, linhaPorRotulo(N, rotulosMarcados)).forEach((linhaArr, linhaIdx) => {
+      agruparRotulos(linhaArr).forEach(g => {
+        grid.insertAdjacentHTML('beforeend',
+          `<div class="anotacao-generica" style="grid-column:${g.inicio + 1}/span ${g.fim - g.inicio + 1};grid-row:${linhaIdx + 2};color:${corDoRotulo(g.rotulo, mapaCores)}">${g.rotulo}</div>`);
+      });
+    });
+
+    wrap.querySelectorAll('[data-papel]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        p.modoAtivo = btn.dataset.papel;
+        mostrarChecagemMultiplosRotulos(aula, introIdx, dados, checagemIdx, origemAulaId, false);
+      });
+    });
+    document.getElementById('btnConfirmarMr').addEventListener('click', () => {
+      const acertou = papeis.every(papel => {
+        const corretos = dados.sentenca.map((_, i) => listaRotulos(dados.rotulos[i]).includes(papel) ? i : -1).filter(i => i !== -1);
+        const marcados = p.porPapel[papel];
+        return corretos.length === marcados.length && corretos.every(i => marcados.includes(i));
+      });
+      dados._escolhida = { porPapel: JSON.parse(JSON.stringify(p.porPapel)) };
+      dados._correta   = acertou;
+      if (!acertou) {
+        addErro(origemAulaId, `checagem${checagemIdx}`);
+        erroNestaSessao = true;
+      }
+      mostrarChecagem(aula, introIdx, dados, checagemIdx, origemAulaId);
+    });
+    marcarOverflowNasFrasesAnotadas();
+    return;
+  }
+
+  // Já respondida — mostra a estrutura CORRETA (colchetes com o rótulo certo de cada palavra); se
+  // a aluna marcou algum papel errado numa palavra sem rótulo nenhum, mostra riscado/cinza nela.
+  wrap.innerHTML = `<div class="frase-anotada-wrap"><div class="frase-anotada" id="fraseAnotadaMr" style="grid-template-columns:repeat(${N},auto)"></div></div>`;
+  const grid = document.getElementById('fraseAnotadaMr');
+  const escolhida = dados._escolhida.porPapel;
+  dados.sentenca.forEach((palavra, i) => {
+    const ehPontuacao = PONTUACAO_RE.test(palavra);
+    const btn = document.createElement('button');
+    btn.className = 'word-chip' + (ehPontuacao ? ' pontuacao' : '');
+    btn.textContent = palavra;
+    btn.disabled = true;
+    btn.style.gridColumn = String(i + 1);
+    btn.style.gridRow = '1';
+    if (!ehPontuacao) {
+      const corretos = listaRotulos(dados.rotulos[i]);
+      if (corretos.length) {
+        const cor = corDoRotulo(corretos[0], mapaCores);
+        btn.style.borderColor = cor;
+        btn.style.background  = `${cor}1a`;
+        btn.style.color       = cor;
+      } else if (papeis.some(papel => (escolhida[papel] || []).includes(i))) {
+        btn.style.borderColor = '#9ca3af';
+        btn.style.background  = '#f9fafb';
+        btn.style.color       = '#6b7280';
+        btn.style.textDecoration = 'line-through';
+      }
+    }
+    grid.appendChild(btn);
+  });
+
+  porLinha(N, dados.rotulos, linhaPorRotulo(N, dados.rotulos)).forEach((linhaArr, linhaIdx) => {
+    agruparRotulos(linhaArr).forEach(g => {
+      grid.insertAdjacentHTML('beforeend',
+        `<div class="anotacao-generica" style="grid-column:${g.inicio + 1}/span ${g.fim - g.inicio + 1};grid-row:${linhaIdx + 2};color:${corDoRotulo(g.rotulo, mapaCores)}">${g.rotulo}</div>`);
+    });
+  });
+
+  if (dados.mostrarRespostaCadaItem !== false) {
+    const linhas = dados.sentenca.map((palavra, i) => {
+      if (PONTUACAO_RE.test(palavra)) return '';
+      const corretos = listaRotulos(dados.rotulos[i]);
+      const marcados = papeis.filter(papel => (escolhida[papel] || []).includes(i));
+      if (!corretos.length && !marcados.length) return '';
+      const acertouEsseToken = corretos.length === marcados.length && corretos.every(r => marcados.includes(r));
+      return `
+        <div class="checagem-resultado-item${!acertouEsseToken ? ' errada-selecionada' : ''}">
+          <span class="cri-palavra ${acertouEsseToken ? 'correta' : ''}">${palavra}</span>
+          <span class="cri-seta">→</span>
+          <span class="cri-classe ${acertouEsseToken ? 'correta' : ''}">${(corretos.length ? corretos : marcados).join(' / ')}</span>
+          ${acertouEsseToken ? '<span class="cri-icone" style="color:#16a34a">✓</span>' : '<span class="cri-icone" style="color:#dc2626">✕</span>'}
+        </div>`;
+    }).join('');
+    wrap.insertAdjacentHTML('beforeend', `
+      <div class="checagem-resultado-itens">
+        <p class="checagem-resultado-titulo">Resposta de cada item:</p>
+        <div class="checagem-resultado-lista">${linhas}</div>
+      </div>`);
+  }
+  marcarOverflowNasFrasesAnotadas();
+}
 
 function mostrarChecagemDupla(aula, introIdx, dados, checagemIdx, origemAulaId, respondida) {
   const wrap = document.getElementById('dualSelectWrap');
