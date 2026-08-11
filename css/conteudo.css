@@ -411,11 +411,13 @@
 }
 .preview-toggle button.ativo { border-color: var(--purple); color: var(--purple); background: rgba(123,63,242,0.06); }
 
-/* antes de começar */
+/* antes de começar — padding-right reserva espaço pro .pp-marcar-cartao (canto
+   superior direito) não sobrepor o texto, igual no player real. */
 .player-preview .pp-intro-label {
   display: block; font-size: 10.5px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.08em; color: #4A80F0; margin-bottom: 6px;
+  letter-spacing: 0.08em; color: #4A80F0; margin-bottom: 6px; padding-right: 40px;
 }
+.player-preview .pp-intro-titulo { padding-right: 40px; }
 .player-preview .pp-intro-desc { font-size: 14px; color: #4b5563; line-height: 1.5; margin-bottom: 14px; text-align: justify; }
 .player-preview .pp-ac-info { background: #f5f8ff; border: 1.5px solid #d9e6fc; border-radius: 14px; padding: 14px 12px; }
 .player-preview .pp-ac-info-item { display: flex; align-items: flex-start; gap: 10px; }
@@ -490,6 +492,7 @@
 /* lista (ícone + texto numa linha só, com descrição depois) */
 .player-preview .pp-lista-item-texto { font-size: 14px; color: #1a1a2e; }
 .player-preview .pp-lista-descricao { font-size: 14px; color: #4b5563; line-height: 1.6; margin-top: 10px; text-align: justify; }
+.player-preview .pp-lista-icone-topo { width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; }
 
 /* lição */
 .player-preview .pp-licao-corpo { font-size: 14px; color: #1a1a2e; line-height: 1.6; }

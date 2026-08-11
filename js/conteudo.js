@@ -209,6 +209,7 @@ const DADOS_FICTICIOS_TELA = {
   },
   lista: {
     titulo: 'Assim vai aparecer o título da lista.',
+    textoAntes: 'Assim vai aparecer o texto antes da lista (opcional).',
     itens: [
       { tipo: 'tarefa', cor: '#5B2BCB', corFundo: '#f0eaff', texto: 'Assim vai aparecer o texto do item.' },
       { tipo: 'tarefa', cor: '#5B2BCB', corFundo: '#f0eaff', texto: 'E aqui outro item da lista.' },
@@ -584,7 +585,7 @@ function adicionarItemPasso(tipoLista, variante) {
     conteudo.checagem.push(novaChecagem);
     inserirNaOrdemAntesDoResumo(conteudo, { tipo: 'checagem', id });
   } else if (tipoLista === 'lista') {
-    conteudo.lista.push({ _id: id, titulo: '', itens: [], descricao: '' });
+    conteudo.lista.push({ _id: id, titulo: '', textoAntes: '', itens: [], descricao: '' });
     inserirNaOrdemAntesDoResumo(conteudo, { tipo: 'lista', id });
   } else if (tipoLista === 'resumo' || tipoLista === 'licao') {
     // Só existe uma de cada — o conteúdo (texto já preenchido antes de excluir) não se perde,
@@ -831,7 +832,8 @@ const NOME_TIPO_ICONE = {
   conjugar: 'Conjugação', gota: 'Gota', peca: 'Peça', foguete: 'Foguete', sujeito: 'Sujeito',
   fala: 'Fala', busca: 'Busca', tarefa: 'Tarefa', pergunta: 'Pergunta', dica: 'Dica',
   predVerbal: 'Predicado verbal', predNominal: 'Predicado nominal', predVerboNominal: 'Predicado verbo-nominal',
-  semSujeito: 'Oração sem sujeito', livro: 'Livro', externo: 'Ícone externo (link)',
+  semSujeito: 'Oração sem sujeito', livro: 'Livro', certo: 'Certo (✓)', errado: 'Errado (✗)',
+  externo: 'Ícone externo (link)',
 };
 const DESC_TIPO_ICONE = {
   acao: 'Verbo que indica uma ação', estado: 'Verbo de ligação/estado', mudanca: 'Indica mudança ou transformação',
@@ -841,6 +843,7 @@ const DESC_TIPO_ICONE = {
   tarefa: 'Tarefa ou lista', pergunta: 'Pergunta', dica: 'Dica ou observação',
   predVerbal: 'Predicado verbal', predNominal: 'Predicado nominal', predVerboNominal: 'Predicado verbo-nominal',
   semSujeito: 'Oração sem sujeito', livro: 'Ícone de livro/leitura',
+  certo: 'Marca de certo/correto', errado: 'Marca de errado/incorreto',
   externo: 'Envie o link de uma imagem em vez de escolher um ícone pronto',
 };
 
@@ -1988,18 +1991,55 @@ function renderFormLista(el, conteudo, passo) {
   const li = conteudo.lista[passo.idx];
   el.innerHTML = `
     <div class="form-secao">
-      <div class="campo">${htmlLabelComEstilo('Título', 'titulo')}<input type="text" id="listaTitulo"></div>
+      <div class="campo-check"><input type="checkbox" id="chkListaIcone"><label for="chkListaIcone">Ícone no topo do card (opcional)</label></div>
+      <div id="listaIconeWrap" style="display:none">
+        <div class="campo">${htmlTipoIconePicker(li.icone || {}, (li.icone && li.icone.cor) || '#5B2BCB')}</div>
+        ${htmlCampoIconeExterno(li.icone || {})}
+        <div class="campo-linha">
+          <div class="campo"><label>Cor</label><input type="color" data-lif="cor"></div>
+          <div class="campo"><label>Fundo</label><input type="color" data-lif="corFundo"></div>
+        </div>
+      </div>
+      <div class="campo" style="margin-top:16px">${htmlLabelComEstilo('Título', 'titulo')}<input type="text" id="listaTitulo"></div>
       <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
       <div id="listaDestaqueListaTitulo"></div>
+      <div class="campo" style="margin-top:16px">${htmlLabelComEstilo('Texto antes da lista (opcional)', 'textoAntes')}<textarea id="listaTextoAntes" rows="3"></textarea></div>
+      <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
+      <div id="listaDestaqueListaTextoAntes"></div>
       <div class="secao-titulo-editor">Itens (ícone + texto)</div>
       <div class="lista-itens" id="listaListaItens"></div>
       <button class="btn-add-item" type="button" id="btnAddListaItem">+ Adicionar item</button>
-      <div class="campo" style="margin-top:16px">${htmlLabelComEstilo('Descrição (depois da lista)', 'descricao')}<textarea id="listaDescricao" rows="4"></textarea></div>
+      <div class="campo" style="margin-top:16px">${htmlLabelComEstilo('Texto depois da lista (opcional)', 'descricao')}<textarea id="listaDescricao" rows="4"></textarea></div>
       <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
       <div id="listaDestaqueListaDescricao"></div>
     </div>`;
+
+  const chkIcone = el.querySelector('#chkListaIcone');
+  const iconeWrap = el.querySelector('#listaIconeWrap');
+  chkIcone.checked = !!li.icone;
+  iconeWrap.style.display = li.icone ? '' : 'none';
+  if (li.icone) {
+    el.querySelector('[data-lif="cor"]').value = li.icone.cor || '#5B2BCB';
+    el.querySelector('[data-lif="corFundo"]').value = li.icone.corFundo || '#f0eaff';
+    el.querySelectorAll('[data-lif]').forEach(input => {
+      input.addEventListener('input', () => { li.icone[input.dataset.lif] = input.value; renderPreviewAtual(); });
+    });
+    el.querySelector('[data-lif="cor"]').addEventListener('input', () => {
+      el.querySelector('.campo-tipo-icone-preview').innerHTML = iconeTipo(li.icone.tipo, li.icone.cor || '#5B2BCB', li.icone.iconeUrl);
+    });
+    ligarCampoIconeExterno(el, li.icone);
+    ligarTipoIconePicker(el, li.icone, li.icone.cor || '#5B2BCB', renderPreviewAtual);
+  }
+  chkIcone.addEventListener('change', () => {
+    if (chkIcone.checked) { li.icone = li.icone || { tipo: 'acao', cor: '#5B2BCB', corFundo: '#f0eaff' }; }
+    else { delete li.icone; }
+    renderFormLista(el, conteudo, passo);
+    renderPreviewAtual();
+  });
   el.querySelector('#listaTitulo').value = li.titulo || '';
   el.querySelector('#listaTitulo').addEventListener('input', e => { li.titulo = e.target.value; renderPreviewAtual(); });
+  el.querySelector('#listaTextoAntes').value = li.textoAntes || '';
+  el.querySelector('#listaTextoAntes').addEventListener('input', e => { li.textoAntes = e.target.value; renderPreviewAtual(); });
   el.querySelector('#listaDescricao').value = li.descricao || '';
   el.querySelector('#listaDescricao').addEventListener('input', e => { li.descricao = e.target.value; renderPreviewAtual(); });
   ligarBotoesEstiloTexto(el, li);
@@ -2008,6 +2048,11 @@ function renderFormLista(el, conteudo, passo) {
     { rotulo: 'Título', campo: 'titulo' },
   ]);
   el.querySelector('#listaTitulo').addEventListener('blur', () => { podarDestaque(li, 'titulo'); renderDestaquesListaTitulo(); });
+
+  const renderDestaquesListaTextoAntes = montarDestaqueFrases(el.querySelector('#listaDestaqueListaTextoAntes'), li, [
+    { rotulo: 'Texto antes', campo: 'textoAntes' },
+  ]);
+  el.querySelector('#listaTextoAntes').addEventListener('blur', () => { podarDestaque(li, 'textoAntes'); renderDestaquesListaTextoAntes(); });
 
   const renderDestaquesListaDescricao = montarDestaqueFrases(el.querySelector('#listaDestaqueListaDescricao'), li, [
     { rotulo: 'Descrição', campo: 'descricao' },
@@ -2117,6 +2162,8 @@ const ICONES_TIPO = {
   predVerboNominal: cor => `<path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M9 17H7a5 5 0 1 1 0-10h2M15 7h2a5 5 0 1 1 0 10h-2M8 12h8"/>`,
   semSujeito: cor => `<line x1="-1" y1="6"  x2="2" y2="6"  stroke="${cor}" stroke-width="1.6" stroke-linecap="round" opacity="0.5"/><line x1="-1" y1="10" x2="2" y2="10" stroke="${cor}" stroke-width="1.6" stroke-linecap="round" opacity="0.5"/><line x1="-1" y1="14" x2="2" y2="14" stroke="${cor}" stroke-width="1.6" stroke-linecap="round" opacity="0.5"/><circle cx="11" cy="8" r="4" fill="none" stroke="${cor}" stroke-width="1.8"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" d="M4 21v-1a6 6 0 0 1 6-6h1.5"/><circle cx="18" cy="17" r="5" fill="none" stroke="${cor}" stroke-width="1.7"/><line x1="16.1" y1="15.1" x2="19.9" y2="18.9" stroke="${cor}" stroke-width="1.7" stroke-linecap="round"/><line x1="19.9" y1="15.1" x2="16.1" y2="18.9" stroke="${cor}" stroke-width="1.7" stroke-linecap="round"/>`,
   livro: cor => `<path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>`,
+  certo: cor => `<path fill="none" stroke="${cor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>`,
+  errado: cor => `<path fill="none" stroke="${cor}" stroke-width="2.5" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/>`,
 };
 
 /** Ícone de um "tipo" (TIPOS_ICONE), na cor pedida — pronto pra colar num pp-*-icone. Se
@@ -2227,7 +2274,7 @@ function previewAntesComecar(d) {
   return `
     <span class="pp-marcar-cartao"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg></span>
     <span class="pp-intro-label">Antes de começar</span>
-    <p class="pp-titulo"${estiloTextoInline(d, 'titulo')}>${renderFraseComDestaque(d.titulo, d.tituloDestaque, d.tituloDestaqueNegrito)}</p>
+    <p class="pp-titulo pp-intro-titulo"${estiloTextoInline(d, 'titulo')}>${renderFraseComDestaque(d.titulo, d.tituloDestaque, d.tituloDestaqueNegrito)}</p>
     <p class="pp-intro-desc"${estiloTextoInline(d, 'descricao')}>${renderFraseComDestaque(d.descricao, d.descricaoDestaque, d.descricaoDestaqueNegrito)}</p>
     ${(itemAprender || itemImportancia) ? `<div class="pp-ac-info">${itemAprender}${itemImportancia}</div>` : ''}`;
 }
@@ -2617,9 +2664,11 @@ function previewResumo(r) {
 }
 
 function previewLista(li) {
-  if (!li.itens.length && !li.descricao) return '<p class="pp-vazio">Adicione itens para ver a prévia.</p>';
+  if (!li.itens.length && !li.descricao && !li.textoAntes) return '<p class="pp-vazio">Adicione itens para ver a prévia.</p>';
   return `
+    ${li.icone ? `<div class="pp-lista-icone-topo" style="background:${li.icone.corFundo || '#eef2ff'};color:${li.icone.cor || '#4A80F0'}">${iconeTipo(li.icone.tipo, li.icone.cor || '#4A80F0', li.icone.iconeUrl)}</div>` : ''}
     ${li.titulo ? `<p class="pp-titulo"${estiloTextoInline(li, 'titulo')}>${renderFraseComDestaque(li.titulo, li.tituloDestaque, li.tituloDestaqueNegrito)}</p>` : ''}
+    ${li.textoAntes ? `<p class="pp-lista-descricao"${estiloTextoInline(li, 'textoAntes')}>${renderFraseComDestaque(li.textoAntes, li.textoAntesDestaque, li.textoAntesDestaqueNegrito)}</p>` : ''}
     ${li.itens.map(it => `
       <div class="pp-resumo-item">
         <div class="pp-resumo-icone" style="background:${it.corFundo || '#eef2ff'};color:${it.cor || '#4A80F0'}">${iconeTipo(it.tipo, it.cor || '#4A80F0', it.iconeUrl)}</div>

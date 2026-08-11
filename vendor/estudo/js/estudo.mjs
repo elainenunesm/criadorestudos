@@ -140,7 +140,6 @@ function mostrarIntro(aula, introIdx = 0) {
   const ac = aula.antesComecar || {};
   opcoesEl.innerHTML = `
     <div class="intro-card">
-      ${marcarCartaoHtml('antesComecar')}
       <span class="intro-label">Antes de começar</span>
       <h2 class="intro-titulo"${estiloTextoInline(ac, 'titulo')}>${ac.titulo ? renderFraseComDestaque(ac.titulo, ac.tituloDestaque, ac.tituloDestaqueNegrito) : aula.titulo}</h2>
       <p class="intro-desc"${estiloTextoInline(ac, 'descricao')}>${renderFraseComDestaque(ac.descricao || '', ac.descricaoDestaque, ac.descricaoDestaqueNegrito)}</p>
@@ -172,7 +171,7 @@ function mostrarIntro(aula, introIdx = 0) {
         </div>
       </div>
     </div>`;
-  ativarBotaoMarcar();
+  atualizarBotaoMarcar('antesComecar');
 
   // Botão "Começar"
   btnProxima.innerHTML  = 'Começar <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
@@ -192,18 +191,21 @@ function sairIntro() {
 // (definição, contexto, exemplo...). Fica salva no arquivo de progresso.
 let cartaoMarcadoSet = new Set();
 
-function marcarCartaoHtml(chave) {
-  const marcada = cartaoMarcadoSet.has(chave);
-  return `
-    <button type="button" class="btn-marcar-cartao${marcada ? ' marcada' : ''}" data-chave="${chave}" title="Marcar para revisão">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-      </svg>
-    </button>`;
+// O botão em si é fixo no HTML (dentro do cabeçalho, ver estudo.html/.btn-marcar-cartao)
+// em vez de recriado a cada tela — assim ele fica preso na altura real do cabeçalho
+// (que varia com o tamanho do título da aula) em vez de um pixel fixo da tela toda.
+function atualizarBotaoMarcar(chave) {
+  const btn = document.getElementById('btnMarcarCartao');
+  if (!btn) return;
+  btn.dataset.chave = chave;
+  btn.classList.toggle('marcada', cartaoMarcadoSet.has(chave));
 }
 
-function ativarBotaoMarcar() {
-  const btn = opcoesEl.querySelector('.btn-marcar-cartao');
+/** Liga o clique do botão fixo uma única vez (ele nunca é recriado) — chamada na
+ * inicialização da página, não a cada tela (ver atualizarBotaoMarcar, chamada essa sim
+ * a cada tela, só pra trocar a "chave"/estado "marcada" do mesmo botão). */
+function ligarBotaoMarcar() {
+  const btn = document.getElementById('btnMarcarCartao');
   if (!btn) return;
   btn.addEventListener('click', async () => {
     const chave = btn.dataset.chave;
@@ -237,7 +239,6 @@ function mostrarDefinicao(aula, introIdx) {
   questaoSubtitulo.textContent = '';
   opcoesEl.innerHTML = `
     <div class="definicao-card">
-      ${marcarCartaoHtml('definicao')}
       <div class="definicao-icone-wrap">
         <svg viewBox="0 0 24 24" fill="none" stroke="#4A80F0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="40" height="40">
           <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
@@ -246,7 +247,7 @@ function mostrarDefinicao(aula, introIdx) {
       </div>
       <p class="definicao-texto">${def.texto || ''}</p>
     </div>`;
-  ativarBotaoMarcar();
+  atualizarBotaoMarcar('definicao');
   btnProxima.innerHTML = 'Próximo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
   btnProxima.disabled  = false;
   questaoArea.scrollTop = 0;
@@ -263,7 +264,6 @@ function mostrarContexto(aula, introIdx) {
   questaoSubtitulo.textContent = '';
   opcoesEl.innerHTML = `
     <div class="contexto-card">
-      ${marcarCartaoHtml('contexto')}
       <div class="contexto-icone-wrap">
         <svg viewBox="0 0 24 24" fill="none" stroke="#4A80F0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="36" height="36">
           <circle cx="11" cy="11" r="8"/>
@@ -277,7 +277,7 @@ function mostrarContexto(aula, introIdx) {
         <span>${ctx.nota}</span>
       </div>` : ''}
     </div>`;
-  ativarBotaoMarcar();
+  atualizarBotaoMarcar('contexto');
   btnProxima.innerHTML = 'Próximo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
   btnProxima.disabled  = false;
   questaoArea.scrollTop = 0;
@@ -837,7 +837,6 @@ function mostrarExemplo(aula, introIdx, i) {
     : (iconeExternoOuNulo(ex) || (RESUMO_ICONES[ex.tipo] ? RESUMO_ICONES[ex.tipo]('#4A80F0') : RESUMO_ICONES.acao('#4A80F0')));
   opcoesEl.innerHTML = `
     <div class="exemplo-card">
-      ${marcarCartaoHtml(`exemplo${i}`)}
       <div class="exemplo-icone-wrap">
         <svg viewBox="-6 0 30 24" fill="none" width="60" height="48">
           <line x1="-5" y1="8"  x2="0" y2="8"  stroke="#b8ccf4" stroke-width="2.2" stroke-linecap="round"/>
@@ -985,7 +984,7 @@ function mostrarExemplo(aula, introIdx, i) {
         <p class="passo-caixa-resposta"><strong>Resposta:</strong> ${ex.caixa.resposta}</p>` : ''}
       </div>`) : ''}
     </div>`;
-  ativarBotaoMarcar();
+  atualizarBotaoMarcar(`exemplo${i}`);
   btnProxima.innerHTML = 'Próximo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
 
   // Palavras clicáveis dentro da caixa de exemplo (ex: selecionar o verbo).
@@ -1152,6 +1151,8 @@ const RESUMO_ICONES = {
   predVerboNominal: cor => `<path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M9 17H7a5 5 0 1 1 0-10h2M15 7h2a5 5 0 1 1 0 10h-2M8 12h8"/>`,
   semSujeito: cor => `<line x1="-1" y1="6"  x2="2" y2="6"  stroke="${cor}" stroke-width="1.6" stroke-linecap="round" opacity="0.5"/><line x1="-1" y1="10" x2="2" y2="10" stroke="${cor}" stroke-width="1.6" stroke-linecap="round" opacity="0.5"/><line x1="-1" y1="14" x2="2" y2="14" stroke="${cor}" stroke-width="1.6" stroke-linecap="round" opacity="0.5"/><circle cx="11" cy="8" r="4" fill="none" stroke="${cor}" stroke-width="1.8"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" d="M4 21v-1a6 6 0 0 1 6-6h1.5"/><circle cx="18" cy="17" r="5" fill="none" stroke="${cor}" stroke-width="1.7"/><line x1="16.1" y1="15.1" x2="19.9" y2="18.9" stroke="${cor}" stroke-width="1.7" stroke-linecap="round"/><line x1="19.9" y1="15.1" x2="16.1" y2="18.9" stroke="${cor}" stroke-width="1.7" stroke-linecap="round"/>`,
   livro: cor => `<path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>`,
+  certo: cor => `<path fill="none" stroke="${cor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>`,
+  errado: cor => `<path fill="none" stroke="${cor}" stroke-width="2.5" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/>`,
 };
 
 function mostrarInfinitivo(aula, introIdx) {
@@ -1195,7 +1196,6 @@ function mostrarResumo(aula, introIdx) {
   questaoSubtitulo.textContent = '';
   opcoesEl.innerHTML = `
     <div class="resumo-card">
-      ${marcarCartaoHtml('resumo')}
       <p class="resumo-titulo"${estiloTextoInline(res, 'titulo')}>${renderFraseComDestaque(res.titulo || '', res.tituloDestaque, res.tituloDestaqueNegrito)}</p>
       ${(res.itens || []).map(item => `
       <div class="resumo-item">
@@ -1210,7 +1210,7 @@ function mostrarResumo(aula, introIdx) {
         </div>
       </div>`).join('')}
     </div>`;
-  ativarBotaoMarcar();
+  atualizarBotaoMarcar('resumo');
   btnProxima.innerHTML = 'Próximo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
   btnProxima.disabled  = false;
   questaoArea.scrollTop = 0;
@@ -1227,8 +1227,9 @@ function mostrarLista(aula, introIdx, i) {
   questaoSubtitulo.textContent = '';
   opcoesEl.innerHTML = `
     <div class="resumo-card">
-      ${marcarCartaoHtml(`lista${i}`)}
+      ${li.icone ? `<div class="lista-icone-topo" style="background:${li.icone.corFundo || '#eef2ff'};color:${li.icone.cor || '#4A80F0'}"><svg viewBox="0 0 24 24" width="32" height="32">${iconeExternoOuNulo(li.icone) || (RESUMO_ICONES[li.icone.tipo] ? RESUMO_ICONES[li.icone.tipo](li.icone.cor || '#4A80F0') : '')}</svg></div>` : ''}
       ${li.titulo ? `<p class="resumo-titulo"${estiloTextoInline(li, 'titulo')}>${renderFraseComDestaque(li.titulo || '', li.tituloDestaque, li.tituloDestaqueNegrito)}</p>` : ''}
+      ${li.textoAntes ? `<p class="lista-descricao lista-texto-antes"${estiloTextoInline(li, 'textoAntes')}>${renderFraseComDestaque(li.textoAntes, li.textoAntesDestaque, li.textoAntesDestaqueNegrito)}</p>` : ''}
       ${(li.itens || []).map(item => `
       <div class="resumo-item">
         <div class="resumo-icone" style="background:${item.corFundo}">
@@ -1240,7 +1241,7 @@ function mostrarLista(aula, introIdx, i) {
       </div>`).join('')}
       ${li.descricao ? `<p class="lista-descricao"${estiloTextoInline(li, 'descricao')}>${renderFraseComDestaque(li.descricao, li.descricaoDestaque, li.descricaoDestaqueNegrito)}</p>` : ''}
     </div>`;
-  ativarBotaoMarcar();
+  atualizarBotaoMarcar(`lista${i}`);
   btnProxima.innerHTML = 'Próximo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
   btnProxima.disabled  = false;
   questaoArea.scrollTop = 0;
@@ -1257,11 +1258,10 @@ function mostrarLicao(aula, introIdx) {
   questaoSubtitulo.textContent = '';
   opcoesEl.innerHTML = `
     <div class="resumo-card">
-      ${marcarCartaoHtml('licao')}
       <p class="resumo-titulo"${estiloTextoInline(lic, 'titulo')}>${renderFraseComDestaque(lic.titulo || '', lic.tituloDestaque, lic.tituloDestaqueNegrito)}</p>
       <div class="licao-corpo">${lic.html || ''}</div>
     </div>`;
-  ativarBotaoMarcar();
+  atualizarBotaoMarcar('licao');
   btnProxima.innerHTML = 'Próximo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
   btnProxima.disabled  = false;
   questaoArea.scrollTop = 0;
@@ -1350,7 +1350,7 @@ function mostrarChecagem(aula, introIdx, dados, checagemIdx, origemAulaId = aula
   // o layout padrão das questões, com o verbo em destaque no subtítulo.
   // Checagens com "banco" (reordenar) não mostram subtítulo — o "sentenca" (clicar na palavra)
   // mostra normalmente quando preenchido (descrição opcional, definida no Construtor de Aulas).
-  opcoesEl.innerHTML = marcarCartaoHtml(`checagem${checagemIdx}`) + (dados.invertido
+  opcoesEl.innerHTML = (dados.invertido
     ? `<p class="questao-subtitulo checagem-pergunta"${estiloTextoInline(dados, 'subtitulo')}>${renderFraseComDestaque(dados.subtitulo || '', dados.subtituloDestaque, dados.subtituloDestaqueNegrito)}</p>
        <h2 class="questao-titulo checagem-titulo"${estiloTextoInline(dados, 'titulo')}>${renderFraseComDestaque(dados.titulo || '', dados.tituloDestaque, dados.tituloDestaqueNegrito)}</h2>`
     : `<h2 class="questao-titulo checagem-instrucao"${estiloTextoInline(dados, 'titulo')}>${renderFraseComDestaque(dados.titulo || '', dados.tituloDestaque, dados.tituloDestaqueNegrito)}</h2>` +
@@ -1360,7 +1360,7 @@ function mostrarChecagem(aula, introIdx, dados, checagemIdx, origemAulaId = aula
       : dados.sujeito ? '<div class="dual-select-wrap" id="dualSelectWrap"></div>'
       : dados.banco ? '<div class="reordenar-wrap" id="reordenarWrap"></div>'
       : dados.sentenca ? '<div class="sentence-display" id="sentenceDisplay"></div>' : '');
-  ativarBotaoMarcar();
+  atualizarBotaoMarcar(`checagem${checagemIdx}`);
 
   if (dados.multiplosRotulos) {
     mostrarChecagemMultiplosRotulos(aula, introIdx, dados, checagemIdx, origemAulaId, respondida);
@@ -2718,6 +2718,7 @@ carregarDadosIniciais().then((carregado) => {
   document.getElementById('btnFechar').addEventListener('click', () => {
     window.location.href = destinoVoltarCedo();
   });
+  ligarBotaoMarcar();
 
   // Voltar ao início após resultado — ou começar a rodada de revisão/reinício
   document.getElementById('resultadoBtnContinuar').addEventListener('click', () => {

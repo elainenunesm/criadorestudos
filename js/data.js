@@ -66,6 +66,7 @@ const TIPOS_ICONE = [
   'acao', 'estado', 'mudanca', 'fenomeno', 'infinito', 'conjugar', 'gota',
   'peca', 'foguete', 'sujeito', 'fala', 'busca', 'tarefa', 'pergunta',
   'dica', 'predVerbal', 'predNominal', 'predVerboNominal', 'semSujeito', 'livro',
+  'certo', 'errado',
 ];
 
 /** Localiza {ciclo, materia, aula} por ids. */

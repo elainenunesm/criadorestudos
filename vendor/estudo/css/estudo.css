@@ -47,6 +47,7 @@ body {
   display: flex;
   align-items: flex-start;
   gap: 12px;
+  position: relative;
 }
 
 .btn-fechar {
@@ -168,13 +169,9 @@ body {
 }
 
 /* TELA DE CHECAGEM — pergunta curta em negrito antes do título grande */
-/* padding-right reserva espaço pro .btn-marcar-cartao (marca-página
-   absoluto no canto superior direito) não sobrepor o texto quando ele
-   quebra em duas linhas em telas estreitas. */
 .checagem-pergunta {
   font-weight: 700;
   margin-bottom: 6px;
-  padding-right: 48px;
 }
 
 .checagem-titulo {
@@ -185,7 +182,6 @@ body {
    frase analisada maior (é o que realmente importa ler com atenção). */
 .checagem-instrucao {
   font-size: 16px;
-  padding-right: 48px;
 }
 
 .checagem-frase {
@@ -282,12 +278,16 @@ body {
   position: relative;
 }
 
-/* ETIQUETA "MARCAR PARA REVISÃO" — marca-página no lado esquerdo das
-   telas de conteúdo (definição, contexto, exemplo). */
+/* ETIQUETA "MARCAR PARA REVISÃO" — botão único e fixo no cabeçalho (não é
+   mais recriado a cada tela, ver ligarBotaoMarcar/atualizarBotaoMarcar em
+   estudo.mjs), preso no rodapé do próprio .estudo-header (position:absolute
+   nele, que tem position:relative) — assim ele acompanha a altura real do
+   cabeçalho (que varia com o tamanho do título da aula), em vez de um valor
+   fixo em pixels que ficava errado quando o título quebrava em 2 linhas. */
 .btn-marcar-cartao {
   position: absolute;
-  top: -6px;
-  right: 10px;
+  bottom: -35px;
+  right: 16px;
   width: 36px;
   height: 44px;
   padding: 0;
@@ -300,7 +300,7 @@ body {
   justify-content: center;
   cursor: pointer;
   color: #b9c6f0;
-  z-index: 2;
+  z-index: 15;
   transition: color 0.2s, transform 0.15s;
 }
 
@@ -1037,6 +1037,16 @@ body {
   color: #4b5563;
   line-height: 1.6;
   text-align: justify;
+}
+
+.lista-icone-topo {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
 }
 
 /* TELA DE IDENTIFICAÇÃO */
