@@ -1049,6 +1049,57 @@ body {
   margin: 0 auto;
 }
 
+/* TELA DE TIMELINE — linha do tempo com pontos clicáveis; a linha em si é um
+   pseudo-elemento atrás dos pontos (mesmo truque do path-line do Início). */
+.tl-trilha {
+  display: flex; justify-content: center; gap: 6px; position: relative; padding: 18px 4px 8px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+}
+.tl-trilha::before {
+  content: ''; position: absolute; top: 44px; left: 8px; right: 8px; height: 2px;
+  background: var(--cor-borda-clara);
+}
+.tl-ponto {
+  display: flex; flex-direction: column; align-items: center; gap: 5px; position: relative;
+  flex-shrink: 0; width: 76px; background: none; border: none; cursor: pointer;
+  font-family: inherit; padding: 0 2px;
+}
+/* Largura fixa por ponto (acima) garante distância constante entre eles, não
+   importa quantos existam nem o tamanho do texto — sem precisar recalcular
+   nada em JS. O "ano" nunca quebra linha (só trunca) pra não empurrar o ponto
+   pra baixo e desalinhar da linha; o "rótulo" fica abaixo do ponto, então
+   pode quebrar em várias linhas à vontade sem afetar esse alinhamento. */
+.tl-ano {
+  font-size: 12px; font-weight: 700; color: #9ca3af;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  transition: color .15s;
+}
+.tl-ponto.ativo .tl-ano { color: var(--tl-cor, var(--cor-primaria)); }
+.tl-dot {
+  width: 14px; height: 14px; border-radius: 50%; background: #fff;
+  border: 3px solid var(--tl-cor, var(--cor-borda-media)); opacity: .45;
+  z-index: 1; transition: all .15s; flex-shrink: 0;
+}
+.tl-ponto.ativo .tl-dot { background: var(--tl-cor, var(--cor-primaria)); opacity: 1; width: 18px; height: 18px; }
+.tl-rotulo { font-size: 11px; color: #6b7280; text-align: center; line-height: 1.3; max-width: 100%; overflow-wrap: break-word; word-break: break-word; }
+.tl-ponto.ativo .tl-rotulo { color: #1a1a2e; font-weight: 700; }
+
+.tl-detalhe { background: #f5f8ff; border: 1.5px solid #d9e6fc; border-radius: 16px; padding: 20px; margin-top: 6px; }
+.tl-detalhe-icone {
+  width: 44px; height: 44px; border-radius: 50%; background: var(--tl-cor, var(--cor-primaria));
+  display: flex; align-items: center; justify-content: center; margin-bottom: 12px;
+}
+.tl-detalhe-titulo { font-size: 17px; font-weight: 700; color: #1a1a2e; }
+.tl-detalhe-ano { font-size: 13px; color: #6b7280; margin-top: 2px; }
+.tl-detalhe-desc { font-size: 15px; color: #374151; margin-top: 12px; line-height: 1.6; text-align: justify; }
+.tl-carac { margin-top: 14px; padding-top: 14px; border-top: 1px solid #d9e6fc; }
+.tl-carac-titulo { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--tl-cor, #7c5cd6); margin-bottom: 10px; }
+.tl-carac-item { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; color: #374151; margin-top: 8px; }
+.tl-carac-check {
+  width: 18px; height: 18px; border-radius: 50%; background: #16A34A;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;
+}
+
 /* TELA DE IDENTIFICAÇÃO */
 .idf-card {
   display: flex;

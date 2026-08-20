@@ -22,33 +22,36 @@ function conteudoAulaAtual() {
   return info ? info.aula : null;
 }
 
-/** Próximo _id livre pra um novo item de exemplo/checagem/lista (referenciado em conteudo.ordem). */
+/** Próximo _id livre pra um novo item de exemplo/checagem/lista/timeline (referenciado em conteudo.ordem). */
 function proximoIdItem(conteudo) {
-  const ids = [...conteudo.exemplo, ...conteudo.checagem, ...conteudo.lista].map(i => i._id || 0);
+  const ids = [...conteudo.exemplo, ...conteudo.checagem, ...conteudo.lista, ...conteudo.timeline].map(i => i._id || 0);
   return Math.max(0, ...ids) + 1;
 }
 
 /**
  * Garante que conteudo.ordem existe e reflete exatamente os itens atuais de
- * exemplo/checagem/lista (dá _id a quem não tem, inclui item novo no fim antes do
+ * exemplo/checagem/lista/timeline (dá _id a quem não tem, inclui item novo no fim antes do
  * resumo, remove entrada de item excluído). Chamada sempre antes de ler a
  * ordem — assim aulas antigas (sem "ordem" salvo) se auto-reparam na hora.
  */
 function garantirOrdem(conteudo) {
   if (!Array.isArray(conteudo.ordem)) conteudo.ordem = [];
   // Migração: aulas criadas antes da tela "Lista" existir tinham esse campo como objeto único
-  // (ou nem tinham) — "Lista" agora é repetível, igual Exemplo/Checagem, então é sempre um array.
+  // (ou nem tinham) — "Lista"/"Timeline" são repetíveis, igual Exemplo/Checagem, então são sempre um array.
   if (!Array.isArray(conteudo.lista)) conteudo.lista = [];
+  if (!Array.isArray(conteudo.timeline)) conteudo.timeline = [];
 
   conteudo.exemplo.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
   conteudo.checagem.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
   conteudo.lista.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
+  conteudo.timeline.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
 
   // Remove entradas de itens que não existem mais.
   conteudo.ordem = conteudo.ordem.filter(t => {
     if (t.tipo === 'exemplo') return conteudo.exemplo.some(i => i._id === t.id);
     if (t.tipo === 'checagem') return conteudo.checagem.some(i => i._id === t.id);
     if (t.tipo === 'lista') return conteudo.lista.some(i => i._id === t.id);
+    if (t.tipo === 'timeline') return conteudo.timeline.some(i => i._id === t.id);
     return true;
   });
 
@@ -63,6 +66,9 @@ function garantirOrdem(conteudo) {
   conteudo.lista.forEach(item => {
     if (!presentes.has(`lista:${item._id}`)) conteudo.ordem.push({ tipo: 'lista', id: item._id });
   });
+  conteudo.timeline.forEach(item => {
+    if (!presentes.has(`timeline:${item._id}`)) conteudo.ordem.push({ tipo: 'timeline', id: item._id });
+  });
   // Resumo/Lição nascem junto com a aula, mas podem ser excluídos (ver removerPassoAtual) — nesse
   // caso NÃO voltam sozinhos aqui, só se a professora clicar em "Tipo (Telas)" pra adicionar de novo.
   if (!presentes.has('resumo:') && !conteudo.resumoRemovido) conteudo.ordem.push({ tipo: 'resumo' });
@@ -72,12 +78,13 @@ function garantirOrdem(conteudo) {
 const TITULO_TELA_FIXO = { antesComecar: 'Antes de começar', resumo: 'Resumo', licao: 'Lição' };
 
 /** Monta a lista de passos a partir de conteudo.ordem — a numeração de "Exemplo N"/
- * "Checagem N"/"Lista N" segue a posição na sequência (não a posição de criação). */
+ * "Checagem N"/"Lista N"/"Timeline N" segue a posição na sequência (não a posição de criação). */
 function montarPassos(conteudo) {
   garantirOrdem(conteudo);
   let numExemplo = 0;
   let numChecagem = 0;
   let numLista = 0;
+  let numTimeline = 0;
   return conteudo.ordem.map(token => {
     if (token.tipo === 'exemplo') {
       numExemplo++;
@@ -94,6 +101,10 @@ function montarPassos(conteudo) {
     if (token.tipo === 'lista') {
       numLista++;
       return { tipo: 'lista', idx: conteudo.lista.findIndex(i => i._id === token.id), id: token.id, titulo: `Lista ${numLista}` };
+    }
+    if (token.tipo === 'timeline') {
+      numTimeline++;
+      return { tipo: 'timeline', idx: conteudo.timeline.findIndex(i => i._id === token.id), id: token.id, titulo: `Timeline ${numTimeline}` };
     }
     return { tipo: token.tipo, titulo: TITULO_TELA_FIXO[token.tipo] };
   });
@@ -143,6 +154,7 @@ const ICONE_TELA = {
   resumo: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="12" height="18" rx="2"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/></svg>',
   licao: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
   lista: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="4.5" cy="6" r="1.3" fill="#fff" stroke="none"/><circle cx="4.5" cy="12" r="1.3" fill="#fff" stroke="none"/><circle cx="4.5" cy="18" r="1.3" fill="#fff" stroke="none"/><line x1="9" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="9" y1="18" x2="21" y2="18"/></svg>',
+  timeline: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="12" x2="22" y2="12"/><circle cx="5" cy="12" r="2" fill="#fff" stroke="none"/><circle cx="12" cy="12" r="2" fill="#fff" stroke="none"/><circle cx="19" cy="12" r="2" fill="#fff" stroke="none"/></svg>',
 };
 
 /** Dados de mentira só pra prévia de "que tipo de tela é essa" — nunca chegam a entrar
@@ -216,6 +228,14 @@ const DADOS_FICTICIOS_TELA = {
     ],
     descricao: 'Assim vai aparecer a descrição, depois da lista.',
   },
+  timeline: {
+    titulo: 'Assim vai aparecer o título da timeline.',
+    instrucao: 'Clique em um período da linha do tempo para ver os detalhes.',
+    eventos: [
+      { ano: '1500', titulo: 'Primeiro período', cor: '#5B2BCB', descricao: 'Assim vai aparecer a descrição deste período.', caracteristicas: 'Primeira característica.\nSegunda característica.' },
+      { ano: '1822', titulo: 'Segundo período', cor: '#F59E0B', descricao: 'Assim vai aparecer a descrição deste outro período.', caracteristicas: 'Outra característica.' },
+    ],
+  },
 };
 
 const NOME_TELA_ADICIONAR = {
@@ -236,6 +256,7 @@ const NOME_TELA_ADICIONAR = {
   resumo: 'Resumo',
   licao: 'Lição',
   lista: 'Adicionar lista',
+  timeline: 'Adicionar timeline',
 };
 
 /** Tipo (e, se aplicável, a variante) escolhidos no popup "Tipo (Telas)" — ainda não
@@ -281,6 +302,8 @@ function mostrarPreviewNovaTela(tipo, modo) {
     body.innerHTML = previewLicao(aula.conteudo.licao);
   } else if (tipo === 'lista') {
     body.innerHTML = previewLista(DADOS_FICTICIOS_TELA.lista);
+  } else if (tipo === 'timeline') {
+    body.innerHTML = previewTimeline(DADOS_FICTICIOS_TELA.timeline);
   } else {
     const DADOS_CHECAGEM_POR_MODO = {
       palavra: DADOS_FICTICIOS_TELA.checagemPalavra,
@@ -415,6 +438,11 @@ function renderEstruturaTelas() {
           iconeHtml: badgeIcone(ICONE_TELA.lista, '#0D9488'),
           onClick: () => mostrarPreviewNovaTela('lista'),
         },
+        {
+          label: 'Adicionar timeline', sublabel: 'Linha do tempo com períodos clicáveis — cada um abre um card de detalhes', grupo: 'Timeline',
+          iconeHtml: badgeIcone(ICONE_TELA.timeline, '#DB2777'),
+          onClick: () => mostrarPreviewNovaTela('timeline'),
+        },
       ];
       // "Resumo" e "Lição" são fixos por padrão (toda aula nasce com os dois) — só aparecem aqui
       // pra adicionar de volta se a professora tiver excluído antes (ver abrirMenuTela/removerPassoAtual).
@@ -470,7 +498,7 @@ function abrirMenuTela(event, idx) {
   if (podeMoverTela(passos, idx, 1)) itens.push({ acao: 'descer', label: '⬇️ Mover para baixo', onClick: () => moverTela(idx, 1) });
   // Resumo e Lição são opcionais (podem ser excluídos e depois adicionados de volta pelo "Tipo
   // (Telas)"), diferente de "Antes de começar", que é sempre obrigatório.
-  if (passo.tipo === 'exemplo' || passo.tipo === 'checagem' || passo.tipo === 'resumo' || passo.tipo === 'licao' || passo.tipo === 'lista') {
+  if (passo.tipo === 'exemplo' || passo.tipo === 'checagem' || passo.tipo === 'resumo' || passo.tipo === 'licao' || passo.tipo === 'lista' || passo.tipo === 'timeline') {
     itens.push({
       acao: 'excluir', label: '🗑 Excluir esta tela', onClick: () => {
         conteudoEstado.passoIndex = idx;
@@ -587,6 +615,9 @@ function adicionarItemPasso(tipoLista, variante) {
   } else if (tipoLista === 'lista') {
     conteudo.lista.push({ _id: id, titulo: '', textoAntes: '', itens: [], descricao: '' });
     inserirNaOrdemAntesDoResumo(conteudo, { tipo: 'lista', id });
+  } else if (tipoLista === 'timeline') {
+    conteudo.timeline.push({ _id: id, titulo: '', instrucao: '', eventos: [] });
+    inserirNaOrdemAntesDoResumo(conteudo, { tipo: 'timeline', id });
   } else if (tipoLista === 'resumo' || tipoLista === 'licao') {
     // Só existe uma de cada — o conteúdo (texto já preenchido antes de excluir) não se perde,
     // então "adicionar de volta" é só religar a tela na ordem, via garantirOrdem().
@@ -611,6 +642,7 @@ function removerPassoAtual() {
   if (passo.tipo === 'exemplo') conteudo.exemplo.splice(passo.idx, 1);
   else if (passo.tipo === 'checagem') conteudo.checagem.splice(passo.idx, 1);
   else if (passo.tipo === 'lista') conteudo.lista.splice(passo.idx, 1);
+  else if (passo.tipo === 'timeline') conteudo.timeline.splice(passo.idx, 1);
   else if (passo.tipo === 'resumo') conteudo.resumoRemovido = true;
   else if (passo.tipo === 'licao') conteudo.licaoRemovido = true;
   else return;
@@ -969,6 +1001,7 @@ function renderizarConteudo() {
     resumo: renderFormResumo,
     licao: renderFormLicao,
     lista: renderFormLista,
+    timeline: renderFormTimeline,
   };
   renderers[passo.tipo](formEl, aula.conteudo, passo);
 
@@ -2103,6 +2136,91 @@ function renderFormLista(el, conteudo, passo) {
   });
 }
 
+/** Timeline: linha do tempo com pontos clicáveis — cada "evento" tem ano/título
+ * (rótulo do ponto) e, ao clicar, abre um card com descrição + lista de
+ * características (uma por linha, sem destaque por palavra — texto curto,
+ * não precisa da mesma finura dos campos de parágrafo). */
+function renderFormTimeline(el, conteudo, passo) {
+  const tl = conteudo.timeline[passo.idx];
+  el.innerHTML = `
+    <div class="form-secao">
+      <div class="campo">${htmlLabelComEstilo('Título', 'titulo')}<input type="text" id="tlTitulo"></div>
+      <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
+      <div id="tlDestaqueTitulo"></div>
+      <div class="campo" style="margin-top:16px">${htmlLabelComEstilo('Instrução (opcional)', 'instrucao')}<input type="text" id="tlInstrucao" placeholder="Ex: Clique em um período da linha do tempo para ver os detalhes."></div>
+      <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
+      <div id="tlDestaqueInstrucao"></div>
+      <div class="secao-titulo-editor">Períodos (pontos da linha do tempo)</div>
+      <div class="lista-itens" id="tlEventos"></div>
+      <button class="btn-add-item" type="button" id="btnAddTlEvento">+ Adicionar período</button>
+    </div>`;
+
+  el.querySelector('#tlTitulo').value = tl.titulo || '';
+  el.querySelector('#tlTitulo').addEventListener('input', e => { tl.titulo = e.target.value; renderPreviewAtual(); });
+  el.querySelector('#tlInstrucao').value = tl.instrucao || '';
+  el.querySelector('#tlInstrucao').addEventListener('input', e => { tl.instrucao = e.target.value; renderPreviewAtual(); });
+  ligarBotoesEstiloTexto(el, tl);
+
+  const renderDestaquesTlTitulo = montarDestaqueFrases(el.querySelector('#tlDestaqueTitulo'), tl, [
+    { rotulo: 'Título', campo: 'titulo' },
+  ]);
+  el.querySelector('#tlTitulo').addEventListener('blur', () => { podarDestaque(tl, 'titulo'); renderDestaquesTlTitulo(); });
+
+  const renderDestaquesTlInstrucao = montarDestaqueFrases(el.querySelector('#tlDestaqueInstrucao'), tl, [
+    { rotulo: 'Instrução', campo: 'instrucao' },
+  ]);
+  el.querySelector('#tlInstrucao').addEventListener('blur', () => { podarDestaque(tl, 'instrucao'); renderDestaquesTlInstrucao(); });
+
+  const listaEventos = el.querySelector('#tlEventos');
+  function renderEventos() {
+    listaEventos.innerHTML = '';
+    tl.eventos.forEach((ev, i) => {
+      const card = document.createElement('div');
+      card.className = 'item-card';
+      card.innerHTML = `
+        <div class="item-card-topo"><strong>Período ${i + 1}</strong><button class="btn-remover-item" type="button">Remover</button></div>
+        <div class="campo-linha">
+          <div class="campo"><label>Ano (ou período, ex: "1964 – 1985")</label><input type="text" data-tf="ano" placeholder="Ex: 1500"></div>
+          <div class="campo" style="flex:0 0 auto"><label>Cor</label><input type="color" data-tf="cor"></div>
+        </div>
+        <div class="campo">${htmlLabelComEstilo('Título do período', 'titulo')}<input type="text" data-tf="titulo" placeholder="Ex: Período Colonial"></div>
+        <div class="secao-titulo-editor" style="margin-top:12px">Destaque nas frases (palavras em azul)</div>
+        <div id="tlDestaqueEventoTitulo${i}"></div>
+        <div class="campo" style="margin-top:12px">${htmlLabelComEstilo('Descrição', 'descricao')}<textarea data-tf="descricao" rows="3"></textarea></div>
+        <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
+        <div id="tlDestaqueEventoDescricao${i}"></div>
+        <div class="campo" style="margin-top:12px"><label>Características (uma por linha, opcional)</label><textarea data-tf="caracteristicas" rows="4" placeholder="Ex:&#10;Regime autoritário e centralização do poder&#10;Censura à imprensa"></textarea></div>`;
+      card.querySelector('[data-tf="ano"]').value = ev.ano || '';
+      card.querySelector('[data-tf="cor"]').value = ev.cor || '#5B2BCB';
+      card.querySelector('[data-tf="titulo"]').value = ev.titulo || '';
+      card.querySelector('[data-tf="descricao"]').value = ev.descricao || '';
+      card.querySelector('[data-tf="caracteristicas"]').value = ev.caracteristicas || '';
+      card.querySelectorAll('[data-tf]').forEach(input => {
+        input.addEventListener('input', () => { ev[input.dataset.tf] = input.value; renderPreviewAtual(); });
+      });
+      ligarBotoesEstiloTexto(card, ev);
+
+      const renderDestaquesEventoTitulo = montarDestaqueFrases(card.querySelector(`#tlDestaqueEventoTitulo${i}`), ev, [
+        { rotulo: 'Título', campo: 'titulo' },
+      ]);
+      card.querySelector('[data-tf="titulo"]').addEventListener('blur', () => { podarDestaque(ev, 'titulo'); renderDestaquesEventoTitulo(); });
+
+      const renderDestaquesEventoDescricao = montarDestaqueFrases(card.querySelector(`#tlDestaqueEventoDescricao${i}`), ev, [
+        { rotulo: 'Descrição', campo: 'descricao' },
+      ]);
+      card.querySelector('[data-tf="descricao"]').addEventListener('blur', () => { podarDestaque(ev, 'descricao'); renderDestaquesEventoDescricao(); });
+
+      card.querySelector('.btn-remover-item').addEventListener('click', () => { tl.eventos.splice(i, 1); renderEventos(); renderPreviewAtual(); });
+      listaEventos.appendChild(card);
+    });
+  }
+  renderEventos();
+  el.querySelector('#btnAddTlEvento').addEventListener('click', () => {
+    tl.eventos.push({ ano: '', titulo: '', cor: '#5B2BCB', descricao: '', caracteristicas: '' });
+    renderEventos(); renderPreviewAtual();
+  });
+}
+
 function renderFormLicao(el, conteudo) {
   const l = conteudo.licao;
   el.innerHTML = `
@@ -2184,6 +2302,7 @@ function corpoDoPasso(aula, passo, resp) {
   if (passo.tipo === 'resumo') return { html: previewResumo(aula.conteudo.resumo), temToggle: false };
   if (passo.tipo === 'licao') return { html: previewLicao(aula.conteudo.licao), temToggle: false };
   if (passo.tipo === 'lista') return { html: previewLista(aula.conteudo.lista[passo.idx]), temToggle: false };
+  if (passo.tipo === 'timeline') return { html: previewTimeline(aula.conteudo.timeline[passo.idx]), temToggle: false };
   return { html: '', temToggle: false };
 }
 
@@ -2675,6 +2794,44 @@ function previewLista(li) {
         <span class="pp-lista-item-texto"${estiloTextoInline(it, 'texto')}>${renderFraseComDestaque(it.texto, it.textoDestaque, it.textoDestaqueNegrito)}</span>
       </div>`).join('')}
     ${li.descricao ? `<p class="pp-lista-descricao"${estiloTextoInline(li, 'descricao')}>${renderFraseComDestaque(li.descricao, li.descricaoDestaque, li.descricaoDestaqueNegrito)}</p>` : ''}`;
+}
+
+/** Prévia da timeline — só mostra o card de detalhes do 1º período (a prévia
+ * do Construtor é uma foto estática, não clicável; a interatividade de
+ * verdade — clicar num ponto pra trocar o card — é só no player exportado). */
+function previewTimeline(tl) {
+  if (!tl.eventos.length) return '<p class="pp-vazio">Adicione períodos para ver a prévia.</p>';
+  const pontos = tl.eventos.map((ev, i) => `
+    <div class="pp-tl-ponto${i === 0 ? ' ativo' : ''}" style="--tl-cor:${ev.cor || '#5B2BCB'}">
+      <span class="pp-tl-ano">${escaparHtml(ev.ano || '')}</span>
+      <span class="pp-tl-dot"></span>
+      <span class="pp-tl-rotulo">${escaparHtml(ev.titulo || '')}</span>
+    </div>`).join('');
+  return `
+    ${tl.titulo ? `<p class="pp-titulo"${estiloTextoInline(tl, 'titulo')}>${renderFraseComDestaque(tl.titulo, tl.tituloDestaque, tl.tituloDestaqueNegrito)}</p>` : ''}
+    ${tl.instrucao ? `<p class="pp-intro-desc"${estiloTextoInline(tl, 'instrucao')}>${renderFraseComDestaque(tl.instrucao, tl.instrucaoDestaque, tl.instrucaoDestaqueNegrito)}</p>` : ''}
+    <div class="pp-tl-trilha">${pontos}</div>
+    ${previewTimelineDetalhe(tl.eventos[0])}`;
+}
+
+function previewTimelineDetalhe(ev) {
+  const caracteristicas = (ev.caracteristicas || '').split('\n').map(s => s.trim()).filter(Boolean);
+  return `
+    <div class="pp-tl-detalhe" style="--tl-cor:${ev.cor || '#5B2BCB'}">
+      <div class="pp-tl-detalhe-icone"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+      <p class="pp-tl-detalhe-titulo"${estiloTextoInline(ev, 'titulo')}>${renderFraseComDestaque(ev.titulo || '', ev.tituloDestaque, ev.tituloDestaqueNegrito)}</p>
+      ${ev.ano ? `<p class="pp-tl-detalhe-ano">${escaparHtml(ev.ano)}</p>` : ''}
+      ${ev.descricao ? `<p class="pp-tl-detalhe-desc"${estiloTextoInline(ev, 'descricao')}>${renderFraseComDestaque(ev.descricao, ev.descricaoDestaque, ev.descricaoDestaqueNegrito)}</p>` : ''}
+      ${caracteristicas.length ? `
+      <div class="pp-tl-carac">
+        <p class="pp-tl-carac-titulo">Principais características</p>
+        ${caracteristicas.map(c => `
+        <div class="pp-tl-carac-item">
+          <span class="pp-tl-carac-check">✓</span>
+          <span>${escaparHtml(c)}</span>
+        </div>`).join('')}
+      </div>` : ''}
+    </div>`;
 }
 
 function previewLicao(l) {

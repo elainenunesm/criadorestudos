@@ -494,6 +494,25 @@
 .player-preview .pp-lista-descricao { font-size: 14px; color: #4b5563; line-height: 1.6; margin-top: 10px; text-align: justify; }
 .player-preview .pp-lista-icone-topo { width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; }
 
+/* timeline */
+.player-preview .pp-tl-trilha { display: flex; justify-content: center; gap: 4px; position: relative; padding: 14px 0 6px; overflow-x: auto; }
+.player-preview .pp-tl-trilha::before { content: ''; position: absolute; top: 37px; left: 0; right: 0; height: 2px; background: #e3daf9; }
+.player-preview .pp-tl-ponto { display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative; flex-shrink: 0; width: 66px; }
+.player-preview .pp-tl-ano { font-size: 10px; font-weight: 700; color: #9ca3af; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.player-preview .pp-tl-ponto.ativo .pp-tl-ano { color: var(--tl-cor, #7c5cd6); }
+.player-preview .pp-tl-dot { width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 3px solid var(--tl-cor, #c9b8f0); opacity: .45; z-index: 1; flex-shrink: 0; }
+.player-preview .pp-tl-ponto.ativo .pp-tl-dot { background: var(--tl-cor, var(--cor-primaria, #5B2BCB)); opacity: 1; width: 16px; height: 16px; }
+.player-preview .pp-tl-rotulo { font-size: 9.5px; color: #6b7280; text-align: center; max-width: 100%; overflow-wrap: break-word; word-break: break-word; }
+.player-preview .pp-tl-detalhe { background: #f5f8ff; border: 1.5px solid #d9e6fc; border-radius: 14px; padding: 16px; margin-top: 14px; }
+.player-preview .pp-tl-detalhe-icone { width: 34px; height: 34px; border-radius: 50%; background: var(--tl-cor, var(--cor-primaria, #5B2BCB)); display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+.player-preview .pp-tl-detalhe-titulo { font-weight: 700; color: #1a1a2e; font-size: 14px; }
+.player-preview .pp-tl-detalhe-ano { font-size: 12px; color: #6b7280; margin-top: 2px; }
+.player-preview .pp-tl-detalhe-desc { font-size: 13.5px; color: #374151; margin-top: 8px; line-height: 1.5; }
+.player-preview .pp-tl-carac { margin-top: 12px; padding-top: 12px; border-top: 1px solid #d9e6fc; }
+.player-preview .pp-tl-carac-titulo { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--tl-cor, #7c5cd6); margin-bottom: 8px; }
+.player-preview .pp-tl-carac-item { display: flex; align-items: flex-start; gap: 6px; font-size: 12.5px; color: #374151; margin-top: 6px; }
+.player-preview .pp-tl-carac-check { width: 15px; height: 15px; border-radius: 50%; background: #16A34A; color: #fff; font-size: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
 /* lição */
 .player-preview .pp-licao-corpo { font-size: 14px; color: #1a1a2e; line-height: 1.6; }
 .player-preview .pp-licao-corpo p { margin-bottom: 8px; }

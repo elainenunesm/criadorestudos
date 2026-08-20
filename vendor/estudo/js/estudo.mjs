@@ -1248,6 +1248,72 @@ function mostrarLista(aula, introIdx, i) {
   atualizarScrollFade();
 }
 
+/** Timeline: linha do tempo com pontos clicáveis — clicar num ponto mostra o
+ * card de detalhes daquele período (título, ano, descrição, características).
+ * Nada fica selecionado até a aluna clicar num ponto, de propósito. */
+function tlDetalheHtml(ev) {
+  const caracteristicas = (ev.caracteristicas || '').split('\n').map(s => s.trim()).filter(Boolean);
+  return `
+    <div class="tl-detalhe-icone"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+    <p class="tl-detalhe-titulo"${estiloTextoInline(ev, 'titulo')}>${renderFraseComDestaque(ev.titulo || '', ev.tituloDestaque, ev.tituloDestaqueNegrito)}</p>
+    ${ev.ano ? `<p class="tl-detalhe-ano">${ev.ano}</p>` : ''}
+    ${ev.descricao ? `<p class="tl-detalhe-desc"${estiloTextoInline(ev, 'descricao')}>${renderFraseComDestaque(ev.descricao, ev.descricaoDestaque, ev.descricaoDestaqueNegrito)}</p>` : ''}
+    ${caracteristicas.length ? `
+    <div class="tl-carac">
+      <p class="tl-carac-titulo">Principais características</p>
+      ${caracteristicas.map(c => `
+      <div class="tl-carac-item">
+        <span class="tl-carac-check"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+        <span>${c}</span>
+      </div>`).join('')}
+    </div>` : ''}`;
+}
+
+function mostrarTimeline(aula, introIdx, i) {
+  const tl = (aula.timeline || [])[i] || {};
+  const eventos = tl.eventos || [];
+  questaoInfo.textContent      = aula.titulo;
+  feedbackBar.style.display    = 'none';
+  btnAnterior.style.display    = '';
+  renderIntroSegs(introIdx - 1);
+  questaoTitulo.innerHTML      = '';
+  questaoSubtitulo.textContent = '';
+  opcoesEl.innerHTML = `
+    <div class="resumo-card">
+      ${tl.titulo ? `<p class="resumo-titulo"${estiloTextoInline(tl, 'titulo')}>${renderFraseComDestaque(tl.titulo || '', tl.tituloDestaque, tl.tituloDestaqueNegrito)}</p>` : ''}
+      ${tl.instrucao ? `<p class="lista-descricao"${estiloTextoInline(tl, 'instrucao')}>${renderFraseComDestaque(tl.instrucao, tl.instrucaoDestaque, tl.instrucaoDestaqueNegrito)}</p>` : ''}
+      <div class="tl-trilha" id="tlTrilha">
+        ${eventos.map((ev, idx) => `
+        <button type="button" class="tl-ponto" data-idx="${idx}" style="--tl-cor:${ev.cor || '#5B2BCB'}">
+          <span class="tl-ano">${ev.ano || ''}</span>
+          <span class="tl-dot"></span>
+          <span class="tl-rotulo">${ev.titulo || ''}</span>
+        </button>`).join('')}
+      </div>
+      <div class="tl-detalhe" id="tlDetalhe" style="display:none"></div>
+    </div>`;
+  atualizarBotaoMarcar(`timeline${i}`);
+  btnProxima.innerHTML = 'Próximo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+  btnProxima.disabled  = false;
+  questaoArea.scrollTop = 0;
+  atualizarScrollFade();
+
+  const trilha   = document.getElementById('tlTrilha');
+  const detalhe  = document.getElementById('tlDetalhe');
+  trilha.querySelectorAll('.tl-ponto').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx, 10);
+      const ev = eventos[idx];
+      if (!ev) return;
+      trilha.querySelectorAll('.tl-ponto').forEach((b, i2) => b.classList.toggle('ativo', i2 === idx));
+      detalhe.style.setProperty('--tl-cor', ev.cor || '#5B2BCB');
+      detalhe.innerHTML = tlDetalheHtml(ev);
+      detalhe.style.display = '';
+      atualizarScrollFade();
+    });
+  });
+}
+
 function mostrarLicao(aula, introIdx) {
   const lic = aula.licao || {};
   questaoInfo.textContent      = aula.titulo;
@@ -2543,6 +2609,7 @@ carregarDadosIniciais().then((carregado) => {
     (aula.exemplo || []).forEach((_, i) => { introFns[`exemplo${i}`] = (a, idx) => mostrarExemplo(a, idx, i); });
     (aula.checagem || []).forEach((dados, i) => { introFns[`checagem${i}`] = (a, idx) => mostrarChecagem(a, idx, dados, i); });
     (aula.lista || []).forEach((_, i) => { introFns[`lista${i}`] = (a, idx) => mostrarLista(a, idx, i); });
+    (aula.timeline || []).forEach((_, i) => { introFns[`timeline${i}`] = (a, idx) => mostrarTimeline(a, idx, i); });
     aula.ordem.forEach(token => {
       const chave = token === 'antesComecar' ? 'justificativa' : token;
       if (introFns[chave]) introScreens.push(chave);

@@ -144,10 +144,10 @@ ${trilhasTexto}
 `;
 }
 
-/** Ordem final de exibição das telas, como tokens simples ('antesComecar', 'exemplo0', 'checagem1', 'lista0', 'resumo', 'licao')
+/** Ordem final de exibição das telas, como tokens simples ('antesComecar', 'exemplo0', 'checagem1', 'lista0', 'timeline0', 'resumo', 'licao')
  * — reaproveita montarPassos() (js/conteudo.js) pra garantir que os índices batem exatamente com os arrays exportados abaixo. */
 function serializarOrdem(conteudo) {
-  return montarPassos(conteudo).map(p => (p.tipo === 'exemplo' || p.tipo === 'checagem' || p.tipo === 'lista') ? `${p.tipo}${p.idx}` : p.tipo);
+  return montarPassos(conteudo).map(p => (p.tipo === 'exemplo' || p.tipo === 'checagem' || p.tipo === 'lista' || p.tipo === 'timeline') ? `${p.tipo}${p.idx}` : p.tipo);
 }
 
 function gerarAulaJs(aula, tituloEtapa) {
@@ -177,6 +177,8 @@ window.AULA_DATA = {
   licao: ${paraJsLicao(c.licao)},
 
   lista: ${paraJs(c.lista)},
+
+  timeline: ${paraJs(c.timeline)},
 
   questoes: [],
 };
@@ -363,4 +365,278 @@ async function salvarProjetoJson() {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+/* ---------------------------------------------------------------------- */
+/* EXPORTAR PDF — documento de estudo com todo o conteúdo (Ciclo > Etapa >  */
+/* Matéria > Aula), pra imprimir ou salvar como PDF pelo navegador.        */
+/* Reaproveita renderFraseComDestaque/escaparHtml (js/conteudo.js).        */
+/* ---------------------------------------------------------------------- */
+
+/** Sentença (array de palavras) com a(s) certa(s) marcada(s) em negrito/verde. */
+function pdfRenderSentencaComCorreta(sentenca, corretaOuCorretas) {
+  const corretos = Array.isArray(corretaOuCorretas) ? corretaOuCorretas : [corretaOuCorretas];
+  return (sentenca || []).map((tok, i) => corretos.includes(i) ? `<strong class="pdf-certo">${escaparHtml(tok)}</strong>` : escaparHtml(tok)).join(' ');
+}
+
+/** Sentença com o(s) rótulo(s) de cada palavra marcada entre colchetes (Múltiplos Rótulos). */
+function pdfRenderSentencaComRotulos(sentenca, rotulos) {
+  return (sentenca || []).map((tok, i) => {
+    const rot = (rotulos || [])[i];
+    return rot ? `<strong class="pdf-certo">${escaparHtml(tok)}</strong><sub> [${escaparHtml(rot.replace(/;/g, ', '))}]</sub>` : escaparHtml(tok);
+  }).join(' ');
+}
+
+function pdfRenderExemplo(item) {
+  let html = '';
+  if (item.texto) html += `<p>${renderFraseComDestaque(item.texto, item.textoDestaque, item.textoDestaqueNegrito)}</p>`;
+  if (item.conclusao) html += `<p>${renderFraseComDestaque(item.conclusao, item.conclusaoDestaque, item.conclusaoDestaqueNegrito)}</p>`;
+  if (item.obs) html += `<p class="pdf-obs">${renderFraseComDestaque(item.obs, item.obsDestaque, item.obsDestaqueNegrito)}</p>`;
+  (item.pontos || []).forEach(p => { if (p.texto) html += `<p>• ${renderFraseComDestaque(p.texto, p.textoDestaque, p.textoDestaqueNegrito)}</p>`; });
+  if (item.cardImagem) {
+    const ci = item.cardImagem;
+    if (ci.titulo) html += `<p><strong>${escaparHtml(ci.titulo)}</strong></p>`;
+    if (ci.subtitulo) html += `<p>${escaparHtml(ci.subtitulo)}</p>`;
+    if (ci.texto) html += `<p>${escaparHtml(ci.texto)}</p>`;
+  }
+  if (item.flashcard) {
+    html += `<p><strong>Frente:</strong> ${escaparHtml(item.flashcard.frente || '')}<br><strong>Verso:</strong> ${escaparHtml(item.flashcard.verso || '')}</p>`;
+  }
+  ['audio', 'gravacao', 'gravacaoAluno'].forEach(campo => {
+    const a = item[campo];
+    if (!a) return;
+    if (a.titulo) html += `<p><strong>${escaparHtml(a.titulo)}</strong></p>`;
+    if (a.subtitulo) html += `<p>${escaparHtml(a.subtitulo)}</p>`;
+    if (a.texto) html += `<p>${escaparHtml(a.texto)}</p>`;
+  });
+  if (item.palavraSelecionavel) {
+    const ps = item.palavraSelecionavel;
+    if (ps.instrucao) html += `<p>${escaparHtml(ps.instrucao)}</p>`;
+    if ((ps.sentenca || []).length) html += `<p>${pdfRenderSentencaComCorreta(ps.sentenca, ps.correta)}</p>`;
+  }
+  if (item.palavraSelecionavelMultipla) {
+    const psm = item.palavraSelecionavelMultipla;
+    if (psm.instrucao) html += `<p>${escaparHtml(psm.instrucao)}</p>`;
+    if ((psm.sentenca || []).length) html += `<p>${pdfRenderSentencaComCorreta(psm.sentenca, psm.corretas || [])}</p>`;
+  }
+  if (item.palavraPointLabelExemplo) {
+    const pl = item.palavraPointLabelExemplo;
+    if (pl.titulo) html += `<p><strong>${renderFraseComDestaque(pl.titulo, pl.tituloDestaque, [])}</strong></p>`;
+    if (pl.instrucao) html += `<p>${escaparHtml(pl.instrucao)}</p>`;
+    if ((pl.sentenca || []).length) html += `<p>${pdfRenderSentencaComCorreta(pl.sentenca, pl.corretas || [])}${pl.rotulo ? ` <em>(${escaparHtml(pl.rotulo)})</em>` : ''}</p>`;
+  }
+  if (item.palavraMultiplosRotulos) {
+    const pmr = item.palavraMultiplosRotulos;
+    if (pmr.instrucao) html += `<p>${escaparHtml(pmr.instrucao)}</p>`;
+    if ((pmr.sentenca || []).length) html += `<p>${pdfRenderSentencaComRotulos(pmr.sentenca, pmr.rotulos)}</p>`;
+  }
+  return html || '<p class="pdf-vazio">(sem conteúdo)</p>';
+}
+
+function pdfRenderChecagem(item) {
+  let html = '';
+  if (item.subtitulo && item.invertido) html += `<p class="pdf-sub">${renderFraseComDestaque(item.subtitulo, item.subtituloDestaque, item.subtituloDestaqueNegrito)}</p>`;
+  if (item.titulo) html += `<p><strong>${renderFraseComDestaque(item.titulo, item.tituloDestaque, item.tituloDestaqueNegrito)}</strong></p>`;
+  if (item.subtitulo && !item.invertido) html += `<p class="pdf-sub">${renderFraseComDestaque(item.subtitulo, item.subtituloDestaque, item.subtituloDestaqueNegrito)}</p>`;
+
+  if (item.multiplosRotulos) {
+    if ((item.sentenca || []).length) html += `<p>${pdfRenderSentencaComRotulos(item.sentenca, item.rotulos)}</p>`;
+  } else if (Array.isArray(item.sentenca)) {
+    if (item.sentenca.length) html += `<p>${pdfRenderSentencaComCorreta(item.sentenca, item.correta)}</p>`;
+  } else if (item.opcoes) {
+    const letras = 'ABCDEFGH';
+    html += '<ul class="pdf-opcoes">' + item.opcoes.map((op, i) =>
+      `<li${i === item.correta ? ' class="pdf-certo"' : ''}>${letras[i] || i + 1}) ${escaparHtml(op)}${i === item.correta ? ' ✓' : ''}</li>`
+    ).join('') + '</ul>';
+  }
+  return html || '<p class="pdf-vazio">(sem conteúdo)</p>';
+}
+
+/** Envolve o conteúdo de uma seção (Antes de começar/Exemplo/Checagem/...) num
+ * cartão com rótulo colorido — cada tipo tem sua cor (mesmas do resto do app),
+ * pra ficar fácil identificar de relance ao folhear o PDF. */
+function pdfSecao(rotulo, corTipo, corpoHtml) {
+  if (!corpoHtml) return '';
+  return `<div class="pdf-secao" style="border-left-color:${corTipo}">
+    <p class="pdf-rotulo" style="color:${corTipo}">${escaparHtml(rotulo)}</p>
+    ${corpoHtml}
+  </div>`;
+}
+
+function pdfRenderAula(aula) {
+  const c = aula.conteudo || {};
+  let secoes = '';
+
+  const ac = c.antesComecar || {};
+  if (ac.titulo || ac.descricao || ac.aprender || ac.importancia) {
+    let corpo = '';
+    if (ac.titulo) corpo += `<p class="pdf-destaque">${renderFraseComDestaque(ac.titulo, ac.tituloDestaque, ac.tituloDestaqueNegrito)}</p>`;
+    if (ac.descricao) corpo += `<p>${renderFraseComDestaque(ac.descricao, ac.descricaoDestaque, ac.descricaoDestaqueNegrito)}</p>`;
+    if (ac.aprender) corpo += `<p><em>O que você vai aprender:</em> ${renderFraseComDestaque(ac.aprender, ac.aprenderDestaque, ac.aprenderDestaqueNegrito)}</p>`;
+    if (ac.importancia) corpo += `<p><em>Por que isso é importante:</em> ${renderFraseComDestaque(ac.importancia, ac.importanciaDestaque, ac.importanciaDestaqueNegrito)}</p>`;
+    secoes += pdfSecao('Antes de começar', '#7B3FF2', corpo);
+  }
+
+  (c.exemplo || []).forEach((item, i) => {
+    secoes += pdfSecao(`Exemplo ${i + 1}`, '#4A80F0', pdfRenderExemplo(item));
+  });
+
+  (c.checagem || []).forEach((item, i) => {
+    secoes += pdfSecao(`Checagem ${i + 1}`, '#0D9488', pdfRenderChecagem(item));
+  });
+
+  const listas = (c.lista || []).filter(li => li.titulo || li.textoAntes || (li.itens || []).length || li.descricao);
+  listas.forEach((li, i) => {
+    let corpo = '';
+    if (li.titulo) corpo += `<p class="pdf-destaque">${renderFraseComDestaque(li.titulo, li.tituloDestaque, li.tituloDestaqueNegrito)}</p>`;
+    if (li.textoAntes) corpo += `<p>${renderFraseComDestaque(li.textoAntes, li.textoAntesDestaque, li.textoAntesDestaqueNegrito)}</p>`;
+    if ((li.itens || []).length) corpo += '<ul>' + li.itens.map(it => `<li>${renderFraseComDestaque(it.texto || '', it.textoDestaque, it.textoDestaqueNegrito)}</li>`).join('') + '</ul>';
+    if (li.descricao) corpo += `<p>${renderFraseComDestaque(li.descricao, li.descricaoDestaque, li.descricaoDestaqueNegrito)}</p>`;
+    secoes += pdfSecao(`Lista${listas.length > 1 ? ` ${i + 1}` : ''}`, '#DB2777', corpo);
+  });
+
+  const res = c.resumo || {};
+  if (res.titulo || (res.itens || []).length) {
+    let corpo = '';
+    if (res.titulo) corpo += `<p class="pdf-destaque">${renderFraseComDestaque(res.titulo, res.tituloDestaque, res.tituloDestaqueNegrito)}</p>`;
+    if ((res.itens || []).length) corpo += '<ul>' + res.itens.map(it =>
+      `<li><strong>${renderFraseComDestaque(it.titulo || '', it.tituloDestaque, it.tituloDestaqueNegrito)}</strong>${it.exemplos ? ' — ' + renderFraseComDestaque(it.exemplos, it.exemplosDestaque, it.exemplosDestaqueNegrito) : ''}</li>`
+    ).join('') + '</ul>';
+    secoes += pdfSecao('Resumo', '#F59E0B', corpo);
+  }
+
+  const lic = c.licao || {};
+  if (lic.titulo || lic.html) {
+    let corpo = '';
+    if (lic.titulo) corpo += `<p class="pdf-destaque">${renderFraseComDestaque(lic.titulo, lic.tituloDestaque, lic.tituloDestaqueNegrito)}</p>`;
+    if (lic.html) corpo += `<div class="pdf-licao-corpo">${lic.html}</div>`;
+    secoes += pdfSecao('Lição', '#16A34A', corpo);
+  }
+
+  return `<div class="pdf-aula">
+    <h4 class="pdf-aula-titulo">${escaparHtml(aula.titulo)}</h4>
+    ${secoes || '<p class="pdf-vazio">Esta aula ainda não tem conteúdo.</p>'}
+  </div>`;
+}
+
+function gerarHtmlEstudoPdf() {
+  let corpo = '';
+  let primeiroCiclo = true;
+  GRUPOS.forEach(grupo => {
+    const ciclosDoGrupo = CICLOS.filter(c => c.grupoId === grupo.id);
+    if (!ciclosDoGrupo.some(c => c.materias.some(m => m.aulas.length))) return;
+    corpo += `<h1 class="pdf-ciclo${primeiroCiclo ? ' primeiro' : ''}">${escaparHtml(grupo.titulo)}</h1>`;
+    primeiroCiclo = false;
+    ciclosDoGrupo.forEach(ciclo => {
+      if (!ciclo.materias.some(m => m.aulas.length)) return;
+      corpo += `<h2 class="pdf-etapa">${escaparHtml(ciclo.titulo)}</h2>`;
+      ciclo.materias.forEach(materia => {
+        if (!materia.aulas.length) return;
+        corpo += `<h3 class="pdf-materia">${escaparHtml(materia.titulo)}</h3>`;
+        materia.aulas.forEach(aula => { corpo += pdfRenderAula(aula); });
+      });
+    });
+  });
+
+  const tituloCurso = escaparHtml((CONFIG_APP && CONFIG_APP.titulo) || 'Minhas Aulas');
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>${tituloCurso}</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+    color: #1a1a2e; max-width: 760px; margin: 0 auto; padding: 56px 32px 80px;
+    line-height: 1.65; font-size: 15px;
+  }
+
+  .pdf-capa { text-align: center; padding: 40px 0 56px; margin-bottom: 8px; border-bottom: 4px solid #5B2BCB; }
+  .pdf-capa-titulo { font-size: 34px; font-weight: 800; color: #1a1a2e; }
+  .pdf-capa-sub { font-size: 14px; color: #6b7280; margin-top: 10px; }
+
+  h1.pdf-ciclo {
+    font-size: 25px; font-weight: 800; color: #fff; background: #5B2BCB;
+    margin: 0 -32px 32px; padding: 22px 32px; page-break-before: always;
+  }
+  h1.pdf-ciclo.primeiro { page-break-before: avoid; margin-top: 44px; }
+
+  h2.pdf-etapa {
+    font-size: 20px; font-weight: 700; color: #5B2BCB;
+    margin: 44px 0 4px; padding-bottom: 10px; border-bottom: 2px solid #ece3fd;
+  }
+
+  h3.pdf-materia {
+    font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    color: #6b7280; margin: 30px 0 4px;
+  }
+
+  .pdf-aula {
+    margin: 22px 0; padding: 22px 24px; border: 1px solid #e7e5ef; border-radius: 14px;
+    background: #fff; box-shadow: 0 1px 3px rgba(30,27,46,0.06);
+    page-break-inside: avoid;
+  }
+  h4.pdf-aula-titulo { font-size: 17px; font-weight: 700; color: #1a1a2e; margin: 0 0 18px; }
+
+  .pdf-secao {
+    border-left: 4px solid #ccc; background: #fafafa; border-radius: 0 10px 10px 0;
+    padding: 14px 18px; margin: 16px 0;
+  }
+  .pdf-secao:first-of-type { margin-top: 0; }
+  .pdf-secao:last-child { margin-bottom: 0; }
+
+  .pdf-rotulo {
+    font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
+    margin: 0 0 10px;
+  }
+  .pdf-secao p { margin: 8px 0; }
+  .pdf-secao p:first-of-type { margin-top: 0; }
+  .pdf-secao p:last-child { margin-bottom: 0; }
+  .pdf-destaque { font-size: 16px; font-weight: 700; }
+
+  .pdf-sub { color: #6b7280; font-size: 13px; }
+  .pdf-obs { background: #eef2ff; padding: 10px 14px; border-radius: 8px; }
+  .pdf-vazio { color: #9ca3af; font-style: italic; margin: 0; }
+  .pdf-certo { color: #16A34A; }
+
+  .pdf-secao ul { margin: 10px 0; padding: 0 0 0 20px; }
+  .pdf-secao li { margin: 6px 0; }
+  .pdf-opcoes { list-style: none; margin: 10px 0; padding: 0; }
+  .pdf-opcoes li { padding: 6px 10px; border-radius: 6px; }
+  .pdf-opcoes li.pdf-certo { background: #eafaf0; font-weight: 700; }
+
+  .pdf-licao-corpo p { text-align: justify; margin: 8px 0; }
+
+  @media print {
+    body { padding: 24px 28px 40px; }
+    .pdf-aula { page-break-inside: avoid; box-shadow: none; }
+    h1.pdf-ciclo { margin: 0 -28px 32px; }
+  }
+</style>
+</head>
+<body>
+<div class="pdf-capa">
+  <div class="pdf-capa-titulo">${tituloCurso}</div>
+  <div class="pdf-capa-sub">Conteúdo completo do curso</div>
+</div>
+${corpo}
+</body>
+</html>`;
+}
+
+/** Abre o documento de estudo (todo o conteúdo do curso) numa aba nova e chama a
+ * caixa de impressão do navegador — a usuária escolhe "Salvar como PDF" ali,
+ * sem precisar de nenhuma biblioteca extra de geração de PDF. */
+function exportarPdf() {
+  const html = gerarHtmlEstudoPdf();
+  const janela = window.open('', '_blank');
+  if (!janela) {
+    window.alert('Não foi possível abrir a janela de impressão — verifique se o navegador está bloqueando pop-ups.');
+    return;
+  }
+  janela.document.write(html);
+  janela.document.close();
+  janela.focus();
+  janela.onload = () => janela.print();
 }

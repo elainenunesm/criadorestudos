@@ -36,6 +36,8 @@ function novoConteudo() {
     // "Lista" (título + lista de ícones/textos + descrição) é repetível, igual exemplo/checagem —
     // não nasce com a aula, a professora adiciona pelo "Tipo (Telas)" quantas vezes quiser.
     lista: [],
+    // "Timeline" (linha do tempo com pontos clicáveis) — também repetível, mesmo esquema da Lista.
+    timeline: [],
   };
 }
 
