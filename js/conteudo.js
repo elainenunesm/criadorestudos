@@ -22,9 +22,9 @@ function conteudoAulaAtual() {
   return info ? info.aula : null;
 }
 
-/** Próximo _id livre pra um novo item de exemplo/checagem/lista/timeline (referenciado em conteudo.ordem). */
+/** Próximo _id livre pra um novo item de exemplo/checagem/lista/timeline/jogoSinais/agrupamento/distribuicao (referenciado em conteudo.ordem). */
 function proximoIdItem(conteudo) {
-  const ids = [...conteudo.exemplo, ...conteudo.checagem, ...conteudo.lista, ...conteudo.timeline].map(i => i._id || 0);
+  const ids = [...conteudo.exemplo, ...conteudo.checagem, ...conteudo.lista, ...conteudo.timeline, ...conteudo.jogoSinais, ...conteudo.agrupamento, ...conteudo.distribuicao].map(i => i._id || 0);
   return Math.max(0, ...ids) + 1;
 }
 
@@ -40,11 +40,17 @@ function garantirOrdem(conteudo) {
   // (ou nem tinham) — "Lista"/"Timeline" são repetíveis, igual Exemplo/Checagem, então são sempre um array.
   if (!Array.isArray(conteudo.lista)) conteudo.lista = [];
   if (!Array.isArray(conteudo.timeline)) conteudo.timeline = [];
+  if (!Array.isArray(conteudo.jogoSinais)) conteudo.jogoSinais = [];
+  if (!Array.isArray(conteudo.agrupamento)) conteudo.agrupamento = [];
+  if (!Array.isArray(conteudo.distribuicao)) conteudo.distribuicao = [];
 
   conteudo.exemplo.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
   conteudo.checagem.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
   conteudo.lista.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
   conteudo.timeline.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
+  conteudo.jogoSinais.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
+  conteudo.agrupamento.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
+  conteudo.distribuicao.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
 
   // Remove entradas de itens que não existem mais.
   conteudo.ordem = conteudo.ordem.filter(t => {
@@ -52,6 +58,9 @@ function garantirOrdem(conteudo) {
     if (t.tipo === 'checagem') return conteudo.checagem.some(i => i._id === t.id);
     if (t.tipo === 'lista') return conteudo.lista.some(i => i._id === t.id);
     if (t.tipo === 'timeline') return conteudo.timeline.some(i => i._id === t.id);
+    if (t.tipo === 'jogoSinais') return conteudo.jogoSinais.some(i => i._id === t.id);
+    if (t.tipo === 'agrupamento') return conteudo.agrupamento.some(i => i._id === t.id);
+    if (t.tipo === 'distribuicao') return conteudo.distribuicao.some(i => i._id === t.id);
     return true;
   });
 
@@ -69,6 +78,15 @@ function garantirOrdem(conteudo) {
   conteudo.timeline.forEach(item => {
     if (!presentes.has(`timeline:${item._id}`)) conteudo.ordem.push({ tipo: 'timeline', id: item._id });
   });
+  conteudo.jogoSinais.forEach(item => {
+    if (!presentes.has(`jogoSinais:${item._id}`)) conteudo.ordem.push({ tipo: 'jogoSinais', id: item._id });
+  });
+  conteudo.agrupamento.forEach(item => {
+    if (!presentes.has(`agrupamento:${item._id}`)) conteudo.ordem.push({ tipo: 'agrupamento', id: item._id });
+  });
+  conteudo.distribuicao.forEach(item => {
+    if (!presentes.has(`distribuicao:${item._id}`)) conteudo.ordem.push({ tipo: 'distribuicao', id: item._id });
+  });
   // Resumo/Lição nascem junto com a aula, mas podem ser excluídos (ver removerPassoAtual) — nesse
   // caso NÃO voltam sozinhos aqui, só se a professora clicar em "Tipo (Telas)" pra adicionar de novo.
   if (!presentes.has('resumo:') && !conteudo.resumoRemovido) conteudo.ordem.push({ tipo: 'resumo' });
@@ -85,6 +103,9 @@ function montarPassos(conteudo) {
   let numChecagem = 0;
   let numLista = 0;
   let numTimeline = 0;
+  let numJogoSinais = 0;
+  let numAgrupamento = 0;
+  let numDistribuicao = 0;
   return conteudo.ordem.map(token => {
     if (token.tipo === 'exemplo') {
       numExemplo++;
@@ -105,6 +126,18 @@ function montarPassos(conteudo) {
     if (token.tipo === 'timeline') {
       numTimeline++;
       return { tipo: 'timeline', idx: conteudo.timeline.findIndex(i => i._id === token.id), id: token.id, titulo: `Timeline ${numTimeline}` };
+    }
+    if (token.tipo === 'jogoSinais') {
+      numJogoSinais++;
+      return { tipo: 'jogoSinais', idx: conteudo.jogoSinais.findIndex(i => i._id === token.id), id: token.id, titulo: `Reta Numérica ${numJogoSinais}` };
+    }
+    if (token.tipo === 'agrupamento') {
+      numAgrupamento++;
+      return { tipo: 'agrupamento', idx: conteudo.agrupamento.findIndex(i => i._id === token.id), id: token.id, titulo: `Agrupamento ${numAgrupamento}` };
+    }
+    if (token.tipo === 'distribuicao') {
+      numDistribuicao++;
+      return { tipo: 'distribuicao', idx: conteudo.distribuicao.findIndex(i => i._id === token.id), id: token.id, titulo: `Distribuição ${numDistribuicao}` };
     }
     return { tipo: token.tipo, titulo: TITULO_TELA_FIXO[token.tipo] };
   });
@@ -155,6 +188,9 @@ const ICONE_TELA = {
   licao: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
   lista: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="4.5" cy="6" r="1.3" fill="#fff" stroke="none"/><circle cx="4.5" cy="12" r="1.3" fill="#fff" stroke="none"/><circle cx="4.5" cy="18" r="1.3" fill="#fff" stroke="none"/><line x1="9" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="9" y1="18" x2="21" y2="18"/></svg>',
   timeline: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="12" x2="22" y2="12"/><circle cx="5" cy="12" r="2" fill="#fff" stroke="none"/><circle cx="12" cy="12" r="2" fill="#fff" stroke="none"/><circle cx="19" cy="12" r="2" fill="#fff" stroke="none"/></svg>',
+  jogoSinais: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="19" y2="12"/><polyline points="15 8 19 12 15 16"/><circle cx="8" cy="12" r="1.6" fill="#fff" stroke="none"/></svg>',
+  agrupamento: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6"><rect x="2" y="4" width="9" height="16" rx="2"/><rect x="13" y="4" width="9" height="16" rx="2"/><circle cx="6.5" cy="9" r="1.4" fill="#fff" stroke="none"/><circle cx="6.5" cy="15" r="1.4" fill="#fff" stroke="none"/><circle cx="17.5" cy="9" r="1.4" fill="#fff" stroke="none"/><circle cx="17.5" cy="15" r="1.4" fill="#fff" stroke="none"/></svg>',
+  distribuicao: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><line x1="4" y1="12" x2="20" y2="12"/><circle cx="12" cy="6" r="1.8" fill="#fff" stroke="none"/><circle cx="12" cy="18" r="1.8" fill="#fff" stroke="none"/></svg>',
 };
 
 /** Dados de mentira só pra prévia de "que tipo de tela é essa" — nunca chegam a entrar
@@ -236,6 +272,18 @@ const DADOS_FICTICIOS_TELA = {
       { ano: '1822', titulo: 'Segundo período', cor: '#F59E0B', descricao: 'Assim vai aparecer a descrição deste outro período.', caracteristicas: 'Outra característica.' },
     ],
   },
+  jogoSinais: {
+    titulo: 'Assim vai aparecer o título (opcional).',
+    instrucao: 'Assim vai aparecer a instrução (opcional) — quem digita o ponto inicial e o movimento é a aluna, ao estudar a aula.',
+  },
+  agrupamento: {
+    titulo: 'Assim vai aparecer o título (opcional).',
+    instrucao: 'Assim vai aparecer a instrução (opcional) — quem digita a quantidade de grupos e de elementos é a aluna, ao estudar a aula.',
+  },
+  distribuicao: {
+    titulo: 'Assim vai aparecer o título (opcional).',
+    instrucao: 'Assim vai aparecer a instrução (opcional) — quem digita a quantidade de elementos e de grupos é a aluna, ao estudar a aula.',
+  },
 };
 
 const NOME_TELA_ADICIONAR = {
@@ -257,6 +305,9 @@ const NOME_TELA_ADICIONAR = {
   licao: 'Lição',
   lista: 'Adicionar lista',
   timeline: 'Adicionar timeline',
+  jogoSinais: 'Adicionar reta numérica',
+  agrupamento: 'Adicionar agrupamento',
+  distribuicao: 'Adicionar distribuição',
 };
 
 /** Tipo (e, se aplicável, a variante) escolhidos no popup "Tipo (Telas)" — ainda não
@@ -304,6 +355,12 @@ function mostrarPreviewNovaTela(tipo, modo) {
     body.innerHTML = previewLista(DADOS_FICTICIOS_TELA.lista);
   } else if (tipo === 'timeline') {
     body.innerHTML = previewTimeline(DADOS_FICTICIOS_TELA.timeline);
+  } else if (tipo === 'jogoSinais') {
+    body.innerHTML = previewJogoSinais(DADOS_FICTICIOS_TELA.jogoSinais);
+  } else if (tipo === 'agrupamento') {
+    body.innerHTML = previewAgrupamento(DADOS_FICTICIOS_TELA.agrupamento);
+  } else if (tipo === 'distribuicao') {
+    body.innerHTML = previewDistribuicao(DADOS_FICTICIOS_TELA.distribuicao);
   } else {
     const DADOS_CHECAGEM_POR_MODO = {
       palavra: DADOS_FICTICIOS_TELA.checagemPalavra,
@@ -443,6 +500,21 @@ function renderEstruturaTelas() {
           iconeHtml: badgeIcone(ICONE_TELA.timeline, '#DB2777'),
           onClick: () => mostrarPreviewNovaTela('timeline'),
         },
+        {
+          label: 'Adicionar reta numérica', sublabel: 'Jogo de sinais: ponto inicial + movimento (+/-), reta animada casa por casa com explicação', grupo: 'Reta Numérica',
+          iconeHtml: badgeIcone(ICONE_TELA.jogoSinais, '#2563EB'),
+          onClick: () => mostrarPreviewNovaTela('jogoSinais'),
+        },
+        {
+          label: 'Adicionar agrupamento', sublabel: 'Multiplicação como agrupamento: grupos × elementos por grupo, animado, com explicação', grupo: 'Agrupamento',
+          iconeHtml: badgeIcone(ICONE_TELA.agrupamento, '#EA580C'),
+          onClick: () => mostrarPreviewNovaTela('agrupamento'),
+        },
+        {
+          label: 'Adicionar distribuição', sublabel: 'Divisão como distribuição igualitária: elementos ÷ grupos, animado, com explicação', grupo: 'Distribuição',
+          iconeHtml: badgeIcone(ICONE_TELA.distribuicao, '#0891B2'),
+          onClick: () => mostrarPreviewNovaTela('distribuicao'),
+        },
       ];
       // "Resumo" e "Lição" são fixos por padrão (toda aula nasce com os dois) — só aparecem aqui
       // pra adicionar de volta se a professora tiver excluído antes (ver abrirMenuTela/removerPassoAtual).
@@ -498,7 +570,7 @@ function abrirMenuTela(event, idx) {
   if (podeMoverTela(passos, idx, 1)) itens.push({ acao: 'descer', label: '⬇️ Mover para baixo', onClick: () => moverTela(idx, 1) });
   // Resumo e Lição são opcionais (podem ser excluídos e depois adicionados de volta pelo "Tipo
   // (Telas)"), diferente de "Antes de começar", que é sempre obrigatório.
-  if (passo.tipo === 'exemplo' || passo.tipo === 'checagem' || passo.tipo === 'resumo' || passo.tipo === 'licao' || passo.tipo === 'lista' || passo.tipo === 'timeline') {
+  if (passo.tipo === 'exemplo' || passo.tipo === 'checagem' || passo.tipo === 'resumo' || passo.tipo === 'licao' || passo.tipo === 'lista' || passo.tipo === 'timeline' || passo.tipo === 'jogoSinais' || passo.tipo === 'agrupamento' || passo.tipo === 'distribuicao') {
     itens.push({
       acao: 'excluir', label: '🗑 Excluir esta tela', onClick: () => {
         conteudoEstado.passoIndex = idx;
@@ -618,6 +690,15 @@ function adicionarItemPasso(tipoLista, variante) {
   } else if (tipoLista === 'timeline') {
     conteudo.timeline.push({ _id: id, titulo: '', instrucao: '', eventos: [] });
     inserirNaOrdemAntesDoResumo(conteudo, { tipo: 'timeline', id });
+  } else if (tipoLista === 'jogoSinais') {
+    conteudo.jogoSinais.push({ _id: id, titulo: '', instrucao: '' });
+    inserirNaOrdemAntesDoResumo(conteudo, { tipo: 'jogoSinais', id });
+  } else if (tipoLista === 'agrupamento') {
+    conteudo.agrupamento.push({ _id: id, titulo: '', instrucao: '' });
+    inserirNaOrdemAntesDoResumo(conteudo, { tipo: 'agrupamento', id });
+  } else if (tipoLista === 'distribuicao') {
+    conteudo.distribuicao.push({ _id: id, titulo: '', instrucao: '' });
+    inserirNaOrdemAntesDoResumo(conteudo, { tipo: 'distribuicao', id });
   } else if (tipoLista === 'resumo' || tipoLista === 'licao') {
     // Só existe uma de cada — o conteúdo (texto já preenchido antes de excluir) não se perde,
     // então "adicionar de volta" é só religar a tela na ordem, via garantirOrdem().
@@ -643,6 +724,9 @@ function removerPassoAtual() {
   else if (passo.tipo === 'checagem') conteudo.checagem.splice(passo.idx, 1);
   else if (passo.tipo === 'lista') conteudo.lista.splice(passo.idx, 1);
   else if (passo.tipo === 'timeline') conteudo.timeline.splice(passo.idx, 1);
+  else if (passo.tipo === 'jogoSinais') conteudo.jogoSinais.splice(passo.idx, 1);
+  else if (passo.tipo === 'agrupamento') conteudo.agrupamento.splice(passo.idx, 1);
+  else if (passo.tipo === 'distribuicao') conteudo.distribuicao.splice(passo.idx, 1);
   else if (passo.tipo === 'resumo') conteudo.resumoRemovido = true;
   else if (passo.tipo === 'licao') conteudo.licaoRemovido = true;
   else return;
@@ -1002,6 +1086,9 @@ function renderizarConteudo() {
     licao: renderFormLicao,
     lista: renderFormLista,
     timeline: renderFormTimeline,
+    jogoSinais: renderFormJogoSinais,
+    agrupamento: renderFormAgrupamento,
+    distribuicao: renderFormDistribuicao,
   };
   renderers[passo.tipo](formEl, aula.conteudo, passo);
 
@@ -2221,6 +2308,116 @@ function renderFormTimeline(el, conteudo, passo) {
   });
 }
 
+/** Reta do "Jogo de Sinais" sempre fixa de -10 a 10 — quem digita o ponto inicial e o
+ * movimento é a aluna, ao estudar a aula (não a professora aqui no Construtor), então só
+ * usamos esse número pra desenhar a reta "vazia" na prévia (ver previewJogoSinais). A
+ * lógica de cálculo/animação de verdade (calcularJogoSinais) só existe em
+ * vendor/estudo/js/estudo.mjs, onde a aluna realmente digita os números. */
+const LIMITE_JOGO_SINAIS = 10;
+
+function renderFormJogoSinais(el, conteudo, passo) {
+  const jg = conteudo.jogoSinais[passo.idx];
+  el.innerHTML = `
+    <div class="form-secao">
+      <div class="campo">${htmlLabelComEstilo('Título (opcional)', 'titulo')}<input type="text" id="jgTitulo"></div>
+      <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
+      <div id="jgDestaqueTitulo"></div>
+      <div class="campo" style="margin-top:16px">${htmlLabelComEstilo('Instrução (opcional)', 'instrucao')}<input type="text" id="jgInstrucao" placeholder="Ex: Digite os dois números e veja o ponto se mover na reta."></div>
+      <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
+      <div id="jgDestaqueInstrucao"></div>
+      <p class="campo-ajuda">Quem digita o ponto inicial e o movimento (de -10 a 10, com + ou -) é a própria aluna, ao estudar a aula — a reta, a expressão e a explicação são montadas na hora, a partir do que ela digitar.</p>
+    </div>`;
+
+  el.querySelector('#jgTitulo').value = jg.titulo || '';
+  el.querySelector('#jgTitulo').addEventListener('input', e => { jg.titulo = e.target.value; renderPreviewAtual(); });
+  el.querySelector('#jgInstrucao').value = jg.instrucao || '';
+  el.querySelector('#jgInstrucao').addEventListener('input', e => { jg.instrucao = e.target.value; renderPreviewAtual(); });
+  ligarBotoesEstiloTexto(el, jg);
+
+  const renderDestaquesTitulo = montarDestaqueFrases(el.querySelector('#jgDestaqueTitulo'), jg, [
+    { rotulo: 'Título', campo: 'titulo' },
+  ]);
+  el.querySelector('#jgTitulo').addEventListener('blur', () => { podarDestaque(jg, 'titulo'); renderDestaquesTitulo(); });
+
+  const renderDestaquesInstrucao = montarDestaqueFrases(el.querySelector('#jgDestaqueInstrucao'), jg, [
+    { rotulo: 'Instrução', campo: 'instrucao' },
+  ]);
+  el.querySelector('#jgInstrucao').addEventListener('blur', () => { podarDestaque(jg, 'instrucao'); renderDestaquesInstrucao(); });
+}
+
+/** Agrupamento do "Agrupamento — Multiplicação" sempre no máximo 5×5 — quem digita a
+ * quantidade de grupos e de elementos por grupo é a aluna, ao estudar a aula (não a
+ * professora aqui no Construtor), então só usamos esse número pra montar a prévia "vazia"
+ * (ver previewAgrupamento). A lógica de cálculo/animação de verdade só existe em
+ * vendor/estudo/js/estudo.mjs, onde a aluna realmente digita os números. */
+const LIMITE_AGRUPAMENTO = 5;
+
+function renderFormAgrupamento(el, conteudo, passo) {
+  const ag = conteudo.agrupamento[passo.idx];
+  el.innerHTML = `
+    <div class="form-secao">
+      <div class="campo">${htmlLabelComEstilo('Título (opcional)', 'titulo')}<input type="text" id="agTitulo"></div>
+      <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
+      <div id="agDestaqueTitulo"></div>
+      <div class="campo" style="margin-top:16px">${htmlLabelComEstilo('Instrução (opcional)', 'instrucao')}<input type="text" id="agInstrucao" placeholder="Ex: Digite a quantidade de grupos e de elementos e veja o agrupamento se formar."></div>
+      <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
+      <div id="agDestaqueInstrucao"></div>
+      <p class="campo-ajuda">Quem digita a quantidade de grupos e de elementos por grupo (de 1 a 5) é a própria aluna, ao estudar a aula — os grupos, a multiplicação e a explicação são montados na hora, a partir do que ela digitar.</p>
+    </div>`;
+
+  el.querySelector('#agTitulo').value = ag.titulo || '';
+  el.querySelector('#agTitulo').addEventListener('input', e => { ag.titulo = e.target.value; renderPreviewAtual(); });
+  el.querySelector('#agInstrucao').value = ag.instrucao || '';
+  el.querySelector('#agInstrucao').addEventListener('input', e => { ag.instrucao = e.target.value; renderPreviewAtual(); });
+  ligarBotoesEstiloTexto(el, ag);
+
+  const renderDestaquesTitulo = montarDestaqueFrases(el.querySelector('#agDestaqueTitulo'), ag, [
+    { rotulo: 'Título', campo: 'titulo' },
+  ]);
+  el.querySelector('#agTitulo').addEventListener('blur', () => { podarDestaque(ag, 'titulo'); renderDestaquesTitulo(); });
+
+  const renderDestaquesInstrucao = montarDestaqueFrases(el.querySelector('#agDestaqueInstrucao'), ag, [
+    { rotulo: 'Instrução', campo: 'instrucao' },
+  ]);
+  el.querySelector('#agInstrucao').addEventListener('blur', () => { podarDestaque(ag, 'instrucao'); renderDestaquesInstrucao(); });
+}
+
+/** Limites da "Distribuição — Divisão" — quem digita a quantidade de elementos e de
+ * grupos é a aluna, ao estudar a aula (não a professora aqui no Construtor). A lógica de
+ * cálculo/animação de verdade só existe em vendor/estudo/js/estudo.mjs. */
+const LIMITE_DISTRIBUICAO_ELEMENTOS = 25;
+const LIMITE_DISTRIBUICAO_GRUPOS = 5;
+
+function renderFormDistribuicao(el, conteudo, passo) {
+  const dv = conteudo.distribuicao[passo.idx];
+  el.innerHTML = `
+    <div class="form-secao">
+      <div class="campo">${htmlLabelComEstilo('Título (opcional)', 'titulo')}<input type="text" id="dvTitulo"></div>
+      <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
+      <div id="dvDestaqueTitulo"></div>
+      <div class="campo" style="margin-top:16px">${htmlLabelComEstilo('Instrução (opcional)', 'instrucao')}<input type="text" id="dvInstrucao" placeholder="Ex: Digite a quantidade de elementos e de grupos e veja a distribuição acontecer."></div>
+      <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
+      <div id="dvDestaqueInstrucao"></div>
+      <p class="campo-ajuda">Quem digita a quantidade de elementos (1 a 25) e de grupos (1 a 5) é a própria aluna, ao estudar a aula — os grupos, a divisão e a explicação são montados na hora, a partir do que ela digitar. Se a divisão não for exata, a aluna vê um aviso pra escolher outros números.</p>
+    </div>`;
+
+  el.querySelector('#dvTitulo').value = dv.titulo || '';
+  el.querySelector('#dvTitulo').addEventListener('input', e => { dv.titulo = e.target.value; renderPreviewAtual(); });
+  el.querySelector('#dvInstrucao').value = dv.instrucao || '';
+  el.querySelector('#dvInstrucao').addEventListener('input', e => { dv.instrucao = e.target.value; renderPreviewAtual(); });
+  ligarBotoesEstiloTexto(el, dv);
+
+  const renderDestaquesTitulo = montarDestaqueFrases(el.querySelector('#dvDestaqueTitulo'), dv, [
+    { rotulo: 'Título', campo: 'titulo' },
+  ]);
+  el.querySelector('#dvTitulo').addEventListener('blur', () => { podarDestaque(dv, 'titulo'); renderDestaquesTitulo(); });
+
+  const renderDestaquesInstrucao = montarDestaqueFrases(el.querySelector('#dvDestaqueInstrucao'), dv, [
+    { rotulo: 'Instrução', campo: 'instrucao' },
+  ]);
+  el.querySelector('#dvInstrucao').addEventListener('blur', () => { podarDestaque(dv, 'instrucao'); renderDestaquesInstrucao(); });
+}
+
 function renderFormLicao(el, conteudo) {
   const l = conteudo.licao;
   el.innerHTML = `
@@ -2303,6 +2500,9 @@ function corpoDoPasso(aula, passo, resp) {
   if (passo.tipo === 'licao') return { html: previewLicao(aula.conteudo.licao), temToggle: false };
   if (passo.tipo === 'lista') return { html: previewLista(aula.conteudo.lista[passo.idx]), temToggle: false };
   if (passo.tipo === 'timeline') return { html: previewTimeline(aula.conteudo.timeline[passo.idx]), temToggle: false };
+  if (passo.tipo === 'jogoSinais') return { html: previewJogoSinais(aula.conteudo.jogoSinais[passo.idx]), temToggle: false };
+  if (passo.tipo === 'agrupamento') return { html: previewAgrupamento(aula.conteudo.agrupamento[passo.idx]), temToggle: false };
+  if (passo.tipo === 'distribuicao') return { html: previewDistribuicao(aula.conteudo.distribuicao[passo.idx]), temToggle: false };
   return { html: '', temToggle: false };
 }
 
@@ -2832,6 +3032,70 @@ function previewTimelineDetalhe(ev) {
         </div>`).join('')}
       </div>` : ''}
     </div>`;
+}
+
+/** Prévia da reta numérica — mock não-funcional (mesmo espírito do "Card de gravação do
+ * aluno", ver previewGravacaoAlunoCard): quem digita o ponto inicial e o movimento é a
+ * aluna, ao estudar a aula de verdade, não a professora aqui no Construtor — então a
+ * prévia só mostra os campos e a reta vazia, sem marcador nem explicação. */
+function previewJogoSinais(jg) {
+  const limite = LIMITE_JOGO_SINAIS;
+  const pontos = [];
+  for (let v = -limite; v <= limite; v++) {
+    pontos.push(`
+      <div class="pp-jg-ponto${v === 0 ? ' pp-jg-zero' : ''}" style="left:${((v + limite) / (limite * 2)) * 100}%">
+        <span class="pp-jg-ponto-tick"></span>
+        <span class="pp-jg-ponto-num">${v}</span>
+      </div>`);
+  }
+
+  return `
+    ${jg.titulo ? `<p class="pp-titulo"${estiloTextoInline(jg, 'titulo')}>${renderFraseComDestaque(jg.titulo, jg.tituloDestaque, jg.tituloDestaqueNegrito)}</p>` : ''}
+    ${jg.instrucao ? `<p class="pp-intro-desc"${estiloTextoInline(jg, 'instrucao')}>${renderFraseComDestaque(jg.instrucao, jg.instrucaoDestaque, jg.instrucaoDestaqueNegrito)}</p>` : ''}
+    <div class="pp-jg-campos-mock">
+      <div class="pp-jg-campo-mock"><label>Ponto inicial</label><input type="text" placeholder="Ex: -2" disabled></div>
+      <div class="pp-jg-campo-mock"><label>Movimento</label><input type="text" placeholder="Ex: -2" disabled></div>
+    </div>
+    <div class="pp-jg-reta-wrap">
+      <div class="pp-jg-reta">
+        <div class="pp-jg-linha"></div>
+        ${pontos.join('')}
+      </div>
+    </div>
+    <button type="button" class="pp-btn-confirmar" disabled>▶ Iniciar animação</button>
+    <p class="pp-jg-mock-nota">A aluna digita os dois números aqui (de -10 a 10, com + ou -) e vê a reta se mover, ao estudar a aula.</p>`;
+}
+
+/** Prévia do agrupamento — mock não-funcional (mesmo espírito do "Card de gravação do
+ * aluno"/previewGravacaoAlunoCard e da própria previewJogoSinais): quem digita a
+ * quantidade de grupos e de elementos por grupo é a aluna, ao estudar a aula de verdade,
+ * não a professora aqui no Construtor — então a prévia só mostra os campos vazios, sem
+ * nenhum grupo/elemento desenhado. */
+function previewAgrupamento(ag) {
+  return `
+    ${ag.titulo ? `<p class="pp-titulo"${estiloTextoInline(ag, 'titulo')}>${renderFraseComDestaque(ag.titulo, ag.tituloDestaque, ag.tituloDestaqueNegrito)}</p>` : ''}
+    ${ag.instrucao ? `<p class="pp-intro-desc"${estiloTextoInline(ag, 'instrucao')}>${renderFraseComDestaque(ag.instrucao, ag.instrucaoDestaque, ag.instrucaoDestaqueNegrito)}</p>` : ''}
+    <div class="pp-jg-campos-mock">
+      <div class="pp-jg-campo-mock"><label>Quantos grupos?</label><input type="text" placeholder="Ex: 3" disabled></div>
+      <div class="pp-jg-campo-mock"><label>Quantos elementos em cada grupo?</label><input type="text" placeholder="Ex: 4" disabled></div>
+    </div>
+    <button type="button" class="pp-btn-confirmar" disabled>▶ Iniciar animação</button>
+    <p class="pp-jg-mock-nota">A aluna digita os dois números aqui (de 1 a 5 cada) e vê os grupos se formarem, ao estudar a aula.</p>`;
+}
+
+/** Prévia da distribuição — mock não-funcional (mesmo espírito da previewAgrupamento):
+ * quem digita a quantidade de elementos e de grupos é a aluna, ao estudar a aula de
+ * verdade, não a professora aqui no Construtor. */
+function previewDistribuicao(dv) {
+  return `
+    ${dv.titulo ? `<p class="pp-titulo"${estiloTextoInline(dv, 'titulo')}>${renderFraseComDestaque(dv.titulo, dv.tituloDestaque, dv.tituloDestaqueNegrito)}</p>` : ''}
+    ${dv.instrucao ? `<p class="pp-intro-desc"${estiloTextoInline(dv, 'instrucao')}>${renderFraseComDestaque(dv.instrucao, dv.instrucaoDestaque, dv.instrucaoDestaqueNegrito)}</p>` : ''}
+    <div class="pp-jg-campos-mock">
+      <div class="pp-jg-campo-mock"><label>Quantos elementos para distribuir?</label><input type="text" placeholder="Ex: 12" disabled></div>
+      <div class="pp-jg-campo-mock"><label>Entre quantos grupos?</label><input type="text" placeholder="Ex: 3" disabled></div>
+    </div>
+    <button type="button" class="pp-btn-confirmar" disabled>▶ Iniciar animação</button>
+    <p class="pp-jg-mock-nota">A aluna digita os dois números aqui (elementos de 1 a 25, grupos de 1 a 5) e vê a distribuição acontecer, ao estudar a aula.</p>`;
 }
 
 function previewLicao(l) {

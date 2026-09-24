@@ -144,10 +144,10 @@ ${trilhasTexto}
 `;
 }
 
-/** Ordem final de exibição das telas, como tokens simples ('antesComecar', 'exemplo0', 'checagem1', 'lista0', 'timeline0', 'resumo', 'licao')
+/** Ordem final de exibição das telas, como tokens simples ('antesComecar', 'exemplo0', 'checagem1', 'lista0', 'timeline0', 'jogoSinais0', 'agrupamento0', 'distribuicao0', 'resumo', 'licao')
  * — reaproveita montarPassos() (js/conteudo.js) pra garantir que os índices batem exatamente com os arrays exportados abaixo. */
 function serializarOrdem(conteudo) {
-  return montarPassos(conteudo).map(p => (p.tipo === 'exemplo' || p.tipo === 'checagem' || p.tipo === 'lista' || p.tipo === 'timeline') ? `${p.tipo}${p.idx}` : p.tipo);
+  return montarPassos(conteudo).map(p => (p.tipo === 'exemplo' || p.tipo === 'checagem' || p.tipo === 'lista' || p.tipo === 'timeline' || p.tipo === 'jogoSinais' || p.tipo === 'agrupamento' || p.tipo === 'distribuicao') ? `${p.tipo}${p.idx}` : p.tipo);
 }
 
 function gerarAulaJs(aula, tituloEtapa) {
@@ -179,6 +179,12 @@ window.AULA_DATA = {
   lista: ${paraJs(c.lista)},
 
   timeline: ${paraJs(c.timeline)},
+
+  jogoSinais: ${paraJs(c.jogoSinais)},
+
+  agrupamento: ${paraJs(c.agrupamento)},
+
+  distribuicao: ${paraJs(c.distribuicao)},
 
   questoes: [],
 };
@@ -493,6 +499,35 @@ function pdfRenderAula(aula) {
     if ((li.itens || []).length) corpo += '<ul>' + li.itens.map(it => `<li>${renderFraseComDestaque(it.texto || '', it.textoDestaque, it.textoDestaqueNegrito)}</li>`).join('') + '</ul>';
     if (li.descricao) corpo += `<p>${renderFraseComDestaque(li.descricao, li.descricaoDestaque, li.descricaoDestaqueNegrito)}</p>`;
     secoes += pdfSecao(`Lista${listas.length > 1 ? ` ${i + 1}` : ''}`, '#DB2777', corpo);
+  });
+
+  // Ponto inicial/movimento são digitados pela aluna no player, não existem aqui no
+  // conteúdo salvo — o PDF só mostra o título/instrução (igual ao Card de gravação do
+  // aluno em pdfRenderExemplo, que também é preenchido pela aluna ao estudar).
+  const jogosSinais = (c.jogoSinais || []).filter(jg => jg.titulo || jg.instrucao);
+  jogosSinais.forEach((jg, i) => {
+    let corpo = '';
+    if (jg.titulo) corpo += `<p class="pdf-destaque">${renderFraseComDestaque(jg.titulo, jg.tituloDestaque, jg.tituloDestaqueNegrito)}</p>`;
+    if (jg.instrucao) corpo += `<p>${renderFraseComDestaque(jg.instrucao, jg.instrucaoDestaque, jg.instrucaoDestaqueNegrito)}</p>`;
+    secoes += pdfSecao(`Reta Numérica${jogosSinais.length > 1 ? ` ${i + 1}` : ''}`, '#2563EB', corpo);
+  });
+
+  // Idem: quantidade de grupos/elementos são digitados pela aluna no player.
+  const agrupamentos = (c.agrupamento || []).filter(ag => ag.titulo || ag.instrucao);
+  agrupamentos.forEach((ag, i) => {
+    let corpo = '';
+    if (ag.titulo) corpo += `<p class="pdf-destaque">${renderFraseComDestaque(ag.titulo, ag.tituloDestaque, ag.tituloDestaqueNegrito)}</p>`;
+    if (ag.instrucao) corpo += `<p>${renderFraseComDestaque(ag.instrucao, ag.instrucaoDestaque, ag.instrucaoDestaqueNegrito)}</p>`;
+    secoes += pdfSecao(`Agrupamento${agrupamentos.length > 1 ? ` ${i + 1}` : ''}`, '#EA580C', corpo);
+  });
+
+  // Idem: quantidade de elementos/grupos são digitados pela aluna no player.
+  const distribuicoes = (c.distribuicao || []).filter(dv => dv.titulo || dv.instrucao);
+  distribuicoes.forEach((dv, i) => {
+    let corpo = '';
+    if (dv.titulo) corpo += `<p class="pdf-destaque">${renderFraseComDestaque(dv.titulo, dv.tituloDestaque, dv.tituloDestaqueNegrito)}</p>`;
+    if (dv.instrucao) corpo += `<p>${renderFraseComDestaque(dv.instrucao, dv.instrucaoDestaque, dv.instrucaoDestaqueNegrito)}</p>`;
+    secoes += pdfSecao(`Distribuição${distribuicoes.length > 1 ? ` ${i + 1}` : ''}`, '#0891B2', corpo);
   });
 
   const res = c.resumo || {};

@@ -1314,6 +1314,707 @@ function mostrarTimeline(aula, introIdx, i) {
   });
 }
 
+/** "Reta Numérica — Jogo de Sinais": ponto inicial + movimento, digitados pela própria
+ * aluna aqui no player (o sinal do movimento já é a "operação" — não existe operador
+ * separado). A professora só define título/instrução no Construtor (ver
+ * renderFormJogoSinais em js/conteudo.js) — essa lógica de cálculo só existe aqui. */
+const LIMITE_JOGO_SINAIS = 10;
+
+/** Ponto inicial e movimento só podem ir de -10 a 10 — a reta é sempre fixa nesse
+ * intervalo (LIMITE_JOGO_SINAIS). */
+function clamparJogoSinais(v) {
+  return Math.max(-LIMITE_JOGO_SINAIS, Math.min(LIMITE_JOGO_SINAIS, v));
+}
+
+function calcularJogoSinais(pontoInicial, movimento) {
+  const p0 = clamparJogoSinais(Number(pontoInicial) || 0);
+  const mv = clamparJogoSinais(Number(movimento) || 0);
+  const resultado = p0 + mv;
+  const positivo = mv >= 0;
+  const sinalTexto = positivo ? '+' : '-';
+  const casas = Math.abs(mv);
+  const direcao = casas === 0 ? null : (positivo ? 'direita' : 'esquerda');
+  const passo = positivo ? 1 : -1;
+  const sequencia = [p0];
+  for (let i = 1; i <= casas; i++) sequencia.push(p0 + passo * i);
+  const expressao = `${p0} ${sinalTexto} ${casas}`;
+  // Reta sempre de -10 a 10 (fixa) — os dois campos só aceitam de -10 a 10, então esse
+  // intervalo já cobre ponto inicial, movimento e resultado no uso normal.
+  const limite = LIMITE_JOGO_SINAIS;
+  return { p0, mv, resultado, sinalTexto, casas, direcao, positivo, sequencia, expressao, limite };
+}
+
+/** Texto da explicação, sempre na ordem: ponto inicial → sinal/direção → quantidade de
+ * casas → ponto final → resultado. Só aparece depois que a animação termina. */
+function montarExplicacaoJogoSinais(calc) {
+  const casaTexto = calc.casas === 1 ? 'casa' : 'casas';
+  return [
+    `Começamos no ${calc.p0}.`,
+    `O segundo número é ${calc.sinalTexto}${calc.casas}.`,
+    calc.direcao ? `O sinal ${calc.positivo ? 'positivo' : 'negativo'} indica que vamos para a ${calc.direcao}.` : 'O movimento é zero — o ponto não sai do lugar.',
+    `Devemos andar ${calc.casas} ${casaTexto}.`,
+    calc.sequencia.join(' → '),
+    `Portanto, ${calc.expressao} = ${calc.resultado}.`,
+  ];
+}
+
+/** Lê um <input> de número inteiro — null se estiver vazio ou não for um número. Usada
+ * pelas telas onde é a aluna quem digita (Reta Numérica, Agrupamento). */
+function lerInteiroCampo(input) {
+  if (input.value.trim() === '') return null;
+  const n = parseInt(input.value, 10);
+  return Number.isNaN(n) ? null : n;
+}
+
+function mostrarJogoSinais(aula, introIdx, i) {
+  const jg = (aula.jogoSinais || [])[i] || {};
+  const limite = LIMITE_JOGO_SINAIS;
+  // O resultado pode passar de -10/10 (ex: 10 + 10) — trava a posição visual na ponta da
+  // reta em vez de deixar o marcador/rótulo saírem do quadro.
+  const posPercent = v => Math.max(0, Math.min(100, ((v + limite) / (limite * 2)) * 100));
+
+  questaoInfo.textContent      = aula.titulo;
+  feedbackBar.style.display    = 'none';
+  btnAnterior.style.display    = '';
+  renderIntroSegs(introIdx - 1);
+  questaoTitulo.innerHTML      = '';
+  questaoSubtitulo.textContent = '';
+
+  const pontosHtml = [];
+  for (let v = -limite; v <= limite; v++) {
+    pontosHtml.push(`
+      <div class="jg-ponto${v === 0 ? ' jg-zero' : ''}" style="left:${posPercent(v)}%">
+        <span class="jg-ponto-tick"></span>
+        <span class="jg-ponto-num">${v}</span>
+      </div>`);
+  }
+
+  // Ponto inicial e movimento são digitados pela aluna aqui — não vêm da aula (ver
+  // renderFormJogoSinais em js/conteudo.js: a professora só define título/instrução).
+  opcoesEl.innerHTML = `
+    <div class="resumo-card">
+      ${jg.titulo ? `<p class="resumo-titulo"${estiloTextoInline(jg, 'titulo')}>${renderFraseComDestaque(jg.titulo || '', jg.tituloDestaque, jg.tituloDestaqueNegrito)}</p>` : ''}
+      ${jg.instrucao ? `<p class="lista-descricao"${estiloTextoInline(jg, 'instrucao')}>${renderFraseComDestaque(jg.instrucao, jg.instrucaoDestaque, jg.instrucaoDestaqueNegrito)}</p>` : ''}
+      <div class="jg-campos">
+        <div class="jg-campo">
+          <label for="jgPontoInicial${i}">Ponto inicial</label>
+          <input type="number" id="jgPontoInicial${i}" min="-10" max="10" step="1" placeholder="Ex: -2">
+        </div>
+        <div class="jg-campo">
+          <label for="jgMovimento${i}">Movimento (use + ou -)</label>
+          <input type="number" id="jgMovimento${i}" min="-10" max="10" step="1" placeholder="Ex: -2">
+        </div>
+      </div>
+      <p class="jg-expressao" id="jgExpressao${i}" style="display:none"></p>
+      <div class="jg-reta-wrap">
+        <div class="jg-reta">
+          <div class="jg-linha"></div>
+          <div class="jg-trajetoria" id="jgTrajetoria${i}" style="width:0"></div>
+          ${pontosHtml.join('')}
+          <div class="jg-marcador" id="jgMarcador${i}" style="display:none"><span class="jg-marcador-dot"></span></div>
+          <span class="jg-rotulo jg-rotulo-inicio" id="jgRotuloInicio${i}" style="display:none">INÍCIO</span>
+          <span class="jg-rotulo jg-rotulo-fim" id="jgRotuloFim${i}" style="display:none">FIM</span>
+        </div>
+      </div>
+      <button type="button" class="jg-btn-animar" id="jgBtnAnimar${i}" disabled>▶ Iniciar animação</button>
+      <div class="jg-explicacao" id="jgExplicacao${i}" style="display:none"></div>
+    </div>`;
+
+  atualizarBotaoMarcar(`jogoSinais${i}`);
+  btnProxima.innerHTML = 'Próximo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+  btnProxima.disabled  = false;
+  questaoArea.scrollTop = 0;
+  atualizarScrollFade();
+
+  const inputPonto     = document.getElementById(`jgPontoInicial${i}`);
+  const inputMovimento = document.getElementById(`jgMovimento${i}`);
+  const expressaoEl    = document.getElementById(`jgExpressao${i}`);
+  const marcador       = document.getElementById(`jgMarcador${i}`);
+  const trajetoria     = document.getElementById(`jgTrajetoria${i}`);
+  const rotuloInicio   = document.getElementById(`jgRotuloInicio${i}`);
+  const rotuloFim      = document.getElementById(`jgRotuloFim${i}`);
+  const explicacao     = document.getElementById(`jgExplicacao${i}`);
+  const btnAnimar      = document.getElementById(`jgBtnAnimar${i}`);
+
+  let animando = false;
+
+  // Roda a cada tecla digitada — mostra o ponto inicial na reta assim que ele for um
+  // número válido, monta a expressão quando os dois campos estiverem preenchidos, e
+  // esconde o resultado de uma tentativa anterior (a aluna está mudando os números).
+  function atualizarPelaDigitacao() {
+    if (animando) return;
+    const p0 = lerInteiroCampo(inputPonto);
+    const mv = lerInteiroCampo(inputMovimento);
+
+    if (p0 !== null) {
+      const pos = posPercent(clamparJogoSinais(p0));
+      marcador.style.display = '';
+      marcador.style.left = `${pos}%`;
+      rotuloInicio.style.display = '';
+      rotuloInicio.style.left = `${pos}%`;
+    } else {
+      marcador.style.display = 'none';
+      rotuloInicio.style.display = 'none';
+    }
+
+    if (p0 !== null && mv !== null) {
+      expressaoEl.textContent = calcularJogoSinais(p0, mv).expressao;
+      expressaoEl.style.display = '';
+      btnAnimar.disabled = false;
+    } else {
+      expressaoEl.style.display = 'none';
+      btnAnimar.disabled = true;
+    }
+
+    trajetoria.style.width = '0';
+    rotuloFim.style.display = 'none';
+    explicacao.style.display = 'none';
+    explicacao.innerHTML = '';
+    btnAnimar.textContent = '▶ Iniciar animação';
+  }
+
+  [inputPonto, inputMovimento].forEach(input => {
+    input.addEventListener('input', atualizarPelaDigitacao);
+    // Ao sair do campo, corrige o número exibido pro intervalo -10/10 (o cálculo em si já
+    // trava sozinho — isso só evita mostrar pra aluna um valor "20" que virou 10 por baixo).
+    input.addEventListener('blur', () => {
+      const v = lerInteiroCampo(input);
+      if (v !== null) input.value = clamparJogoSinais(v);
+    });
+  });
+
+  btnAnimar.addEventListener('click', () => {
+    if (animando || btnAnimar.disabled) return;
+    const p0 = lerInteiroCampo(inputPonto);
+    const mv = lerInteiroCampo(inputMovimento);
+    if (p0 === null || mv === null) return;
+
+    const calc = calcularJogoSinais(p0, mv);
+    const posInicial = posPercent(calc.p0);
+
+    animando = true;
+    btnAnimar.disabled = true;
+    inputPonto.disabled = true;
+    inputMovimento.disabled = true;
+    btnAnimar.textContent = 'Animando...';
+    explicacao.style.display = 'none';
+    explicacao.innerHTML = '';
+    rotuloFim.style.display = 'none';
+    marcador.style.display = '';
+    marcador.style.left = `${posInicial}%`;
+    rotuloInicio.style.display = '';
+    rotuloInicio.style.left = `${posInicial}%`;
+    trajetoria.style.left = `${posInicial}%`;
+    trajetoria.style.width = '0';
+    trajetoria.classList.remove('jg-dir-esquerda', 'jg-dir-direita');
+    if (calc.direcao) trajetoria.classList.add(`jg-dir-${calc.direcao}`);
+
+    const finalizar = () => {
+      rotuloFim.style.left = `${posPercent(calc.resultado)}%`;
+      rotuloFim.style.display = '';
+      explicacao.innerHTML = montarExplicacaoJogoSinais(calc).map(l => `<p class="jg-explicacao-linha">${l}</p>`).join('');
+      explicacao.style.display = '';
+      btnAnimar.disabled = false;
+      btnAnimar.textContent = '▶ Iniciar animação';
+      inputPonto.disabled = false;
+      inputMovimento.disabled = false;
+      animando = false;
+      atualizarScrollFade();
+      explicacao.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    };
+
+    if (calc.casas === 0) {
+      setTimeout(finalizar, 300);
+      return;
+    }
+
+    const passos = calc.sequencia;
+    let passoAtual = 0;
+    const avancar = () => {
+      passoAtual++;
+      const valor = passos[passoAtual];
+      const pos = posPercent(valor);
+      marcador.style.left = `${pos}%`;
+      const min = Math.min(posInicial, pos);
+      const max = Math.max(posInicial, pos);
+      trajetoria.style.left = `${min}%`;
+      trajetoria.style.width = `${max - min}%`;
+      if (passoAtual < passos.length - 1) {
+        setTimeout(avancar, 600);
+      } else {
+        setTimeout(finalizar, 600);
+      }
+    };
+    setTimeout(avancar, 600);
+  });
+}
+
+/** "Agrupamento — Multiplicação": a aluna digita a quantidade de grupos e de elementos por
+ * grupo (1 a 5 cada, mesmo espírito da Reta Numérica — ela digita, não a professora). A
+ * professora só define título/instrução no Construtor (ver renderFormAgrupamento em
+ * js/conteudo.js). */
+const LIMITE_AGRUPAMENTO = 5;
+
+/** Texto da explicação, sempre na ordem: grupos → elementos por grupo → por que vira
+ * multiplicação → soma repetida → multiplicação final. Só aparece depois da animação. */
+function montarExplicacaoAgrupamento(grupos, elementos, resultado) {
+  const grupoTexto = grupos === 1 ? 'grupo' : 'grupos';
+  const elementoTexto = elementos === 1 ? 'elemento' : 'elementos';
+  const soma = Array(grupos).fill(elementos).join(' + ');
+  return [
+    `Formamos ${grupos} ${grupoTexto}.`,
+    `Em cada grupo colocamos ${elementos} ${elementoTexto}.`,
+    'Como os grupos têm a mesma quantidade, podemos representar por uma multiplicação.',
+    `${soma} = ${resultado}.`,
+    `Portanto, ${grupos} × ${elementos} = ${resultado}.`,
+  ];
+}
+
+function mostrarAgrupamento(aula, introIdx, i) {
+  const ag = (aula.agrupamento || [])[i] || {};
+
+  questaoInfo.textContent      = aula.titulo;
+  feedbackBar.style.display    = 'none';
+  btnAnterior.style.display    = '';
+  renderIntroSegs(introIdx - 1);
+  questaoTitulo.innerHTML      = '';
+  questaoSubtitulo.textContent = '';
+
+  // Ponto inicial/movimento (Reta Numérica) e grupos/elementos (aqui) são digitados pela
+  // aluna — não vêm da aula. Reaproveita as classes jg-campos/jg-campo/jg-expressao/
+  // jg-btn-animar/jg-explicacao* (mesmo card, mesmo botão, mesma caixa de explicação da
+  // Reta Numérica) — só o miolo da visualização (grupos/elementos/soma) é novo.
+  opcoesEl.innerHTML = `
+    <div class="resumo-card">
+      ${ag.titulo ? `<p class="resumo-titulo"${estiloTextoInline(ag, 'titulo')}>${renderFraseComDestaque(ag.titulo || '', ag.tituloDestaque, ag.tituloDestaqueNegrito)}</p>` : ''}
+      ${ag.instrucao ? `<p class="lista-descricao"${estiloTextoInline(ag, 'instrucao')}>${renderFraseComDestaque(ag.instrucao, ag.instrucaoDestaque, ag.instrucaoDestaqueNegrito)}</p>` : ''}
+      <div class="jg-campos">
+        <div class="jg-campo">
+          <label for="agGrupos${i}">Quantos grupos?</label>
+          <input type="number" id="agGrupos${i}" min="1" max="5" step="1" placeholder="Ex: 3">
+        </div>
+        <div class="jg-campo">
+          <label for="agElementos${i}">Quantos elementos em cada grupo?</label>
+          <input type="number" id="agElementos${i}" min="1" max="5" step="1" placeholder="Ex: 4">
+        </div>
+      </div>
+      <p class="jg-expressao" id="agExpressao${i}" style="display:none"></p>
+      <div class="ag-grupos" id="agGruposWrap${i}"></div>
+      <p class="ag-soma" id="agSoma${i}" style="display:none"></p>
+      <button type="button" class="jg-btn-animar" id="agBtnAnimar${i}" disabled>▶ Iniciar animação</button>
+      <div class="jg-explicacao" id="agExplicacao${i}" style="display:none"></div>
+    </div>`;
+
+  atualizarBotaoMarcar(`agrupamento${i}`);
+  btnProxima.innerHTML = 'Próximo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+  btnProxima.disabled  = false;
+  questaoArea.scrollTop = 0;
+  atualizarScrollFade();
+
+  const inputGrupos    = document.getElementById(`agGrupos${i}`);
+  const inputElementos = document.getElementById(`agElementos${i}`);
+  const expressaoEl    = document.getElementById(`agExpressao${i}`);
+  const gruposWrap     = document.getElementById(`agGruposWrap${i}`);
+  const somaEl         = document.getElementById(`agSoma${i}`);
+  const explicacao     = document.getElementById(`agExplicacao${i}`);
+  const btnAnimar      = document.getElementById(`agBtnAnimar${i}`);
+
+  let animando = false;
+
+  // Monta os grupos com todos os elementos já visíveis — é a "foto" do que a aluna acabou
+  // de digitar. A animação (no clique do botão) reconstrói do zero pra ensinar o processo.
+  function montarEstrutura(grupos, elementos) {
+    let html = '';
+    for (let g = 1; g <= grupos; g++) {
+      html += `
+        <div class="ag-grupo" data-grupo="${g}">
+          <div class="ag-grupo-cabecalho">
+            <span class="ag-grupo-titulo">Grupo ${g}</span>
+            <span class="ag-grupo-qtd visivel" data-qtd>${elementos}</span>
+          </div>
+          <div class="ag-grupo-elementos">
+            ${Array.from({ length: elementos }, (_, e) => `<span class="ag-elemento visivel" data-elemento="${e + 1}"></span>`).join('')}
+          </div>
+        </div>`;
+    }
+    gruposWrap.innerHTML = html;
+    somaEl.textContent = `${Array(grupos).fill(elementos).join(' + ')} = ${grupos * elementos}`;
+    somaEl.style.display = '';
+  }
+
+  function atualizarPelaDigitacao() {
+    if (animando) return;
+    const grupos = lerInteiroCampo(inputGrupos);
+    const elementos = lerInteiroCampo(inputElementos);
+    const validos = grupos !== null && elementos !== null
+      && grupos >= 1 && grupos <= LIMITE_AGRUPAMENTO && elementos >= 1 && elementos <= LIMITE_AGRUPAMENTO;
+
+    if (validos) {
+      expressaoEl.textContent = `${grupos} × ${elementos}`;
+      expressaoEl.style.display = '';
+      expressaoEl.classList.remove('ag-expressao-destaque');
+      montarEstrutura(grupos, elementos);
+      btnAnimar.disabled = false;
+    } else {
+      expressaoEl.style.display = 'none';
+      gruposWrap.innerHTML = '';
+      somaEl.style.display = 'none';
+      btnAnimar.disabled = true;
+    }
+    explicacao.style.display = 'none';
+    explicacao.innerHTML = '';
+    btnAnimar.textContent = '▶ Iniciar animação';
+    atualizarScrollFade();
+  }
+
+  [inputGrupos, inputElementos].forEach(input => {
+    input.addEventListener('input', atualizarPelaDigitacao);
+    // Ao sair do campo, corrige um número fora de 1-5 pro limite mais próximo (mesmo
+    // cuidado tomado na Reta Numérica com -10/10).
+    input.addEventListener('blur', () => {
+      const v = lerInteiroCampo(input);
+      if (v !== null) input.value = Math.max(1, Math.min(LIMITE_AGRUPAMENTO, v));
+      atualizarPelaDigitacao();
+    });
+  });
+
+  btnAnimar.addEventListener('click', () => {
+    if (animando || btnAnimar.disabled) return;
+    const grupos = lerInteiroCampo(inputGrupos);
+    const elementos = lerInteiroCampo(inputElementos);
+    if (grupos === null || elementos === null) return;
+    const resultado = grupos * elementos;
+
+    animando = true;
+    btnAnimar.disabled = true;
+    inputGrupos.disabled = true;
+    inputElementos.disabled = true;
+    btnAnimar.textContent = 'Animando...';
+    explicacao.style.display = 'none';
+    explicacao.innerHTML = '';
+    expressaoEl.textContent = `${grupos} × ${elementos}`;
+    expressaoEl.classList.remove('ag-expressao-destaque');
+
+    // Reconstrói a estrutura (mesmos elementos do DOM) e esconde tudo de novo, pra "montar"
+    // cada grupo/elemento na animação, um passo de cada vez.
+    montarEstrutura(grupos, elementos);
+    gruposWrap.querySelectorAll('.ag-elemento, .ag-grupo-qtd').forEach(el => el.classList.remove('visivel'));
+    gruposWrap.classList.remove('ag-grupos-destaque');
+    somaEl.textContent = '';
+    somaEl.style.display = 'none';
+
+    const passos = [];
+    for (let g = 1; g <= grupos; g++) {
+      passos.push({ tipo: 'grupo', g });
+      for (let e = 1; e <= elementos; e++) passos.push({ tipo: 'elemento', g, e });
+      passos.push({ tipo: 'quantidadeGrupo', g });
+    }
+    passos.push({ tipo: 'destacarTodos' });
+    for (let g = 1; g <= grupos; g++) passos.push({ tipo: 'somaTermo', g });
+    passos.push({ tipo: 'somaResultado' });
+    passos.push({ tipo: 'multiplicacaoFinal' });
+
+    const finalizar = () => {
+      explicacao.innerHTML = montarExplicacaoAgrupamento(grupos, elementos, resultado).map(l => `<p class="jg-explicacao-linha">${l}</p>`).join('');
+      explicacao.style.display = '';
+      btnAnimar.disabled = false;
+      btnAnimar.textContent = '▶ Iniciar animação';
+      inputGrupos.disabled = false;
+      inputElementos.disabled = false;
+      animando = false;
+      atualizarScrollFade();
+      explicacao.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    };
+
+    let passoIdx = -1;
+    const rodarProximo = () => {
+      passoIdx++;
+      if (passoIdx >= passos.length) { finalizar(); return; }
+      const passo = passos[passoIdx];
+      let espera = 250;
+
+      if (passo.tipo === 'grupo') {
+        gruposWrap.querySelectorAll('.ag-grupo').forEach(el => el.classList.toggle('ativo', Number(el.dataset.grupo) === passo.g));
+        espera = 250;
+      } else if (passo.tipo === 'elemento') {
+        const grupoEl = gruposWrap.querySelector(`.ag-grupo[data-grupo="${passo.g}"]`);
+        grupoEl.querySelector(`.ag-elemento[data-elemento="${passo.e}"]`).classList.add('visivel');
+        espera = 220;
+      } else if (passo.tipo === 'quantidadeGrupo') {
+        const grupoEl = gruposWrap.querySelector(`.ag-grupo[data-grupo="${passo.g}"]`);
+        grupoEl.querySelector('[data-qtd]').classList.add('visivel');
+        espera = 450;
+      } else if (passo.tipo === 'destacarTodos') {
+        gruposWrap.querySelectorAll('.ag-grupo').forEach(el => el.classList.remove('ativo'));
+        gruposWrap.classList.add('ag-grupos-destaque');
+        espera = 400;
+      } else if (passo.tipo === 'somaTermo') {
+        somaEl.textContent = Array(passo.g).fill(elementos).join(' + ');
+        somaEl.style.display = '';
+        espera = 450;
+      } else if (passo.tipo === 'somaResultado') {
+        somaEl.textContent = `${Array(grupos).fill(elementos).join(' + ')} = ${resultado}`;
+        espera = 500;
+      } else if (passo.tipo === 'multiplicacaoFinal') {
+        expressaoEl.textContent = `${grupos} × ${elementos} = ${resultado}`;
+        expressaoEl.classList.add('ag-expressao-destaque');
+        espera = 700;
+      }
+
+      atualizarScrollFade();
+      setTimeout(rodarProximo, espera);
+    };
+    setTimeout(rodarProximo, 250);
+  });
+}
+
+/** "Distribuição — Divisão": a aluna digita a quantidade de elementos (1 a 25) e de grupos
+ * (1 a 5) — mesmo espírito do Agrupamento/Reta Numérica: ela digita, não a professora. A
+ * professora só define título/instrução no Construtor (ver renderFormDistribuicao em
+ * js/conteudo.js). A divisão precisa ser exata — se não for, mostra um aviso em vez dos
+ * grupos, e a animação não inicia. */
+const LIMITE_DISTRIBUICAO_ELEMENTOS = 25;
+const LIMITE_DISTRIBUICAO_GRUPOS = 5;
+
+/** Texto da explicação, sempre na ordem: total → quantos grupos → quanto cada grupo
+ * recebe → divisão final. Só aparece depois que a animação termina. */
+function montarExplicacaoDistribuicao(elementos, grupos, resultado) {
+  const elementoTexto = elementos === 1 ? 'elemento' : 'elementos';
+  const grupoTexto = grupos === 1 ? 'grupo' : 'grupos';
+  const resultadoTexto = resultado === 1 ? 'elemento' : 'elementos';
+  return [
+    `Temos ${elementos} ${elementoTexto} para distribuir.`,
+    `Vamos dividir igualmente entre ${grupos} ${grupoTexto}.`,
+    `Cada grupo recebe ${resultado} ${resultadoTexto}.`,
+    `Portanto, ${elementos} ÷ ${grupos} = ${resultado}.`,
+  ];
+}
+
+function mostrarDistribuicao(aula, introIdx, i) {
+  const dv = (aula.distribuicao || [])[i] || {};
+
+  questaoInfo.textContent      = aula.titulo;
+  feedbackBar.style.display    = 'none';
+  btnAnterior.style.display    = '';
+  renderIntroSegs(introIdx - 1);
+  questaoTitulo.innerHTML      = '';
+  questaoSubtitulo.textContent = '';
+
+  // Elementos/grupos (aqui) e grupos/elementos (Agrupamento) são digitados pela aluna —
+  // reaproveita as mesmas classes jg-campos/jg-campo/jg-expressao/jg-btn-animar/
+  // jg-explicacao* (mesmo card, botão e caixa de explicação das outras telas de
+  // Matemática) e ag-grupos/ag-grupo/ag-elemento (mesmos grupos com bolinhas do
+  // Agrupamento) — só o "pool" de elementos ainda não distribuídos é novo (dv-pool).
+  opcoesEl.innerHTML = `
+    <div class="resumo-card">
+      ${dv.titulo ? `<p class="resumo-titulo"${estiloTextoInline(dv, 'titulo')}>${renderFraseComDestaque(dv.titulo || '', dv.tituloDestaque, dv.tituloDestaqueNegrito)}</p>` : ''}
+      ${dv.instrucao ? `<p class="lista-descricao"${estiloTextoInline(dv, 'instrucao')}>${renderFraseComDestaque(dv.instrucao, dv.instrucaoDestaque, dv.instrucaoDestaqueNegrito)}</p>` : ''}
+      <div class="jg-campos">
+        <div class="jg-campo">
+          <label for="dvElementos${i}">Quantos elementos para distribuir?</label>
+          <input type="number" id="dvElementos${i}" min="1" max="25" step="1" placeholder="Ex: 12">
+        </div>
+        <div class="jg-campo">
+          <label for="dvGrupos${i}">Entre quantos grupos?</label>
+          <input type="number" id="dvGrupos${i}" min="1" max="5" step="1" placeholder="Ex: 3">
+        </div>
+      </div>
+      <p class="jg-expressao" id="dvExpressao${i}" style="display:none"></p>
+      <p class="dv-aviso" id="dvAviso${i}" style="display:none"></p>
+      <div class="dv-pool" id="dvPool${i}" style="display:none"></div>
+      <div class="ag-grupos" id="dvGruposWrap${i}" style="display:none"></div>
+      <button type="button" class="jg-btn-animar" id="dvBtnAnimar${i}" disabled>▶ Iniciar animação</button>
+      <div class="jg-explicacao" id="dvExplicacao${i}" style="display:none"></div>
+    </div>`;
+
+  atualizarBotaoMarcar(`distribuicao${i}`);
+  btnProxima.innerHTML = 'Próximo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+  btnProxima.disabled  = false;
+  questaoArea.scrollTop = 0;
+  atualizarScrollFade();
+
+  const inputElementos = document.getElementById(`dvElementos${i}`);
+  const inputGrupos    = document.getElementById(`dvGrupos${i}`);
+  const expressaoEl    = document.getElementById(`dvExpressao${i}`);
+  const avisoEl        = document.getElementById(`dvAviso${i}`);
+  const poolWrap       = document.getElementById(`dvPool${i}`);
+  const gruposWrap     = document.getElementById(`dvGruposWrap${i}`);
+  const explicacao     = document.getElementById(`dvExplicacao${i}`);
+  const btnAnimar      = document.getElementById(`dvBtnAnimar${i}`);
+
+  let animando = false;
+
+  // Monta os grupos com o resultado já distribuído (todos com a mesma quantidade) — é a
+  // "foto" do que a aluna acabou de digitar. A animação (no clique do botão) reconstrói do
+  // zero, elemento por elemento, pra ensinar o processo.
+  function montarEstrutura(grupos, resultado) {
+    let html = '';
+    for (let g = 1; g <= grupos; g++) {
+      html += `
+        <div class="ag-grupo" data-grupo="${g}">
+          <div class="ag-grupo-cabecalho">
+            <span class="ag-grupo-titulo">Grupo ${g}</span>
+            <span class="ag-grupo-qtd visivel" data-qtd>${resultado}</span>
+          </div>
+          <div class="ag-grupo-elementos">
+            ${Array.from({ length: resultado }, () => '<span class="ag-elemento visivel"></span>').join('')}
+          </div>
+        </div>`;
+    }
+    gruposWrap.innerHTML = html;
+    gruposWrap.style.display = '';
+  }
+
+  function atualizarPelaDigitacao() {
+    if (animando) return;
+    const elementos = lerInteiroCampo(inputElementos);
+    const grupos = lerInteiroCampo(inputGrupos);
+    const foraDoIntervalo = (elementos !== null && (elementos < 1 || elementos > LIMITE_DISTRIBUICAO_ELEMENTOS))
+      || (grupos !== null && (grupos < 1 || grupos > LIMITE_DISTRIBUICAO_GRUPOS));
+
+    expressaoEl.style.display = 'none';
+    expressaoEl.classList.remove('ag-expressao-destaque');
+    avisoEl.style.display = 'none';
+    avisoEl.textContent = '';
+    gruposWrap.innerHTML = '';
+    gruposWrap.style.display = 'none';
+    poolWrap.innerHTML = '';
+    poolWrap.style.display = 'none';
+    btnAnimar.disabled = true;
+    explicacao.style.display = 'none';
+    explicacao.innerHTML = '';
+    btnAnimar.textContent = '▶ Iniciar animação';
+
+    if (elementos !== null && grupos !== null && !foraDoIntervalo) {
+      if (elementos % grupos === 0) {
+        const resultado = elementos / grupos;
+        expressaoEl.textContent = `${elementos} ÷ ${grupos} = ${resultado}`;
+        expressaoEl.style.display = '';
+        montarEstrutura(grupos, resultado);
+        btnAnimar.disabled = false;
+      } else {
+        avisoEl.textContent = `${elementos} não pode ser dividido igualmente entre ${grupos} grupos. Escolha uma quantidade de elementos que seja múltiplo de ${grupos}.`;
+        avisoEl.style.display = '';
+      }
+    }
+    atualizarScrollFade();
+  }
+
+  [inputElementos, inputGrupos].forEach((input, idx) => {
+    input.addEventListener('input', atualizarPelaDigitacao);
+    // Ao sair do campo, corrige um número fora do intervalo (mesmo cuidado tomado nas
+    // outras telas de Matemática onde é a aluna quem digita).
+    input.addEventListener('blur', () => {
+      const limite = idx === 0 ? LIMITE_DISTRIBUICAO_ELEMENTOS : LIMITE_DISTRIBUICAO_GRUPOS;
+      const v = lerInteiroCampo(input);
+      if (v !== null) input.value = Math.max(1, Math.min(limite, v));
+      atualizarPelaDigitacao();
+    });
+  });
+
+  btnAnimar.addEventListener('click', () => {
+    if (animando || btnAnimar.disabled) return;
+    const elementos = lerInteiroCampo(inputElementos);
+    const grupos = lerInteiroCampo(inputGrupos);
+    if (elementos === null || grupos === null || elementos % grupos !== 0) return;
+    const resultado = elementos / grupos;
+
+    animando = true;
+    btnAnimar.disabled = true;
+    inputElementos.disabled = true;
+    inputGrupos.disabled = true;
+    btnAnimar.textContent = 'Animando...';
+    explicacao.style.display = 'none';
+    explicacao.innerHTML = '';
+    expressaoEl.textContent = `${elementos} ÷ ${grupos} = ${resultado}`;
+    expressaoEl.classList.remove('ag-expressao-destaque');
+
+    // Reseta: todos os elementos juntos no "pool" (ainda não distribuídos) e grupos vazios
+    // — a animação vai esvaziar o pool aos poucos, um elemento de cada vez.
+    let htmlGrupos = '';
+    for (let g = 1; g <= grupos; g++) {
+      htmlGrupos += `
+        <div class="ag-grupo" data-grupo="${g}">
+          <div class="ag-grupo-cabecalho">
+            <span class="ag-grupo-titulo">Grupo ${g}</span>
+            <span class="ag-grupo-qtd" data-qtd>0</span>
+          </div>
+          <div class="ag-grupo-elementos"></div>
+        </div>`;
+    }
+    gruposWrap.innerHTML = htmlGrupos;
+    gruposWrap.style.display = '';
+    gruposWrap.classList.remove('ag-grupos-destaque');
+
+    poolWrap.innerHTML = Array.from({ length: elementos }, (_, k) => `<span class="ag-elemento dv-elemento-pool" data-pool-idx="${k}"></span>`).join('');
+    poolWrap.style.display = '';
+    requestAnimationFrame(() => {
+      poolWrap.querySelectorAll('.ag-elemento').forEach(el => el.classList.add('visivel'));
+    });
+
+    const contagemPorGrupo = {};
+    const passos = [{ tipo: 'destacarGrupos' }];
+    for (let k = 0; k < elementos; k++) passos.push({ tipo: 'distribuir', k, g: (k % grupos) + 1 });
+    passos.push({ tipo: 'destacarTodos' });
+    passos.push({ tipo: 'mostrarResultado' });
+
+    const finalizar = () => {
+      explicacao.innerHTML = montarExplicacaoDistribuicao(elementos, grupos, resultado).map(l => `<p class="jg-explicacao-linha">${l}</p>`).join('');
+      explicacao.style.display = '';
+      btnAnimar.disabled = false;
+      btnAnimar.textContent = '▶ Iniciar animação';
+      inputElementos.disabled = false;
+      inputGrupos.disabled = false;
+      animando = false;
+      atualizarScrollFade();
+      explicacao.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    };
+
+    // Passo a passo mais lento que o do Agrupamento de propósito — aqui é só UM elemento
+    // por vez, ciclando entre os grupos, então precisa de tempo pra dar pra acompanhar qual
+    // elemento saiu do "pool" e em qual grupo ele entrou.
+    let passoIdx = -1;
+    const rodarProximo = () => {
+      passoIdx++;
+      if (passoIdx >= passos.length) { finalizar(); return; }
+      const passo = passos[passoIdx];
+      let espera = 550;
+
+      if (passo.tipo === 'destacarGrupos') {
+        gruposWrap.querySelectorAll('.ag-grupo').forEach(el => el.classList.add('ativo'));
+        espera = 600;
+      } else if (passo.tipo === 'distribuir') {
+        const poolEl = poolWrap.querySelector(`.ag-elemento[data-pool-idx="${passo.k}"]`);
+        if (poolEl) poolEl.classList.remove('visivel');
+        const grupoEl = gruposWrap.querySelector(`.ag-grupo[data-grupo="${passo.g}"]`);
+        gruposWrap.querySelectorAll('.ag-grupo').forEach(el => el.classList.toggle('ativo', el === grupoEl));
+        const dot = document.createElement('span');
+        dot.className = 'ag-elemento';
+        grupoEl.querySelector('.ag-grupo-elementos').appendChild(dot);
+        void dot.offsetWidth; // força reflow pra transição de opacidade/escala rodar
+        dot.classList.add('visivel');
+        contagemPorGrupo[passo.g] = (contagemPorGrupo[passo.g] || 0) + 1;
+        const qtdEl = grupoEl.querySelector('[data-qtd]');
+        qtdEl.textContent = contagemPorGrupo[passo.g];
+        qtdEl.classList.add('visivel');
+        espera = 550;
+      } else if (passo.tipo === 'destacarTodos') {
+        gruposWrap.querySelectorAll('.ag-grupo').forEach(el => el.classList.remove('ativo'));
+        gruposWrap.classList.add('ag-grupos-destaque');
+        poolWrap.style.display = 'none';
+        espera = 650;
+      } else if (passo.tipo === 'mostrarResultado') {
+        expressaoEl.classList.add('ag-expressao-destaque');
+        espera = 900;
+      }
+
+      atualizarScrollFade();
+      setTimeout(rodarProximo, espera);
+    };
+    setTimeout(rodarProximo, 450);
+  });
+}
+
 function mostrarLicao(aula, introIdx) {
   const lic = aula.licao || {};
   questaoInfo.textContent      = aula.titulo;
@@ -2610,6 +3311,9 @@ carregarDadosIniciais().then((carregado) => {
     (aula.checagem || []).forEach((dados, i) => { introFns[`checagem${i}`] = (a, idx) => mostrarChecagem(a, idx, dados, i); });
     (aula.lista || []).forEach((_, i) => { introFns[`lista${i}`] = (a, idx) => mostrarLista(a, idx, i); });
     (aula.timeline || []).forEach((_, i) => { introFns[`timeline${i}`] = (a, idx) => mostrarTimeline(a, idx, i); });
+    (aula.jogoSinais || []).forEach((_, i) => { introFns[`jogoSinais${i}`] = (a, idx) => mostrarJogoSinais(a, idx, i); });
+    (aula.agrupamento || []).forEach((_, i) => { introFns[`agrupamento${i}`] = (a, idx) => mostrarAgrupamento(a, idx, i); });
+    (aula.distribuicao || []).forEach((_, i) => { introFns[`distribuicao${i}`] = (a, idx) => mostrarDistribuicao(a, idx, i); });
     aula.ordem.forEach(token => {
       const chave = token === 'antesComecar' ? 'justificativa' : token;
       if (introFns[chave]) introScreens.push(chave);

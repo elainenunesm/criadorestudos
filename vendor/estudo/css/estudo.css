@@ -1100,6 +1100,111 @@ body {
   display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;
 }
 
+/* TELA DE RETA NUMÉRICA — JOGO DE SINAIS: a aluna digita ponto inicial e movimento (os
+   dois campos abaixo), a reta horizontal tem pontos igualmente espaçados (0 sempre no
+   centro), um marcador percorre a reta casa por casa ao clicar em "Iniciar animação", e a
+   explicação (gerada a partir dos dois números) só aparece depois que a animação termina
+   — ver mostrarJogoSinais em estudo.mjs. */
+.jg-campos { display: flex; gap: 12px; margin-bottom: 18px; }
+.jg-campo { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.jg-campo label { font-size: 12.5px; font-weight: 700; color: #6b7280; }
+.jg-campo input {
+  width: 100%; border: 1.5px solid var(--cor-borda-clara); border-radius: 12px;
+  padding: 10px 12px; font-family: inherit; font-size: 16px; font-weight: 700;
+  color: #1a1a2e; background: #fff; text-align: center; transition: border-color .15s;
+}
+.jg-campo input:focus { outline: none; border-color: var(--cor-primaria); }
+.jg-campo input:disabled { background: #f5f4fa; color: #9ca3af; }
+.jg-expressao { font-size: 24px; font-weight: 800; color: #1a1a2e; text-align: center; margin: 4px 0 26px; letter-spacing: .02em; transition: color .3s ease, transform .3s ease; }
+.jg-reta-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 8px 0 0; }
+.jg-reta { position: relative; height: 88px; min-width: 100%; margin: 0 18px; }
+.jg-linha { position: absolute; top: 15px; left: 0; right: 0; height: 3px; background: var(--cor-borda-clara); border-radius: 2px; }
+.jg-trajetoria {
+  position: absolute; top: 11px; height: 11px; background: rgba(37,99,235,0.18); border-radius: 6px;
+  transition: left .5s ease, width .5s ease;
+}
+.jg-trajetoria::after {
+  content: ''; position: absolute; top: 50%; width: 0; height: 0; transform: translateY(-50%);
+  border-top: 7px solid transparent; border-bottom: 7px solid transparent;
+}
+.jg-trajetoria.jg-dir-direita::after  { right: -1px; border-left: 10px solid #2563EB; }
+.jg-trajetoria.jg-dir-esquerda::after { left: -1px;  border-right: 10px solid #2563EB; }
+/* Número fica bem abaixo da marca/linha (gap grande), pra reta e marcador ficarem limpos,
+   sem número nenhum colado neles — só a marquinha (tick) cruza a linha. */
+.jg-ponto { position: absolute; top: 3px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.jg-ponto-tick { width: 2px; height: 22px; background: var(--cor-borda-media); border-radius: 1px; }
+.jg-zero .jg-ponto-tick { background: var(--cor-primaria); width: 3px; }
+.jg-ponto-num { font-size: 13px; color: #9ca3af; font-weight: 600; }
+.jg-zero .jg-ponto-num { color: var(--cor-primaria); font-weight: 800; }
+.jg-marcador { position: absolute; top: 3px; transform: translateX(-50%); z-index: 2; transition: left .5s ease; }
+.jg-marcador-dot {
+  display: block; width: 22px; height: 22px; border-radius: 50%; background: #2563EB;
+  border: 3px solid #fff; box-shadow: 0 2px 6px rgba(37,99,235,0.55);
+}
+.jg-rotulo {
+  position: absolute; top: 68px; transform: translateX(-50%); font-size: 11px; font-weight: 800;
+  letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; transition: left .5s ease;
+}
+.jg-rotulo-inicio { color: #6b7280; }
+.jg-rotulo-fim { color: #2563EB; }
+.jg-btn-animar {
+  display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;
+  margin-top: 20px; padding: 12px 16px; background: var(--cor-primaria); border: none;
+  border-radius: 12px; color: #fff; font-weight: 700; font-size: 14.5px; cursor: pointer;
+  transition: background 0.2s;
+}
+.jg-btn-animar:hover:not(:disabled) { background: var(--cor-primaria-escura); }
+.jg-btn-animar:disabled { opacity: 0.7; cursor: default; }
+.jg-explicacao {
+  background: #f5f8ff; border: 1.5px solid #d9e6fc; border-radius: 16px; padding: 18px 20px; margin-top: 16px;
+}
+.jg-explicacao-linha { font-size: 15px; color: #374151; line-height: 1.6; }
+.jg-explicacao-linha + .jg-explicacao-linha { margin-top: 6px; }
+
+/* TELA DE AGRUPAMENTO — MULTIPLICAÇÃO: a aluna digita quantos grupos e quantos elementos
+   por grupo (1 a 5 cada — mesmos campos/expressão/botão/explicação da Reta Numérica, ver
+   .jg-campos/.jg-campo/.jg-expressao/.jg-btn-animar/.jg-explicacao* acima). Ao clicar em
+   "Iniciar animação", cada grupo é destacado e seus elementos aparecem um por vez, depois
+   a soma repetida e por fim a multiplicação — ver mostrarAgrupamento em estudo.mjs. */
+.ag-grupos { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
+.ag-grupo {
+  border: 1.5px solid var(--cor-borda-clara); border-radius: 14px; padding: 14px 16px;
+  transition: border-color .25s ease, background .25s ease, box-shadow .25s ease;
+}
+.ag-grupo.ativo { border-color: var(--cor-primaria); background: var(--cor-clara); box-shadow: 0 0 0 3px rgba(91,43,203,0.12); }
+.ag-grupos.ag-grupos-destaque .ag-grupo { border-color: #16A34A; background: #f0fdf4; }
+.ag-grupo-cabecalho { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.ag-grupo-titulo { font-size: 14.5px; font-weight: 700; color: #1a1a2e; }
+.ag-grupo-qtd {
+  font-size: 12px; font-weight: 800; color: #fff; background: var(--cor-primaria); border-radius: 999px;
+  padding: 2px 10px; opacity: 0; transform: scale(.6); transition: opacity .25s ease, transform .25s ease;
+}
+.ag-grupo-qtd.visivel { opacity: 1; transform: scale(1); }
+.ag-grupo-elementos { display: flex; flex-wrap: wrap; gap: 8px; }
+.ag-elemento {
+  width: 20px; height: 20px; border-radius: 50%; background: var(--cor-primaria); flex-shrink: 0;
+  opacity: 0; transform: scale(0); transition: opacity .25s ease, transform .25s cubic-bezier(.34,1.56,.64,1);
+}
+.ag-elemento.visivel { opacity: 1; transform: scale(1); }
+.ag-soma { font-size: 17px; font-weight: 700; color: #1a1a2e; text-align: center; margin-top: 18px; }
+.jg-expressao.ag-expressao-destaque { color: var(--cor-primaria); transform: scale(1.08); }
+
+/* TELA DE DISTRIBUIÇÃO — DIVISÃO: a aluna digita quantos elementos e entre quantos grupos
+   (mesmos campos/expressão/botão/explicação/grupos das outras telas de Matemática, ver
+   .jg-campos/.jg-expressao/.jg-btn-animar/.jg-explicacao*/.ag-grupos acima). Se a divisão
+   não for exata, mostra .dv-aviso em vez dos grupos. Ao animar, todos os elementos
+   aparecem juntos no "pool" (.dv-pool) e são distribuídos um a um, ciclicamente, entre os
+   grupos — ver mostrarDistribuicao em estudo.mjs. */
+.dv-aviso {
+  background: #fefce8; border: 1.5px solid #fde68a; border-radius: 14px; padding: 14px 16px;
+  font-size: 14.5px; font-weight: 600; color: #1a1a2e; line-height: 1.5; margin: 4px 0 4px;
+}
+.dv-pool {
+  display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 16px; margin-bottom: 14px;
+  border: 1.5px dashed var(--cor-borda-media); border-radius: 14px;
+}
+.ag-elemento.dv-elemento-pool { background: #9ca3af; }
+
 /* TELA DE IDENTIFICAÇÃO */
 .idf-card {
   display: flex;

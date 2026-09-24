@@ -38,6 +38,15 @@ function novoConteudo() {
     lista: [],
     // "Timeline" (linha do tempo com pontos clicáveis) — também repetível, mesmo esquema da Lista.
     timeline: [],
+    // "Reta Numérica — Jogo de Sinais" (ponto inicial + movimento, reta animada) — também
+    // repetível, mesmo esquema da Lista/Timeline.
+    jogoSinais: [],
+    // "Agrupamento — Multiplicação" (grupos x elementos por grupo, agrupamento animado) —
+    // também repetível, mesmo esquema da Lista/Timeline/Jogo de Sinais.
+    agrupamento: [],
+    // "Distribuição — Divisão" (elementos ÷ grupos, distribuição animada) — também
+    // repetível, mesmo esquema da Lista/Timeline/Jogo de Sinais/Agrupamento.
+    distribuicao: [],
   };
 }
 
