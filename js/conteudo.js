@@ -370,6 +370,7 @@ function mostrarPreviewNovaTela(tipo, modo) {
     const dados = DADOS_CHECAGEM_POR_MODO[modo] || DADOS_FICTICIOS_TELA.checagemMultipla;
     body.innerHTML = previewChecagemCorpo(dados, 'padrao');
   }
+  ligarAudioTelaPreview(body);
 
   // Cabeçalho com a mesma cor de marca das outras prévias — só pra mostrar como vai ficar,
   // por isso o "passo" é fictício (essa tela ainda nem foi adicionada de verdade).
@@ -1106,6 +1107,7 @@ function renderFormAntesComecar(el, conteudo) {
   const d = conteudo.antesComecar;
   el.innerHTML = `
     <div class="form-secao">
+      ${htmlCampoAudioTela()}
       <div class="campo">${htmlLabelComEstilo('Título', 'titulo')}<input type="text" data-f="titulo"></div>
       <div class="campo">${htmlLabelComEstilo('Descrição', 'descricao')}<textarea data-f="descricao"></textarea></div>
       <div class="campo">${htmlLabelComEstilo('O que você vai aprender', 'aprender')}<textarea data-f="aprender"></textarea></div>
@@ -1113,6 +1115,7 @@ function renderFormAntesComecar(el, conteudo) {
       <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
       <div id="listaDestaqueAC"></div>
     </div>`;
+  ligarCampoAudioTela(el, d);
   el.querySelectorAll('[data-f]').forEach(input => {
     input.value = d[input.dataset.f] || '';
     input.addEventListener('input', () => { d[input.dataset.f] = input.value; renderPreviewAtual(); });
@@ -1162,15 +1165,20 @@ function renderFormExemplo(el, conteudo, passo) {
   if (!item.pontos) item.pontos = [];
   const variante = varianteDoExemplo(item);
 
+  // "audio"/"gravacao" já são o próprio card de áudio (um arquivo só, sem duplicar campo).
+  const temAudioProprio = variante === 'audio' || variante === 'gravacao';
+
   if (variante !== 'padrao') {
     el.innerHTML = `
       <div class="form-secao">
         <div class="campo"><label>Tipo (ícone)</label>${htmlTipoIconePicker(item, '#4A80F0')}</div>
         ${htmlCampoIconeExterno(item)}
+        ${temAudioProprio ? '' : htmlCampoAudioTela()}
         <div id="blocoVarianteExemplo"></div>
       </div>`;
     ligarCampoIconeExterno(el, item);
     ligarTipoIconePicker(el, item, '#4A80F0', renderPreviewAtual);
+    if (!temAudioProprio) ligarCampoAudioTela(el, item);
     RENDER_BLOCO_VARIANTE[variante](el.querySelector('#blocoVarianteExemplo'), item);
     return;
   }
@@ -1179,6 +1187,7 @@ function renderFormExemplo(el, conteudo, passo) {
     <div class="form-secao">
       <div class="campo"><label>Tipo (ícone)</label>${htmlTipoIconePicker(item, '#4A80F0')}</div>
       ${htmlCampoIconeExterno(item)}
+      ${htmlCampoAudioTela()}
       <div class="campo">${htmlLabelComEstilo('Texto', 'texto')}<textarea data-f="texto"></textarea></div>
       <div class="campo">${htmlLabelComEstilo('Conclusão (opcional)', 'conclusao')}<textarea data-f="conclusao"></textarea></div>
       <div class="campo">${htmlLabelComEstilo('Observação (opcional)', 'obs')}<textarea data-f="obs"></textarea></div>
@@ -1194,6 +1203,7 @@ function renderFormExemplo(el, conteudo, passo) {
   });
   ligarCampoIconeExterno(el, item);
   ligarTipoIconePicker(el, item, '#4A80F0', renderPreviewAtual);
+  ligarCampoAudioTela(el, item);
   ligarBotoesEstiloTexto(el, item);
 
   const renderDestaquesExemplo = montarDestaqueFrases(el.querySelector('#listaDestaqueExemplo'), item, [
@@ -1623,6 +1633,126 @@ function renderBlocoAudio(bloco, item) {
   });
 }
 
+/* ---------------------------------------------------------------------- */
+/* "Áudio da tela" — narração opcional em QUALQUER tipo de tela             */
+/* ---------------------------------------------------------------------- */
+/** Bloco de importação reutilizável em qualquer formulário — mesmo padrão de importação do
+ * "Card de áudio" (base64 via FileReader, ver renderBlocoAudio), só que é um campo a mais
+ * (não é o tipo de tela em si): ao estudar, o áudio toca sozinho assim que a aluna entra
+ * nessa tela (ver montarAudioTelaHtml/ligarAudioTelaPreview aqui embaixo, e o par
+ * equivalente em vendor/estudo/js/estudo.mjs pro player de verdade). Nunca é obrigatório. */
+function htmlCampoAudioTela(opts = {}) {
+  const { permiteSincronizarAnimacao = false } = opts;
+  return `
+    <div class="campo campo-audio-tela">
+      <label>Áudio da tela (opcional, narração)</label>
+      <button type="button" class="btn-add-item btn-importar-audio-tela">Importar arquivo de áudio</button>
+      <input type="file" accept="audio/*" class="input-audio-tela" hidden>
+      <div class="campo-audio-tela-preview"></div>
+      <div class="campo-audio-tela-opcoes">
+        ${permiteSincronizarAnimacao ? '<label class="campo-check"><input type="checkbox" data-audio-opt="audioSincronizarAnimacao"> Sincronizar o ritmo da animação com a duração do áudio</label>' : ''}
+        <label class="campo-check"><input type="checkbox" data-audio-opt="audioObrigatorio"> Só libera "Próximo" depois que o áudio terminar</label>
+        <label class="campo-check"><input type="checkbox" data-audio-opt="audioPausarAoClicar"> Pausar o áudio se a aluna clicar em algo na tela</label>
+      </div>
+      <p class="campo-ajuda">Toca sozinho assim que a aluna entra nessa tela, ao estudar a aula. Nunca é obrigatório importar um áudio — as opções acima só valem quando tiver um.</p>
+    </div>`;
+}
+
+/** Liga o botão de importar/remover do bloco acima a `obj.audioUrl`, e os 3 checkboxes
+ * opcionais (sincronizar animação/travar Próximo/pausar ao clicar) aos respectivos
+ * campos booleanos do objeto — mesmos nomes usados pelo player de verdade (ver
+ * trocarAudioDaTela em vendor/estudo/js/estudo.mjs). */
+function ligarCampoAudioTela(container, obj) {
+  const previewWrap = container.querySelector('.campo-audio-tela-preview');
+  function renderPreview() {
+    previewWrap.innerHTML = obj.audioUrl
+      ? `<audio controls src="${escaparHtml(obj.audioUrl)}"></audio><button type="button" class="btn-remover-item btn-remover-audio-tela">Remover áudio</button>`
+      : '';
+  }
+  renderPreview();
+  const inputArquivo = container.querySelector('.input-audio-tela');
+  container.querySelector('.btn-importar-audio-tela').addEventListener('click', () => inputArquivo.click());
+  inputArquivo.addEventListener('change', () => {
+    const arquivo = inputArquivo.files[0];
+    if (!arquivo) return;
+    const leitor = new FileReader();
+    leitor.onload = () => {
+      obj.audioUrl = leitor.result;
+      renderPreview();
+      renderPreviewAtual();
+    };
+    leitor.readAsDataURL(arquivo);
+  });
+  container.querySelectorAll('[data-audio-opt]').forEach(input => {
+    const campo = input.dataset.audioOpt;
+    input.checked = !!obj[campo];
+    input.addEventListener('change', () => { obj[campo] = input.checked; renderPreviewAtual(); });
+  });
+  previewWrap.addEventListener('click', e => {
+    if (!e.target.closest('.btn-remover-audio-tela')) return;
+    delete obj.audioUrl;
+    renderPreview();
+    renderPreviewAtual();
+  });
+}
+
+/** Barra de áudio "de verdade" (toca/pausa/arrasta) mostrada no topo da prévia quando a tela
+ * tem `audioUrl` — mesmo componente (duplicado) do player exportado, ver montarAudioTelaHtml em
+ * vendor/estudo/js/estudo.mjs. As barrinhas são só decorativas (não são a forma de onda real
+ * do áudio) — servem de referência visual de posição, e dá pra clicar nelas pra pular. */
+function montarAudioTelaHtml(audioUrl) {
+  if (!audioUrl) return '';
+  const barras = Array.from({ length: 32 }, (_, i) =>
+    `<span class="pp-audio-tela-barra" style="height:${30 + Math.round(Math.abs(Math.sin(i * 12.9898 + 4.1414)) * 70)}%"></span>`
+  ).join('');
+  return `
+    <div class="pp-audio-tela-bar">
+      <button type="button" class="pp-audio-tela-btn" aria-label="Tocar áudio">
+        <svg class="pp-audio-tela-icone-play" viewBox="0 0 24 24" width="16" height="16" fill="#fff"><polygon points="5,3 19,12 5,21"/></svg>
+        <svg class="pp-audio-tela-icone-pause" viewBox="0 0 24 24" width="16" height="16" fill="#fff" style="display:none"><rect x="5" y="3" width="4" height="18"/><rect x="15" y="3" width="4" height="18"/></svg>
+      </button>
+      <div class="pp-audio-tela-onda">${barras}</div>
+      <span class="pp-audio-tela-tempo">00:00 / 00:00</span>
+      <audio class="pp-audio-tela-el" src="${escaparHtml(audioUrl)}" preload="metadata"></audio>
+    </div>`;
+}
+
+/** Liga o play/pause/arrastar da barra acima — chamada toda vez que uma caixa de prévia é
+ * preenchida (o áudio nunca toca sozinho aqui no Construtor, só quando a professora clica). */
+function ligarAudioTelaPreview(container) {
+  const bar = container && container.querySelector('.pp-audio-tela-bar');
+  if (!bar) return;
+  const audio = bar.querySelector('.pp-audio-tela-el');
+  const btn = bar.querySelector('.pp-audio-tela-btn');
+  const iconePlay = bar.querySelector('.pp-audio-tela-icone-play');
+  const iconePause = bar.querySelector('.pp-audio-tela-icone-pause');
+  const onda = bar.querySelector('.pp-audio-tela-onda');
+  const barras = [...onda.querySelectorAll('.pp-audio-tela-barra')];
+  const tempoEl = bar.querySelector('.pp-audio-tela-tempo');
+
+  const formatarTempo = s => {
+    if (!isFinite(s) || s < 0) return '00:00';
+    return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+  };
+  const atualizar = () => {
+    const pct = audio.duration ? audio.currentTime / audio.duration : 0;
+    const ativos = Math.round(pct * barras.length);
+    barras.forEach((b, i) => b.classList.toggle('tocada', i < ativos));
+    tempoEl.textContent = `${formatarTempo(audio.currentTime)} / ${formatarTempo(audio.duration)}`;
+  };
+  audio.addEventListener('timeupdate', atualizar);
+  audio.addEventListener('loadedmetadata', atualizar);
+  audio.addEventListener('play', () => { iconePlay.style.display = 'none'; iconePause.style.display = ''; });
+  audio.addEventListener('pause', () => { iconePlay.style.display = ''; iconePause.style.display = 'none'; });
+  audio.addEventListener('ended', () => { iconePlay.style.display = ''; iconePause.style.display = 'none'; });
+  btn.addEventListener('click', () => { audio.paused ? audio.play().catch(() => {}) : audio.pause(); });
+  onda.addEventListener('click', e => {
+    if (!audio.duration) return;
+    const rect = onda.getBoundingClientRect();
+    audio.currentTime = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) * audio.duration;
+  });
+}
+
 /** Só uma gravação por vez pode estar em andamento na tela (guarda o stream/recorder ativos pra
  * conseguir parar ao clicar de novo no botão, mesmo se o bloco tiver sido re-renderizado). */
 let _gravacaoAtiva = null;
@@ -1767,8 +1897,10 @@ function renderFormChecagem(el, conteudo, passo) {
   el.innerHTML = `
     <div class="form-secao">
       <div class="checagem-modo-rotulo">${ROTULO_MODO[modo]}</div>
+      ${htmlCampoAudioTela()}
       <div id="corpoChecagem"></div>
     </div>`;
+  ligarCampoAudioTela(el, item);
 
   const corpo = el.querySelector('#corpoChecagem');
   if (modo === 'multiplosRotulos') renderCorpoChecagemMultiplosRotulos(corpo, item);
@@ -2041,6 +2173,7 @@ function renderFormResumo(el, conteudo) {
   const r = conteudo.resumo;
   el.innerHTML = `
     <div class="form-secao">
+      ${htmlCampoAudioTela()}
       <div class="campo">${htmlLabelComEstilo('Título do resumo', 'titulo')}<input type="text" id="resumoTitulo"></div>
       <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
       <div id="listaDestaqueResumo"></div>
@@ -2048,6 +2181,7 @@ function renderFormResumo(el, conteudo) {
       <div class="lista-itens" id="listaResumoItens"></div>
       <button class="btn-add-item" type="button" id="btnAddResumoItem">+ Adicionar item</button>
     </div>`;
+  ligarCampoAudioTela(el, r);
   el.querySelector('#resumoTitulo').value = r.titulo || '';
   el.querySelector('#resumoTitulo').addEventListener('input', e => { r.titulo = e.target.value; renderPreviewAtual(); });
   ligarBotoesEstiloTexto(el, r);
@@ -2111,6 +2245,7 @@ function renderFormLista(el, conteudo, passo) {
   const li = conteudo.lista[passo.idx];
   el.innerHTML = `
     <div class="form-secao">
+      ${htmlCampoAudioTela()}
       <div class="campo-check"><input type="checkbox" id="chkListaIcone"><label for="chkListaIcone">Ícone no topo do card (opcional)</label></div>
       <div id="listaIconeWrap" style="display:none">
         <div class="campo">${htmlTipoIconePicker(li.icone || {}, (li.icone && li.icone.cor) || '#5B2BCB')}</div>
@@ -2133,6 +2268,7 @@ function renderFormLista(el, conteudo, passo) {
       <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
       <div id="listaDestaqueListaDescricao"></div>
     </div>`;
+  ligarCampoAudioTela(el, li);
 
   const chkIcone = el.querySelector('#chkListaIcone');
   const iconeWrap = el.querySelector('#listaIconeWrap');
@@ -2231,6 +2367,7 @@ function renderFormTimeline(el, conteudo, passo) {
   const tl = conteudo.timeline[passo.idx];
   el.innerHTML = `
     <div class="form-secao">
+      ${htmlCampoAudioTela()}
       <div class="campo">${htmlLabelComEstilo('Título', 'titulo')}<input type="text" id="tlTitulo"></div>
       <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
       <div id="tlDestaqueTitulo"></div>
@@ -2241,6 +2378,7 @@ function renderFormTimeline(el, conteudo, passo) {
       <div class="lista-itens" id="tlEventos"></div>
       <button class="btn-add-item" type="button" id="btnAddTlEvento">+ Adicionar período</button>
     </div>`;
+  ligarCampoAudioTela(el, tl);
 
   el.querySelector('#tlTitulo').value = tl.titulo || '';
   el.querySelector('#tlTitulo').addEventListener('input', e => { tl.titulo = e.target.value; renderPreviewAtual(); });
@@ -2319,7 +2457,9 @@ function renderFormJogoSinais(el, conteudo, passo) {
   const jg = conteudo.jogoSinais[passo.idx];
   el.innerHTML = `
     <div class="form-secao">
-      <div class="campo">${htmlLabelComEstilo('Título (opcional)', 'titulo')}<input type="text" id="jgTitulo"></div>
+      ${htmlCampoAudioTela({ permiteSincronizarAnimacao: true })}
+      <p class="campo-ajuda">Nesta tela o áudio começa junto com a animação (quando a aluna clica em "Iniciar animação"), não assim que a tela abre.</p>
+      <div class="campo" style="margin-top:16px">${htmlLabelComEstilo('Título (opcional)', 'titulo')}<input type="text" id="jgTitulo"></div>
       <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
       <div id="jgDestaqueTitulo"></div>
       <div class="campo" style="margin-top:16px">${htmlLabelComEstilo('Instrução (opcional)', 'instrucao')}<input type="text" id="jgInstrucao" placeholder="Ex: Digite os dois números e veja o ponto se mover na reta."></div>
@@ -2327,6 +2467,7 @@ function renderFormJogoSinais(el, conteudo, passo) {
       <div id="jgDestaqueInstrucao"></div>
       <p class="campo-ajuda">Quem digita o ponto inicial e o movimento (de -10 a 10, com + ou -) é a própria aluna, ao estudar a aula — a reta, a expressão e a explicação são montadas na hora, a partir do que ela digitar.</p>
     </div>`;
+  ligarCampoAudioTela(el, jg);
 
   el.querySelector('#jgTitulo').value = jg.titulo || '';
   el.querySelector('#jgTitulo').addEventListener('input', e => { jg.titulo = e.target.value; renderPreviewAtual(); });
@@ -2356,7 +2497,9 @@ function renderFormAgrupamento(el, conteudo, passo) {
   const ag = conteudo.agrupamento[passo.idx];
   el.innerHTML = `
     <div class="form-secao">
-      <div class="campo">${htmlLabelComEstilo('Título (opcional)', 'titulo')}<input type="text" id="agTitulo"></div>
+      ${htmlCampoAudioTela({ permiteSincronizarAnimacao: true })}
+      <p class="campo-ajuda">Nesta tela o áudio começa junto com a animação (quando a aluna clica em "Iniciar animação"), não assim que a tela abre.</p>
+      <div class="campo" style="margin-top:16px">${htmlLabelComEstilo('Título (opcional)', 'titulo')}<input type="text" id="agTitulo"></div>
       <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
       <div id="agDestaqueTitulo"></div>
       <div class="campo" style="margin-top:16px">${htmlLabelComEstilo('Instrução (opcional)', 'instrucao')}<input type="text" id="agInstrucao" placeholder="Ex: Digite a quantidade de grupos e de elementos e veja o agrupamento se formar."></div>
@@ -2364,6 +2507,7 @@ function renderFormAgrupamento(el, conteudo, passo) {
       <div id="agDestaqueInstrucao"></div>
       <p class="campo-ajuda">Quem digita a quantidade de grupos e de elementos por grupo (de 1 a 5) é a própria aluna, ao estudar a aula — os grupos, a multiplicação e a explicação são montados na hora, a partir do que ela digitar.</p>
     </div>`;
+  ligarCampoAudioTela(el, ag);
 
   el.querySelector('#agTitulo').value = ag.titulo || '';
   el.querySelector('#agTitulo').addEventListener('input', e => { ag.titulo = e.target.value; renderPreviewAtual(); });
@@ -2392,7 +2536,9 @@ function renderFormDistribuicao(el, conteudo, passo) {
   const dv = conteudo.distribuicao[passo.idx];
   el.innerHTML = `
     <div class="form-secao">
-      <div class="campo">${htmlLabelComEstilo('Título (opcional)', 'titulo')}<input type="text" id="dvTitulo"></div>
+      ${htmlCampoAudioTela({ permiteSincronizarAnimacao: true })}
+      <p class="campo-ajuda">Nesta tela o áudio começa junto com a animação (quando a aluna clica em "Iniciar animação"), não assim que a tela abre.</p>
+      <div class="campo" style="margin-top:16px">${htmlLabelComEstilo('Título (opcional)', 'titulo')}<input type="text" id="dvTitulo"></div>
       <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
       <div id="dvDestaqueTitulo"></div>
       <div class="campo" style="margin-top:16px">${htmlLabelComEstilo('Instrução (opcional)', 'instrucao')}<input type="text" id="dvInstrucao" placeholder="Ex: Digite a quantidade de elementos e de grupos e veja a distribuição acontecer."></div>
@@ -2400,6 +2546,7 @@ function renderFormDistribuicao(el, conteudo, passo) {
       <div id="dvDestaqueInstrucao"></div>
       <p class="campo-ajuda">Quem digita a quantidade de elementos (1 a 25) e de grupos (1 a 5) é a própria aluna, ao estudar a aula — os grupos, a divisão e a explicação são montados na hora, a partir do que ela digitar. Se a divisão não for exata, a aluna vê um aviso pra escolher outros números.</p>
     </div>`;
+  ligarCampoAudioTela(el, dv);
 
   el.querySelector('#dvTitulo').value = dv.titulo || '';
   el.querySelector('#dvTitulo').addEventListener('input', e => { dv.titulo = e.target.value; renderPreviewAtual(); });
@@ -2422,11 +2569,13 @@ function renderFormLicao(el, conteudo) {
   const l = conteudo.licao;
   el.innerHTML = `
     <div class="form-secao">
+      ${htmlCampoAudioTela()}
       <div class="campo">${htmlLabelComEstilo('Título', 'titulo')}<input type="text" data-f="titulo"></div>
       <div class="campo"><label>Conteúdo (HTML simples: &lt;p&gt;, &lt;strong&gt;)</label><textarea data-f="html" rows="8"></textarea></div>
       <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
       <div id="listaDestaqueLicao"></div>
     </div>`;
+  ligarCampoAudioTela(el, l);
   el.querySelectorAll('[data-f]').forEach(input => {
     input.value = l[input.dataset.f] || '';
     input.addEventListener('input', () => { l[input.dataset.f] = input.value; renderPreviewAtual(); });
@@ -2516,7 +2665,9 @@ function preencherCaixaPreview(prefixo, aula, passos, indice, resp) {
   }).join('');
 
   const { html, temToggle, item } = corpoDoPasso(aula, passo, resp);
-  document.getElementById(`${prefixo}Body`).innerHTML = html;
+  const bodyEl = document.getElementById(`${prefixo}Body`);
+  bodyEl.innerHTML = html;
+  ligarAudioTelaPreview(bodyEl);
 
   const feedbackEl = document.getElementById(`${prefixo}Feedback`);
   feedbackEl.className = 'pp-feedback';
@@ -2573,7 +2724,7 @@ const ICONE_PP_LIVRO = '<svg viewBox="0 0 24 24" fill="none" stroke="#4A80F0" st
 const ICONE_PP_LAMPADA = '<svg viewBox="0 0 24 24" fill="none" stroke="#4A80F0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>';
 
 function previewAntesComecar(d) {
-  if (!d.titulo && !d.descricao) return '<p class="pp-vazio">Preencha os campos ao lado para ver a prévia.</p>';
+  if (!d.titulo && !d.descricao && !d.audioUrl) return '<p class="pp-vazio">Preencha os campos ao lado para ver a prévia.</p>';
   const itemAprender = d.aprender ? `
     <div class="pp-ac-info-item">
       <div class="pp-ac-info-icone-wrap">${ICONE_PP_LIVRO}</div>
@@ -2591,6 +2742,7 @@ function previewAntesComecar(d) {
       </div>
     </div>` : '';
   return `
+    ${montarAudioTelaHtml(d.audioUrl)}
     <span class="pp-marcar-cartao"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg></span>
     <span class="pp-intro-label">Antes de começar</span>
     <p class="pp-titulo pp-intro-titulo"${estiloTextoInline(d, 'titulo')}>${renderFraseComDestaque(d.titulo, d.tituloDestaque, d.tituloDestaqueNegrito)}</p>
@@ -2608,8 +2760,9 @@ function previewExemplo(item) {
   const temAudio = item.audio && (item.audio.audioUrl || item.audio.titulo || item.audio.subtitulo || item.audio.texto);
   const temGravacao = item.gravacao && (item.gravacao.audioUrl || item.gravacao.titulo || item.gravacao.subtitulo || item.gravacao.texto);
   const temGravacaoAluno = !!item.gravacaoAluno; // sem audioUrl (quem grava é a aluna, no player) — o card sempre existe uma vez criado
-  if (!item.texto && !temPalavraSelecionavel && !temPalavraSelecionavelMultipla && !temPalavraPointLabelExemplo && !temPalavraMultiplosRotulos && !temCardImagem && !temFlashcard && !temAudio && !temGravacao && !temGravacaoAluno) return '<p class="pp-vazio">Preencha o texto para ver a prévia.</p>';
+  if (!item.texto && !temPalavraSelecionavel && !temPalavraSelecionavelMultipla && !temPalavraPointLabelExemplo && !temPalavraMultiplosRotulos && !temCardImagem && !temFlashcard && !temAudio && !temGravacao && !temGravacaoAluno && !item.audioUrl) return '<p class="pp-vazio">Preencha o texto para ver a prévia.</p>';
   return `
+    ${(!temAudio && !temGravacao) ? montarAudioTelaHtml(item.audioUrl) : ''}
     <div class="pp-exemplo-icone">${iconeTipo(item.tipo, '#4A80F0', item.iconeUrl)}</div>
     ${item.texto ? `<p class="pp-exemplo-texto"${estiloTextoInline(item, 'texto')}>${renderFraseComDestaque(item.texto, item.textoDestaque, item.textoDestaqueNegrito)}</p>` : ''}
     ${item.conclusao ? `<p class="pp-exemplo-conclusao"${estiloTextoInline(item, 'conclusao')}>${renderFraseComDestaque(item.conclusao, item.conclusaoDestaque, item.conclusaoDestaqueNegrito)}</p>` : ''}
@@ -2892,7 +3045,7 @@ function previewPalavraMultiplosRotulos(pmr) {
  * frase) e a frase com os colchetes da resposta CERTA já resolvidos, mais um "Confirmar resposta"
  * só ilustrativo (não dá pra clicar de verdade aqui; a interação de verdade é no player). */
 function previewChecagemMultiplosRotulos(item) {
-  if (!item.titulo && (!item.sentenca || item.sentenca.length === 0)) return '<p class="pp-vazio">Preencha o exercício para ver a prévia.</p>';
+  if (!item.titulo && (!item.sentenca || item.sentenca.length === 0) && !item.audioUrl) return '<p class="pp-vazio">Preencha o exercício para ver a prévia.</p>';
   const mapaCores = new Map();
   const rotulosBrutos = item.rotulos || [];
   const papeis = [];
@@ -2914,6 +3067,7 @@ function previewChecagemMultiplosRotulos(item) {
     ).join('')
   ).join('');
   return `
+    ${montarAudioTelaHtml(item.audioUrl)}
     <p class="pp-titulo"${estiloTextoInline(item, 'titulo')}>${renderFraseComDestaque(item.titulo || '', item.tituloDestaque, item.tituloDestaqueNegrito)}</p>
     <div class="pp-modo-toggle">${botoes}</div>
     <div class="pp-frase-anotada">${chips}${colchetes}</div>
@@ -2926,7 +3080,7 @@ function previewChecagemCorpo(item, resp) {
   const modo = Array.isArray(item.sentenca) ? 'palavra' : 'multipla';
 
   if (modo === 'multipla') {
-    if (!item.titulo && (item.opcoes || []).every(o => !o)) return '<p class="pp-vazio">Preencha o exercício para ver a prévia.</p>';
+    if (!item.titulo && (item.opcoes || []).every(o => !o) && !item.audioUrl) return '<p class="pp-vazio">Preencha o exercício para ver a prévia.</p>';
     const letras = 'ABCDEFGH';
     const cabecalho = item.invertido
       ? `<p class="pp-subtitulo"${estiloTextoInline(item, 'subtitulo')}>${renderFraseComDestaque(item.subtitulo || '', item.subtituloDestaque, item.subtituloDestaqueNegrito)}</p><p class="pp-titulo"${estiloTextoInline(item, 'titulo')}>${renderFraseComDestaque(item.titulo || '', item.tituloDestaque, item.tituloDestaqueNegrito)}</p>`
@@ -2943,10 +3097,10 @@ function previewChecagemCorpo(item, resp) {
       const estiloOpcao = partesEstilo.length ? ` style="${partesEstilo.join(';')}"` : '';
       return `<button class="pp-opcao ${cls}"><span class="pp-letra">${letras[i] || i + 1}</span><span${estiloOpcao}>${renderFraseComDestaque(texto, (item.opcoesDestaque || [])[i], (item.opcoesDestaqueNegrito || [])[i])}</span></button>`;
     }).join('');
-    return `${cabecalho}<div class="pp-opcoes">${opcoes}</div>`;
+    return `${montarAudioTelaHtml(item.audioUrl)}${cabecalho}<div class="pp-opcoes">${opcoes}</div>`;
   }
 
-  if (!item.titulo && (!item.sentenca || item.sentenca.length === 0)) return '<p class="pp-vazio">Preencha o exercício para ver a prévia.</p>';
+  if (!item.titulo && (!item.sentenca || item.sentenca.length === 0) && !item.audioUrl) return '<p class="pp-vazio">Preencha o exercício para ver a prévia.</p>';
   const chips = (item.sentenca || []).map((tok, i) => {
     if (ehPontuacao(tok)) return `<span class="pp-chip pontuacao">${escaparHtml(tok)}</span>`;
     let cls = '';
@@ -2956,7 +3110,7 @@ function previewChecagemCorpo(item, resp) {
     }
     return `<span class="pp-chip ${cls}">${escaparHtml(tok)}</span>`;
   }).join('');
-  return `<p class="pp-titulo"${estiloTextoInline(item, 'titulo')}>${renderFraseComDestaque(item.titulo || '', item.tituloDestaque, item.tituloDestaqueNegrito)}</p>${item.subtitulo ? `<p class="pp-subtitulo"${estiloTextoInline(item, 'subtitulo')}>${renderFraseComDestaque(item.subtitulo, item.subtituloDestaque, item.subtituloDestaqueNegrito)}</p>` : ''}<div class="pp-sentenca">${chips}</div>`;
+  return `${montarAudioTelaHtml(item.audioUrl)}<p class="pp-titulo"${estiloTextoInline(item, 'titulo')}>${renderFraseComDestaque(item.titulo || '', item.tituloDestaque, item.tituloDestaqueNegrito)}</p>${item.subtitulo ? `<p class="pp-subtitulo"${estiloTextoInline(item, 'subtitulo')}>${renderFraseComDestaque(item.subtitulo, item.subtituloDestaque, item.subtituloDestaqueNegrito)}</p>` : ''}<div class="pp-sentenca">${chips}</div>`;
 }
 
 function proximoIndiceErrado(item) {
@@ -2969,8 +3123,9 @@ function proximoIndiceErradoPalavra(item) {
 }
 
 function previewResumo(r) {
-  if (!r.itens.length) return '<p class="pp-vazio">Adicione itens para ver a prévia.</p>';
+  if (!r.itens.length && !r.audioUrl) return '<p class="pp-vazio">Adicione itens para ver a prévia.</p>';
   return `
+    ${montarAudioTelaHtml(r.audioUrl)}
     ${r.titulo ? `<p class="pp-titulo"${estiloTextoInline(r, 'titulo')}>${renderFraseComDestaque(r.titulo, r.tituloDestaque, r.tituloDestaqueNegrito)}</p>` : ''}
     ${r.itens.map(it => `
       <div class="pp-resumo-item">
@@ -2983,8 +3138,9 @@ function previewResumo(r) {
 }
 
 function previewLista(li) {
-  if (!li.itens.length && !li.descricao && !li.textoAntes) return '<p class="pp-vazio">Adicione itens para ver a prévia.</p>';
+  if (!li.itens.length && !li.descricao && !li.textoAntes && !li.audioUrl) return '<p class="pp-vazio">Adicione itens para ver a prévia.</p>';
   return `
+    ${montarAudioTelaHtml(li.audioUrl)}
     ${li.icone ? `<div class="pp-lista-icone-topo" style="background:${li.icone.corFundo || '#eef2ff'};color:${li.icone.cor || '#4A80F0'}">${iconeTipo(li.icone.tipo, li.icone.cor || '#4A80F0', li.icone.iconeUrl)}</div>` : ''}
     ${li.titulo ? `<p class="pp-titulo"${estiloTextoInline(li, 'titulo')}>${renderFraseComDestaque(li.titulo, li.tituloDestaque, li.tituloDestaqueNegrito)}</p>` : ''}
     ${li.textoAntes ? `<p class="pp-lista-descricao"${estiloTextoInline(li, 'textoAntes')}>${renderFraseComDestaque(li.textoAntes, li.textoAntesDestaque, li.textoAntesDestaqueNegrito)}</p>` : ''}
@@ -3000,7 +3156,8 @@ function previewLista(li) {
  * do Construtor é uma foto estática, não clicável; a interatividade de
  * verdade — clicar num ponto pra trocar o card — é só no player exportado). */
 function previewTimeline(tl) {
-  if (!tl.eventos.length) return '<p class="pp-vazio">Adicione períodos para ver a prévia.</p>';
+  if (!tl.eventos.length && !tl.audioUrl) return '<p class="pp-vazio">Adicione períodos para ver a prévia.</p>';
+  if (!tl.eventos.length) return montarAudioTelaHtml(tl.audioUrl);
   const pontos = tl.eventos.map((ev, i) => `
     <div class="pp-tl-ponto${i === 0 ? ' ativo' : ''}" style="--tl-cor:${ev.cor || '#5B2BCB'}">
       <span class="pp-tl-ano">${escaparHtml(ev.ano || '')}</span>
@@ -3008,6 +3165,7 @@ function previewTimeline(tl) {
       <span class="pp-tl-rotulo">${escaparHtml(ev.titulo || '')}</span>
     </div>`).join('');
   return `
+    ${montarAudioTelaHtml(tl.audioUrl)}
     ${tl.titulo ? `<p class="pp-titulo"${estiloTextoInline(tl, 'titulo')}>${renderFraseComDestaque(tl.titulo, tl.tituloDestaque, tl.tituloDestaqueNegrito)}</p>` : ''}
     ${tl.instrucao ? `<p class="pp-intro-desc"${estiloTextoInline(tl, 'instrucao')}>${renderFraseComDestaque(tl.instrucao, tl.instrucaoDestaque, tl.instrucaoDestaqueNegrito)}</p>` : ''}
     <div class="pp-tl-trilha">${pontos}</div>
@@ -3050,6 +3208,7 @@ function previewJogoSinais(jg) {
   }
 
   return `
+    ${montarAudioTelaHtml(jg.audioUrl)}
     ${jg.titulo ? `<p class="pp-titulo"${estiloTextoInline(jg, 'titulo')}>${renderFraseComDestaque(jg.titulo, jg.tituloDestaque, jg.tituloDestaqueNegrito)}</p>` : ''}
     ${jg.instrucao ? `<p class="pp-intro-desc"${estiloTextoInline(jg, 'instrucao')}>${renderFraseComDestaque(jg.instrucao, jg.instrucaoDestaque, jg.instrucaoDestaqueNegrito)}</p>` : ''}
     <div class="pp-jg-campos-mock">
@@ -3073,6 +3232,7 @@ function previewJogoSinais(jg) {
  * nenhum grupo/elemento desenhado. */
 function previewAgrupamento(ag) {
   return `
+    ${montarAudioTelaHtml(ag.audioUrl)}
     ${ag.titulo ? `<p class="pp-titulo"${estiloTextoInline(ag, 'titulo')}>${renderFraseComDestaque(ag.titulo, ag.tituloDestaque, ag.tituloDestaqueNegrito)}</p>` : ''}
     ${ag.instrucao ? `<p class="pp-intro-desc"${estiloTextoInline(ag, 'instrucao')}>${renderFraseComDestaque(ag.instrucao, ag.instrucaoDestaque, ag.instrucaoDestaqueNegrito)}</p>` : ''}
     <div class="pp-jg-campos-mock">
@@ -3088,6 +3248,7 @@ function previewAgrupamento(ag) {
  * verdade, não a professora aqui no Construtor. */
 function previewDistribuicao(dv) {
   return `
+    ${montarAudioTelaHtml(dv.audioUrl)}
     ${dv.titulo ? `<p class="pp-titulo"${estiloTextoInline(dv, 'titulo')}>${renderFraseComDestaque(dv.titulo, dv.tituloDestaque, dv.tituloDestaqueNegrito)}</p>` : ''}
     ${dv.instrucao ? `<p class="pp-intro-desc"${estiloTextoInline(dv, 'instrucao')}>${renderFraseComDestaque(dv.instrucao, dv.instrucaoDestaque, dv.instrucaoDestaqueNegrito)}</p>` : ''}
     <div class="pp-jg-campos-mock">
@@ -3099,8 +3260,8 @@ function previewDistribuicao(dv) {
 }
 
 function previewLicao(l) {
-  if (!l.html && !l.titulo) return '<p class="pp-vazio">Preencha para ver a prévia.</p>';
-  return `<p class="pp-titulo"${estiloTextoInline(l, 'titulo')}>📖 ${renderFraseComDestaque(l.titulo, l.tituloDestaque, l.tituloDestaqueNegrito)}</p><div class="pp-licao-corpo">${l.html}</div>`;
+  if (!l.html && !l.titulo && !l.audioUrl) return '<p class="pp-vazio">Preencha para ver a prévia.</p>';
+  return `${montarAudioTelaHtml(l.audioUrl)}<p class="pp-titulo"${estiloTextoInline(l, 'titulo')}>📖 ${renderFraseComDestaque(l.titulo, l.tituloDestaque, l.tituloDestaqueNegrito)}</p><div class="pp-licao-corpo">${l.html}</div>`;
 }
 
 /* ---------------------------------------------------------------------- */

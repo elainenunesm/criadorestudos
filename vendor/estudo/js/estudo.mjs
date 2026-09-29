@@ -120,6 +120,111 @@ function renderIntroSegs(step) {
   }
 }
 
+// ── ÁUDIO DA TELA (narração opcional, disponível em qualquer tipo de tela) ──
+// Toca sozinho assim que a tela é mostrada — autoplay é permitido pelo navegador aqui
+// porque toda troca de tela parte de um clique da aluna (Próximo/Anterior/Começar).
+// Nas telas de Matemática (Reta Numérica/Agrupamento/Distribuição) o autoplay fica
+// desligado por quem chama trocarAudioDaTela — lá o áudio começa junto com a animação,
+// não com a troca de tela (ver mostrarJogoSinais/mostrarAgrupamento/mostrarDistribuicao).
+let audioTelaAtual = null;
+// Listener de "pausar ao clicar" da tela atual (precisa ser removido ao trocar de tela, já
+// que fica preso em opcoesEl — o único elemento que NÃO é recriado a cada troca de tela).
+let audioTelaPausarAoClicarListener = null;
+
+/** Barra com botão de tocar/pausar, "forma de onda" decorativa (não é a forma de onda real
+ * do áudio, só referência visual — dá pra clicar nela pra pular) e tempo atual/total. */
+function montarAudioTelaHtml(audioUrl) {
+  if (!audioUrl) return '';
+  const barras = Array.from({ length: 32 }, (_, i) =>
+    `<span class="tela-audio-barra" style="height:${30 + Math.round(Math.abs(Math.sin(i * 12.9898 + 4.1414)) * 70)}%"></span>`
+  ).join('');
+  return `
+    <div class="tela-audio-bar">
+      <button type="button" class="tela-audio-btn" aria-label="Tocar áudio">
+        <svg class="tela-audio-icone-play" viewBox="0 0 24 24" width="18" height="18" fill="#fff"><polygon points="5,3 19,12 5,21"/></svg>
+        <svg class="tela-audio-icone-pause" viewBox="0 0 24 24" width="18" height="18" fill="#fff" style="display:none"><rect x="5" y="3" width="4" height="18"/><rect x="15" y="3" width="4" height="18"/></svg>
+      </button>
+      <div class="tela-audio-onda">${barras}</div>
+      <span class="tela-audio-tempo">00:00 / 00:00</span>
+      <audio class="tela-audio-el" src="${audioUrl}" preload="metadata"></audio>
+    </div>`;
+}
+
+/** Liga o play/pause/arrastar de UMA barra (a que acabou de entrar em opcoesEl) — devolve o
+ * <audio> pra quem chamou guardar e poder pausar depois, ao trocar de tela. */
+function ligarAudioTela(container, { autoplay = false } = {}) {
+  const bar = container.querySelector('.tela-audio-bar');
+  if (!bar) return null;
+  const audio = bar.querySelector('.tela-audio-el');
+  const btn = bar.querySelector('.tela-audio-btn');
+  const iconePlay = bar.querySelector('.tela-audio-icone-play');
+  const iconePause = bar.querySelector('.tela-audio-icone-pause');
+  const onda = bar.querySelector('.tela-audio-onda');
+  const barras = [...onda.querySelectorAll('.tela-audio-barra')];
+  const tempoEl = bar.querySelector('.tela-audio-tempo');
+
+  const formatarTempo = s => {
+    if (!isFinite(s) || s < 0) return '00:00';
+    return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+  };
+  const atualizar = () => {
+    const pct = audio.duration ? audio.currentTime / audio.duration : 0;
+    const ativos = Math.round(pct * barras.length);
+    barras.forEach((b, i) => b.classList.toggle('tocada', i < ativos));
+    tempoEl.textContent = `${formatarTempo(audio.currentTime)} / ${formatarTempo(audio.duration)}`;
+  };
+  audio.addEventListener('timeupdate', atualizar);
+  audio.addEventListener('loadedmetadata', atualizar);
+  audio.addEventListener('play', () => { iconePlay.style.display = 'none'; iconePause.style.display = ''; });
+  audio.addEventListener('pause', () => { iconePlay.style.display = ''; iconePause.style.display = 'none'; });
+  audio.addEventListener('ended', () => { iconePlay.style.display = ''; iconePause.style.display = 'none'; });
+  btn.addEventListener('click', () => { audio.paused ? audio.play().catch(() => {}) : audio.pause(); });
+  onda.addEventListener('click', e => {
+    if (!audio.duration) return;
+    const rect = onda.getBoundingClientRect();
+    audio.currentTime = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) * audio.duration;
+  });
+  if (autoplay) audio.play().catch(() => {});
+  return audio;
+}
+
+/** Chamada logo depois de preencher opcoesEl.innerHTML em toda tela — pausa o áudio da tela
+ * anterior e liga o da nova (autoplay por padrão; passe `{ autoplay: false }` pras telas
+ * onde o áudio deve começar junto de outra ação, não com a troca de tela). Também aplica os
+ * 3 controles opcionais que a professora liga por áudio no Construtor (ver
+ * htmlCampoAudioTela/ligarCampoAudioTela em js/conteudo.js):
+ * - `item.audioObrigatorio`: trava "Próximo" até o áudio terminar de tocar.
+ * - `item.audioPausarAoClicar`: qualquer clique na tela pausa o áudio na hora.
+ * - `item.audioSincronizarAnimacao`: lido direto por quem chama play() nas telas de
+ *   Matemática (ver mostrarJogoSinais/mostrarAgrupamento/mostrarDistribuicao) — aqui só
+ *   cuida de ligar/trocar o áudio em si. */
+function trocarAudioDaTela(item, opts = { autoplay: true }) {
+  if (audioTelaAtual) { audioTelaAtual.pause(); audioTelaAtual = null; }
+  if (audioTelaPausarAoClicarListener) {
+    opcoesEl.removeEventListener('click', audioTelaPausarAoClicarListener);
+    audioTelaPausarAoClicarListener = null;
+  }
+  if (!item || !item.audioUrl) return;
+
+  audioTelaAtual = ligarAudioTela(opcoesEl, opts);
+  if (!audioTelaAtual) return;
+
+  if (item.audioObrigatorio) {
+    // Adiado pro fim da fila de tarefas — a própria função que chamou trocarAudioDaTela
+    // ainda vai setar btnProxima.disabled = false logo em seguida (mesmo padrão de todo
+    // "mostrarX"); isso aqui roda depois, garantindo que a trava realmente fique valendo.
+    setTimeout(() => { btnProxima.disabled = true; }, 0);
+    audioTelaAtual.addEventListener('ended', () => { btnProxima.disabled = false; }, { once: true });
+  }
+  if (item.audioPausarAoClicar) {
+    audioTelaPausarAoClicarListener = e => {
+      if (e.target.closest('.tela-audio-bar')) return; // não interfere no próprio play/pause/arrastar
+      if (audioTelaAtual) audioTelaAtual.pause();
+    };
+    opcoesEl.addEventListener('click', audioTelaPausarAoClicarListener);
+  }
+}
+
 function mostrarIntro(aula, introIdx = 0) {
   // Oculta elementos das questões
   feedbackBar.style.display = 'none';
@@ -140,6 +245,7 @@ function mostrarIntro(aula, introIdx = 0) {
   const ac = aula.antesComecar || {};
   opcoesEl.innerHTML = `
     <div class="intro-card">
+      ${montarAudioTelaHtml(ac.audioUrl)}
       <span class="intro-label">Antes de começar</span>
       <h2 class="intro-titulo"${estiloTextoInline(ac, 'titulo')}>${ac.titulo ? renderFraseComDestaque(ac.titulo, ac.tituloDestaque, ac.tituloDestaqueNegrito) : aula.titulo}</h2>
       <p class="intro-desc"${estiloTextoInline(ac, 'descricao')}>${renderFraseComDestaque(ac.descricao || '', ac.descricaoDestaque, ac.descricaoDestaqueNegrito)}</p>
@@ -172,6 +278,7 @@ function mostrarIntro(aula, introIdx = 0) {
       </div>
     </div>`;
   atualizarBotaoMarcar('antesComecar');
+  trocarAudioDaTela(ac);
 
   // Botão "Começar"
   btnProxima.innerHTML  = 'Começar <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
@@ -837,6 +944,7 @@ function mostrarExemplo(aula, introIdx, i) {
     : (iconeExternoOuNulo(ex) || (RESUMO_ICONES[ex.tipo] ? RESUMO_ICONES[ex.tipo]('#4A80F0') : RESUMO_ICONES.acao('#4A80F0')));
   opcoesEl.innerHTML = `
     <div class="exemplo-card">
+      ${(!ex.audio && !ex.gravacao) ? montarAudioTelaHtml(ex.audioUrl) : ''}
       <div class="exemplo-icone-wrap">
         <svg viewBox="-6 0 30 24" fill="none" width="60" height="48">
           <line x1="-5" y1="8"  x2="0" y2="8"  stroke="#b8ccf4" stroke-width="2.2" stroke-linecap="round"/>
@@ -985,6 +1093,7 @@ function mostrarExemplo(aula, introIdx, i) {
       </div>`) : ''}
     </div>`;
   atualizarBotaoMarcar(`exemplo${i}`);
+  trocarAudioDaTela(ex);
   btnProxima.innerHTML = 'Próximo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
 
   // Palavras clicáveis dentro da caixa de exemplo (ex: selecionar o verbo).
@@ -1196,6 +1305,7 @@ function mostrarResumo(aula, introIdx) {
   questaoSubtitulo.textContent = '';
   opcoesEl.innerHTML = `
     <div class="resumo-card">
+      ${montarAudioTelaHtml(res.audioUrl)}
       <p class="resumo-titulo"${estiloTextoInline(res, 'titulo')}>${renderFraseComDestaque(res.titulo || '', res.tituloDestaque, res.tituloDestaqueNegrito)}</p>
       ${(res.itens || []).map(item => `
       <div class="resumo-item">
@@ -1211,6 +1321,7 @@ function mostrarResumo(aula, introIdx) {
       </div>`).join('')}
     </div>`;
   atualizarBotaoMarcar('resumo');
+  trocarAudioDaTela(res);
   btnProxima.innerHTML = 'Próximo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
   btnProxima.disabled  = false;
   questaoArea.scrollTop = 0;
@@ -1227,6 +1338,7 @@ function mostrarLista(aula, introIdx, i) {
   questaoSubtitulo.textContent = '';
   opcoesEl.innerHTML = `
     <div class="resumo-card">
+      ${montarAudioTelaHtml(li.audioUrl)}
       ${li.icone ? `<div class="lista-icone-topo" style="background:${li.icone.corFundo || '#eef2ff'};color:${li.icone.cor || '#4A80F0'}"><svg viewBox="0 0 24 24" width="32" height="32">${iconeExternoOuNulo(li.icone) || (RESUMO_ICONES[li.icone.tipo] ? RESUMO_ICONES[li.icone.tipo](li.icone.cor || '#4A80F0') : '')}</svg></div>` : ''}
       ${li.titulo ? `<p class="resumo-titulo"${estiloTextoInline(li, 'titulo')}>${renderFraseComDestaque(li.titulo || '', li.tituloDestaque, li.tituloDestaqueNegrito)}</p>` : ''}
       ${li.textoAntes ? `<p class="lista-descricao lista-texto-antes"${estiloTextoInline(li, 'textoAntes')}>${renderFraseComDestaque(li.textoAntes, li.textoAntesDestaque, li.textoAntesDestaqueNegrito)}</p>` : ''}
@@ -1242,6 +1354,7 @@ function mostrarLista(aula, introIdx, i) {
       ${li.descricao ? `<p class="lista-descricao"${estiloTextoInline(li, 'descricao')}>${renderFraseComDestaque(li.descricao, li.descricaoDestaque, li.descricaoDestaqueNegrito)}</p>` : ''}
     </div>`;
   atualizarBotaoMarcar(`lista${i}`);
+  trocarAudioDaTela(li);
   btnProxima.innerHTML = 'Próximo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
   btnProxima.disabled  = false;
   questaoArea.scrollTop = 0;
@@ -1280,6 +1393,7 @@ function mostrarTimeline(aula, introIdx, i) {
   questaoSubtitulo.textContent = '';
   opcoesEl.innerHTML = `
     <div class="resumo-card">
+      ${montarAudioTelaHtml(tl.audioUrl)}
       ${tl.titulo ? `<p class="resumo-titulo"${estiloTextoInline(tl, 'titulo')}>${renderFraseComDestaque(tl.titulo || '', tl.tituloDestaque, tl.tituloDestaqueNegrito)}</p>` : ''}
       ${tl.instrucao ? `<p class="lista-descricao"${estiloTextoInline(tl, 'instrucao')}>${renderFraseComDestaque(tl.instrucao, tl.instrucaoDestaque, tl.instrucaoDestaqueNegrito)}</p>` : ''}
       <div class="tl-trilha" id="tlTrilha">
@@ -1293,6 +1407,7 @@ function mostrarTimeline(aula, introIdx, i) {
       <div class="tl-detalhe" id="tlDetalhe" style="display:none"></div>
     </div>`;
   atualizarBotaoMarcar(`timeline${i}`);
+  trocarAudioDaTela(tl);
   btnProxima.innerHTML = 'Próximo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
   btnProxima.disabled  = false;
   questaoArea.scrollTop = 0;
@@ -1393,6 +1508,7 @@ function mostrarJogoSinais(aula, introIdx, i) {
   // renderFormJogoSinais em js/conteudo.js: a professora só define título/instrução).
   opcoesEl.innerHTML = `
     <div class="resumo-card">
+      ${montarAudioTelaHtml(jg.audioUrl)}
       ${jg.titulo ? `<p class="resumo-titulo"${estiloTextoInline(jg, 'titulo')}>${renderFraseComDestaque(jg.titulo || '', jg.tituloDestaque, jg.tituloDestaqueNegrito)}</p>` : ''}
       ${jg.instrucao ? `<p class="lista-descricao"${estiloTextoInline(jg, 'instrucao')}>${renderFraseComDestaque(jg.instrucao, jg.instrucaoDestaque, jg.instrucaoDestaqueNegrito)}</p>` : ''}
       <div class="jg-campos">
@@ -1421,6 +1537,9 @@ function mostrarJogoSinais(aula, introIdx, i) {
     </div>`;
 
   atualizarBotaoMarcar(`jogoSinais${i}`);
+  // Autoplay desligado aqui: nesta tela o áudio começa junto com o clique em "Iniciar
+  // animação" (ver dentro do handler do botão), não com a troca de tela.
+  trocarAudioDaTela(jg, { autoplay: false });
   btnProxima.innerHTML = 'Próximo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
   btnProxima.disabled  = false;
   questaoArea.scrollTop = 0;
@@ -1509,6 +1628,14 @@ function mostrarJogoSinais(aula, introIdx, i) {
     trajetoria.classList.remove('jg-dir-esquerda', 'jg-dir-direita');
     if (calc.direcao) trajetoria.classList.add(`jg-dir-${calc.direcao}`);
 
+    // Se a professora importou um áudio pra essa tela, ele começa exatamente agora, junto
+    // com a animação — e o ritmo dos passos se ajusta pra terminar junto com o áudio.
+    if (audioTelaAtual) { audioTelaAtual.currentTime = 0; audioTelaAtual.play().catch(() => {}); }
+    const duracaoPadraoMs = calc.casas === 0 ? 300 : 600 * (calc.casas + 1);
+    const escala = (jg.audioSincronizarAnimacao && audioTelaAtual && isFinite(audioTelaAtual.duration) && audioTelaAtual.duration > 0)
+      ? (audioTelaAtual.duration * 1000) / duracaoPadraoMs
+      : 1;
+
     const finalizar = () => {
       rotuloFim.style.left = `${posPercent(calc.resultado)}%`;
       rotuloFim.style.display = '';
@@ -1524,7 +1651,7 @@ function mostrarJogoSinais(aula, introIdx, i) {
     };
 
     if (calc.casas === 0) {
-      setTimeout(finalizar, 300);
+      setTimeout(finalizar, 300 * escala);
       return;
     }
 
@@ -1540,12 +1667,12 @@ function mostrarJogoSinais(aula, introIdx, i) {
       trajetoria.style.left = `${min}%`;
       trajetoria.style.width = `${max - min}%`;
       if (passoAtual < passos.length - 1) {
-        setTimeout(avancar, 600);
+        setTimeout(avancar, 600 * escala);
       } else {
-        setTimeout(finalizar, 600);
+        setTimeout(finalizar, 600 * escala);
       }
     };
-    setTimeout(avancar, 600);
+    setTimeout(avancar, 600 * escala);
   });
 }
 
@@ -1586,6 +1713,7 @@ function mostrarAgrupamento(aula, introIdx, i) {
   // Reta Numérica) — só o miolo da visualização (grupos/elementos/soma) é novo.
   opcoesEl.innerHTML = `
     <div class="resumo-card">
+      ${montarAudioTelaHtml(ag.audioUrl)}
       ${ag.titulo ? `<p class="resumo-titulo"${estiloTextoInline(ag, 'titulo')}>${renderFraseComDestaque(ag.titulo || '', ag.tituloDestaque, ag.tituloDestaqueNegrito)}</p>` : ''}
       ${ag.instrucao ? `<p class="lista-descricao"${estiloTextoInline(ag, 'instrucao')}>${renderFraseComDestaque(ag.instrucao, ag.instrucaoDestaque, ag.instrucaoDestaqueNegrito)}</p>` : ''}
       <div class="jg-campos">
@@ -1606,6 +1734,8 @@ function mostrarAgrupamento(aula, introIdx, i) {
     </div>`;
 
   atualizarBotaoMarcar(`agrupamento${i}`);
+  // Autoplay desligado aqui: o áudio começa junto com o clique em "Iniciar animação".
+  trocarAudioDaTela(ag, { autoplay: false });
   btnProxima.innerHTML = 'Próximo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
   btnProxima.disabled  = false;
   questaoArea.scrollTop = 0;
@@ -1705,14 +1835,22 @@ function mostrarAgrupamento(aula, introIdx, i) {
 
     const passos = [];
     for (let g = 1; g <= grupos; g++) {
-      passos.push({ tipo: 'grupo', g });
-      for (let e = 1; e <= elementos; e++) passos.push({ tipo: 'elemento', g, e });
-      passos.push({ tipo: 'quantidadeGrupo', g });
+      passos.push({ tipo: 'grupo', g, espera: 250 });
+      for (let e = 1; e <= elementos; e++) passos.push({ tipo: 'elemento', g, e, espera: 220 });
+      passos.push({ tipo: 'quantidadeGrupo', g, espera: 450 });
     }
-    passos.push({ tipo: 'destacarTodos' });
-    for (let g = 1; g <= grupos; g++) passos.push({ tipo: 'somaTermo', g });
-    passos.push({ tipo: 'somaResultado' });
-    passos.push({ tipo: 'multiplicacaoFinal' });
+    passos.push({ tipo: 'destacarTodos', espera: 400 });
+    for (let g = 1; g <= grupos; g++) passos.push({ tipo: 'somaTermo', g, espera: 450 });
+    passos.push({ tipo: 'somaResultado', espera: 500 });
+    passos.push({ tipo: 'multiplicacaoFinal', espera: 700 });
+
+    // Se a professora importou um áudio pra essa tela, ele começa exatamente agora, junto
+    // com a animação — e o ritmo dos passos se ajusta pra terminar junto com o áudio.
+    if (audioTelaAtual) { audioTelaAtual.currentTime = 0; audioTelaAtual.play().catch(() => {}); }
+    const duracaoPadraoMs = 250 + passos.reduce((soma, p) => soma + p.espera, 0);
+    const escala = (ag.audioSincronizarAnimacao && audioTelaAtual && isFinite(audioTelaAtual.duration) && audioTelaAtual.duration > 0)
+      ? (audioTelaAtual.duration * 1000) / duracaoPadraoMs
+      : 1;
 
     const finalizar = () => {
       explicacao.innerHTML = montarExplicacaoAgrupamento(grupos, elementos, resultado).map(l => `<p class="jg-explicacao-linha">${l}</p>`).join('');
@@ -1731,40 +1869,32 @@ function mostrarAgrupamento(aula, introIdx, i) {
       passoIdx++;
       if (passoIdx >= passos.length) { finalizar(); return; }
       const passo = passos[passoIdx];
-      let espera = 250;
 
       if (passo.tipo === 'grupo') {
         gruposWrap.querySelectorAll('.ag-grupo').forEach(el => el.classList.toggle('ativo', Number(el.dataset.grupo) === passo.g));
-        espera = 250;
       } else if (passo.tipo === 'elemento') {
         const grupoEl = gruposWrap.querySelector(`.ag-grupo[data-grupo="${passo.g}"]`);
         grupoEl.querySelector(`.ag-elemento[data-elemento="${passo.e}"]`).classList.add('visivel');
-        espera = 220;
       } else if (passo.tipo === 'quantidadeGrupo') {
         const grupoEl = gruposWrap.querySelector(`.ag-grupo[data-grupo="${passo.g}"]`);
         grupoEl.querySelector('[data-qtd]').classList.add('visivel');
-        espera = 450;
       } else if (passo.tipo === 'destacarTodos') {
         gruposWrap.querySelectorAll('.ag-grupo').forEach(el => el.classList.remove('ativo'));
         gruposWrap.classList.add('ag-grupos-destaque');
-        espera = 400;
       } else if (passo.tipo === 'somaTermo') {
         somaEl.textContent = Array(passo.g).fill(elementos).join(' + ');
         somaEl.style.display = '';
-        espera = 450;
       } else if (passo.tipo === 'somaResultado') {
         somaEl.textContent = `${Array(grupos).fill(elementos).join(' + ')} = ${resultado}`;
-        espera = 500;
       } else if (passo.tipo === 'multiplicacaoFinal') {
         expressaoEl.textContent = `${grupos} × ${elementos} = ${resultado}`;
         expressaoEl.classList.add('ag-expressao-destaque');
-        espera = 700;
       }
 
       atualizarScrollFade();
-      setTimeout(rodarProximo, espera);
+      setTimeout(rodarProximo, passo.espera * escala);
     };
-    setTimeout(rodarProximo, 250);
+    setTimeout(rodarProximo, 250 * escala);
   });
 }
 
@@ -1807,6 +1937,7 @@ function mostrarDistribuicao(aula, introIdx, i) {
   // Agrupamento) — só o "pool" de elementos ainda não distribuídos é novo (dv-pool).
   opcoesEl.innerHTML = `
     <div class="resumo-card">
+      ${montarAudioTelaHtml(dv.audioUrl)}
       ${dv.titulo ? `<p class="resumo-titulo"${estiloTextoInline(dv, 'titulo')}>${renderFraseComDestaque(dv.titulo || '', dv.tituloDestaque, dv.tituloDestaqueNegrito)}</p>` : ''}
       ${dv.instrucao ? `<p class="lista-descricao"${estiloTextoInline(dv, 'instrucao')}>${renderFraseComDestaque(dv.instrucao, dv.instrucaoDestaque, dv.instrucaoDestaqueNegrito)}</p>` : ''}
       <div class="jg-campos">
@@ -1828,6 +1959,8 @@ function mostrarDistribuicao(aula, introIdx, i) {
     </div>`;
 
   atualizarBotaoMarcar(`distribuicao${i}`);
+  // Autoplay desligado aqui: o áudio começa junto com o clique em "Iniciar animação".
+  trocarAudioDaTela(dv, { autoplay: false });
   btnProxima.innerHTML = 'Próximo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
   btnProxima.disabled  = false;
   questaoArea.scrollTop = 0;
@@ -1953,10 +2086,18 @@ function mostrarDistribuicao(aula, introIdx, i) {
     });
 
     const contagemPorGrupo = {};
-    const passos = [{ tipo: 'destacarGrupos' }];
-    for (let k = 0; k < elementos; k++) passos.push({ tipo: 'distribuir', k, g: (k % grupos) + 1 });
-    passos.push({ tipo: 'destacarTodos' });
-    passos.push({ tipo: 'mostrarResultado' });
+    const passos = [{ tipo: 'destacarGrupos', espera: 600 }];
+    for (let k = 0; k < elementos; k++) passos.push({ tipo: 'distribuir', k, g: (k % grupos) + 1, espera: 550 });
+    passos.push({ tipo: 'destacarTodos', espera: 650 });
+    passos.push({ tipo: 'mostrarResultado', espera: 900 });
+
+    // Se a professora importou um áudio pra essa tela, ele começa exatamente agora, junto
+    // com a animação — e o ritmo dos passos se ajusta pra terminar junto com o áudio.
+    if (audioTelaAtual) { audioTelaAtual.currentTime = 0; audioTelaAtual.play().catch(() => {}); }
+    const duracaoPadraoMs = 450 + passos.reduce((soma, p) => soma + p.espera, 0);
+    const escala = (dv.audioSincronizarAnimacao && audioTelaAtual && isFinite(audioTelaAtual.duration) && audioTelaAtual.duration > 0)
+      ? (audioTelaAtual.duration * 1000) / duracaoPadraoMs
+      : 1;
 
     const finalizar = () => {
       explicacao.innerHTML = montarExplicacaoDistribuicao(elementos, grupos, resultado).map(l => `<p class="jg-explicacao-linha">${l}</p>`).join('');
@@ -1978,11 +2119,9 @@ function mostrarDistribuicao(aula, introIdx, i) {
       passoIdx++;
       if (passoIdx >= passos.length) { finalizar(); return; }
       const passo = passos[passoIdx];
-      let espera = 550;
 
       if (passo.tipo === 'destacarGrupos') {
         gruposWrap.querySelectorAll('.ag-grupo').forEach(el => el.classList.add('ativo'));
-        espera = 600;
       } else if (passo.tipo === 'distribuir') {
         const poolEl = poolWrap.querySelector(`.ag-elemento[data-pool-idx="${passo.k}"]`);
         if (poolEl) poolEl.classList.remove('visivel');
@@ -1997,21 +2136,18 @@ function mostrarDistribuicao(aula, introIdx, i) {
         const qtdEl = grupoEl.querySelector('[data-qtd]');
         qtdEl.textContent = contagemPorGrupo[passo.g];
         qtdEl.classList.add('visivel');
-        espera = 550;
       } else if (passo.tipo === 'destacarTodos') {
         gruposWrap.querySelectorAll('.ag-grupo').forEach(el => el.classList.remove('ativo'));
         gruposWrap.classList.add('ag-grupos-destaque');
         poolWrap.style.display = 'none';
-        espera = 650;
       } else if (passo.tipo === 'mostrarResultado') {
         expressaoEl.classList.add('ag-expressao-destaque');
-        espera = 900;
       }
 
       atualizarScrollFade();
-      setTimeout(rodarProximo, espera);
+      setTimeout(rodarProximo, passo.espera * escala);
     };
-    setTimeout(rodarProximo, 450);
+    setTimeout(rodarProximo, 450 * escala);
   });
 }
 
@@ -2025,10 +2161,12 @@ function mostrarLicao(aula, introIdx) {
   questaoSubtitulo.textContent = '';
   opcoesEl.innerHTML = `
     <div class="resumo-card">
+      ${montarAudioTelaHtml(lic.audioUrl)}
       <p class="resumo-titulo"${estiloTextoInline(lic, 'titulo')}>${renderFraseComDestaque(lic.titulo || '', lic.tituloDestaque, lic.tituloDestaqueNegrito)}</p>
       <div class="licao-corpo">${lic.html || ''}</div>
     </div>`;
   atualizarBotaoMarcar('licao');
+  trocarAudioDaTela(lic);
   btnProxima.innerHTML = 'Próximo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
   btnProxima.disabled  = false;
   questaoArea.scrollTop = 0;
@@ -2117,7 +2255,7 @@ function mostrarChecagem(aula, introIdx, dados, checagemIdx, origemAulaId = aula
   // o layout padrão das questões, com o verbo em destaque no subtítulo.
   // Checagens com "banco" (reordenar) não mostram subtítulo — o "sentenca" (clicar na palavra)
   // mostra normalmente quando preenchido (descrição opcional, definida no Construtor de Aulas).
-  opcoesEl.innerHTML = (dados.invertido
+  opcoesEl.innerHTML = montarAudioTelaHtml(dados.audioUrl) + (dados.invertido
     ? `<p class="questao-subtitulo checagem-pergunta"${estiloTextoInline(dados, 'subtitulo')}>${renderFraseComDestaque(dados.subtitulo || '', dados.subtituloDestaque, dados.subtituloDestaqueNegrito)}</p>
        <h2 class="questao-titulo checagem-titulo"${estiloTextoInline(dados, 'titulo')}>${renderFraseComDestaque(dados.titulo || '', dados.tituloDestaque, dados.tituloDestaqueNegrito)}</h2>`
     : `<h2 class="questao-titulo checagem-instrucao"${estiloTextoInline(dados, 'titulo')}>${renderFraseComDestaque(dados.titulo || '', dados.tituloDestaque, dados.tituloDestaqueNegrito)}</h2>` +
@@ -2128,6 +2266,10 @@ function mostrarChecagem(aula, introIdx, dados, checagemIdx, origemAulaId = aula
       : dados.banco ? '<div class="reordenar-wrap" id="reordenarWrap"></div>'
       : dados.sentenca ? '<div class="sentence-display" id="sentenceDisplay"></div>' : '');
   atualizarBotaoMarcar(`checagem${checagemIdx}`);
+  // Só liga/toca na 1ª vez que essa checagem aparece (respondida=false) — o shell é
+  // reconstruído de novo depois que a aluna responde (pra mostrar o feedback), e não faz
+  // sentido reiniciar a narração do zero nesse instante.
+  if (!respondida) trocarAudioDaTela(dados);
 
   if (dados.multiplosRotulos) {
     mostrarChecagemMultiplosRotulos(aula, introIdx, dados, checagemIdx, origemAulaId, respondida);

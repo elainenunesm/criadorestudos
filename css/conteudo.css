@@ -209,6 +209,10 @@
 .campo-linha { display: flex; gap: 10px; }
 .campo-linha .campo { flex: 1; }
 .campo-ajuda { font-size: 12px; color: #6E6A7A; line-height: 1.4; margin-top: 8px; }
+.campo-audio-tela .campo-audio-tela-preview { margin-top: 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.campo-audio-tela .campo-audio-tela-preview audio { max-width: 100%; }
+.campo-audio-tela-opcoes { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.campo-audio-tela-opcoes .campo-check { margin: 0; }
 .campo-linha-imagem { display: flex; gap: 8px; }
 .campo-linha-imagem input { flex: 1; }
 .campo-linha-imagem .btn-importar-imagem { flex-shrink: 0; margin-top: 0; white-space: nowrap; }
@@ -533,6 +537,23 @@
 .player-preview .pp-jg-ponto-num { font-size: 10.5px; color: #9ca3af; font-weight: 600; }
 .player-preview .pp-jg-zero .pp-jg-ponto-num { color: #5B2BCB; font-weight: 800; }
 .player-preview .pp-jg-mock-nota { font-size: 11.5px; color: #9ca3af; text-align: center; margin-top: 10px; }
+
+/* Barra de "Áudio da tela" — narração opcional, disponível em qualquer tipo de tela (ver
+   htmlCampoAudioTela/montarAudioTelaHtml). Funciona de verdade aqui na prévia (a professora
+   pode clicar em tocar/pausar/arrastar), só nunca toca sozinha — quem faz isso é só o
+   player exportado, ao entrar de verdade na tela (ver .tela-audio-bar em estudo.css). */
+.player-preview .pp-audio-tela-bar {
+  display: flex; align-items: center; gap: 10px; background: var(--cor-clara, #f0eaff);
+  border-radius: 999px; padding: 8px 14px 8px 8px; margin-bottom: 14px;
+}
+.player-preview .pp-audio-tela-btn {
+  flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; border: none; cursor: pointer;
+  background: var(--cor-primaria, #5B2BCB); display: flex; align-items: center; justify-content: center;
+}
+.player-preview .pp-audio-tela-onda { flex: 1; display: flex; align-items: center; gap: 2px; height: 22px; cursor: pointer; min-width: 0; }
+.player-preview .pp-audio-tela-barra { flex-shrink: 0; width: 3px; border-radius: 2px; background: var(--cor-borda-media, #d4c4f0); }
+.player-preview .pp-audio-tela-barra.tocada { background: var(--cor-primaria, #5B2BCB); }
+.player-preview .pp-audio-tela-tempo { flex-shrink: 0; font-size: 11px; font-weight: 600; color: #6E6A7A; white-space: nowrap; }
 
 /* lição */
 .player-preview .pp-licao-corpo { font-size: 14px; color: #1a1a2e; line-height: 1.6; }
