@@ -1115,21 +1115,22 @@ function renderFormAntesComecar(el, conteudo) {
       <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
       <div id="listaDestaqueAC"></div>
     </div>`;
-  ligarCampoAudioTela(el, d);
+  const camposTextoAC = [
+    { rotulo: 'Título', campo: 'titulo' },
+    { rotulo: 'Descrição', campo: 'descricao' },
+    { rotulo: 'O que você vai aprender', campo: 'aprender' },
+    { rotulo: 'Por que isso importa', campo: 'importancia' },
+  ];
+  const atualizarSincroniaAC = ligarCampoAudioTela(el, d, camposTextoAC);
   el.querySelectorAll('[data-f]').forEach(input => {
     input.value = d[input.dataset.f] || '';
     input.addEventListener('input', () => { d[input.dataset.f] = input.value; renderPreviewAtual(); });
   });
   ligarBotoesEstiloTexto(el, d);
 
-  const renderDestaquesAC = montarDestaqueFrases(el.querySelector('#listaDestaqueAC'), d, [
-    { rotulo: 'Título', campo: 'titulo' },
-    { rotulo: 'Descrição', campo: 'descricao' },
-    { rotulo: 'O que você vai aprender', campo: 'aprender' },
-    { rotulo: 'Por que isso importa', campo: 'importancia' },
-  ]);
+  const renderDestaquesAC = montarDestaqueFrases(el.querySelector('#listaDestaqueAC'), d, camposTextoAC);
   el.querySelectorAll('[data-f]').forEach(input => {
-    input.addEventListener('blur', () => { podarDestaque(d, input.dataset.f); renderDestaquesAC(); });
+    input.addEventListener('blur', () => { podarDestaque(d, input.dataset.f); renderDestaquesAC(); podarSincronia(d, input.dataset.f); atualizarSincroniaAC(); });
   });
 }
 
@@ -1203,16 +1204,17 @@ function renderFormExemplo(el, conteudo, passo) {
   });
   ligarCampoIconeExterno(el, item);
   ligarTipoIconePicker(el, item, '#4A80F0', renderPreviewAtual);
-  ligarCampoAudioTela(el, item);
-  ligarBotoesEstiloTexto(el, item);
-
-  const renderDestaquesExemplo = montarDestaqueFrases(el.querySelector('#listaDestaqueExemplo'), item, [
+  const camposTextoExemplo = [
     { rotulo: 'Texto', campo: 'texto' },
     { rotulo: 'Conclusão', campo: 'conclusao' },
     { rotulo: 'Observação', campo: 'obs' },
-  ]);
+  ];
+  const atualizarSincroniaExemplo = ligarCampoAudioTela(el, item, camposTextoExemplo);
+  ligarBotoesEstiloTexto(el, item);
+
+  const renderDestaquesExemplo = montarDestaqueFrases(el.querySelector('#listaDestaqueExemplo'), item, camposTextoExemplo);
   el.querySelectorAll('[data-f]').forEach(input => {
-    input.addEventListener('blur', () => { podarDestaque(item, input.dataset.f); renderDestaquesExemplo(); });
+    input.addEventListener('blur', () => { podarDestaque(item, input.dataset.f); renderDestaquesExemplo(); podarSincronia(item, input.dataset.f); atualizarSincroniaExemplo(); });
   });
 
   const listaPontos = el.querySelector('#listaPontos');
@@ -1655,21 +1657,34 @@ function htmlCampoAudioTela(opts = {}) {
         <label class="campo-check"><input type="checkbox" data-audio-opt="audioPausarAoClicar"> Pausar o áudio se a aluna clicar em algo na tela</label>
       </div>
       <p class="campo-ajuda">Toca sozinho assim que a aluna entra nessa tela, ao estudar a aula. Nunca é obrigatório importar um áudio — as opções acima só valem quando tiver um.</p>
+      <div class="campo-audio-sincronia"></div>
     </div>`;
 }
 
-/** Liga o botão de importar/remover do bloco acima a `obj.audioUrl`, e os 3 checkboxes
- * opcionais (sincronizar animação/travar Próximo/pausar ao clicar) aos respectivos
- * campos booleanos do objeto — mesmos nomes usados pelo player de verdade (ver
- * trocarAudioDaTela em vendor/estudo/js/estudo.mjs). */
-function ligarCampoAudioTela(container, obj) {
+/** Liga o botão de importar/remover do bloco acima a `obj.audioUrl`, os 3 checkboxes
+ * opcionais (sincronizar animação/travar Próximo/pausar ao clicar) aos respectivos campos
+ * booleanos, e — quando `camposTexto` é passado — o editor de sincronia com o texto que já
+ * existe na tela (ver montarSincroniaAudio) a `obj.audioSincronia`. `camposTexto` é a MESMA
+ * lista [{rotulo, campo}] já usada em montarDestaqueFrases pra essa tela. Devolve uma função
+ * pra chamar no blur dos campos de texto, igual já se faz com podarDestaque/render dos
+ * destaques (mantém a sincronia em dia se o texto mudar). */
+function ligarCampoAudioTela(container, obj, camposTexto) {
   const previewWrap = container.querySelector('.campo-audio-tela-preview');
+  const sincroniaWrap = container.querySelector('.campo-audio-sincronia');
+  let renderSincronia = null;
+
   function renderPreview() {
     previewWrap.innerHTML = obj.audioUrl
       ? `<audio controls src="${escaparHtml(obj.audioUrl)}"></audio><button type="button" class="btn-remover-item btn-remover-audio-tela">Remover áudio</button>`
       : '';
+    if (sincroniaWrap && camposTexto && camposTexto.length) {
+      renderSincronia = montarSincroniaAudio(sincroniaWrap, obj, camposTexto, () => previewWrap.querySelector('audio'));
+    } else if (sincroniaWrap) {
+      sincroniaWrap.innerHTML = '';
+    }
   }
   renderPreview();
+
   const inputArquivo = container.querySelector('.input-audio-tela');
   container.querySelector('.btn-importar-audio-tela').addEventListener('click', () => inputArquivo.click());
   inputArquivo.addEventListener('change', () => {
@@ -1678,6 +1693,7 @@ function ligarCampoAudioTela(container, obj) {
     const leitor = new FileReader();
     leitor.onload = () => {
       obj.audioUrl = leitor.result;
+      delete obj.audioSincronia;
       renderPreview();
       renderPreviewAtual();
     };
@@ -1691,9 +1707,166 @@ function ligarCampoAudioTela(container, obj) {
   previewWrap.addEventListener('click', e => {
     if (!e.target.closest('.btn-remover-audio-tela')) return;
     delete obj.audioUrl;
+    delete obj.audioSincronia;
     renderPreview();
     renderPreviewAtual();
   });
+
+  return () => { if (renderSincronia) renderSincronia(); };
+}
+
+function formatarTempoSincronia(s) {
+  if (s == null || !isFinite(s)) return '—';
+  const m = Math.floor(s / 60);
+  const sec = (s % 60).toFixed(1);
+  return `${String(m).padStart(2, '0')}:${sec.padStart(4, '0')}`;
+}
+
+/** Corta de `obj.audioSincronia` os trechos daquele campo cujas palavras não existem mais
+ * (texto editado depois de marcado) — mesma ideia de podarDestaque, chamada junto dela no
+ * blur do campo de texto. */
+function podarSincronia(obj, campo) {
+  if (!Array.isArray(obj.audioSincronia)) return;
+  const tokens = tokenizarFrase(obj[campo] || '');
+  obj.audioSincronia = obj.audioSincronia.filter(s => {
+    if (s.campo !== campo) return true;
+    return s.palavras.length && s.palavras.every(i => i < tokens.length && !ehPontuacao(tokens[i]));
+  });
+}
+
+/** Editor "selecione o trecho + toque o áudio" pra sincronizar um pedaço de um texto que JÁ
+ * existe na tela (título, descrição etc. — os mesmos `campos` já usados em
+ * montarDestaqueFrases) com um intervalo do áudio: a professora escolhe o campo, marca (via
+ * checkbox) as palavras do trecho, toca o áudio e clica "Marcar início"/"Marcar fim" no
+ * momento certo. Ao estudar a aula, esse trecho fica destacado enquanto o áudio passa por
+ * ali (ver renderFraseComDestaque/trocarAudioDaTela em vendor/estudo/js/estudo.mjs). Guarda
+ * em `obj.audioSincronia` = [{ campo, palavras: [índices de tokenizarFrase], tempoInicio,
+ * tempoFim }]. `getAudioEl()` devolve o <audio> atual da prévia (pode ser recriado quando
+ * troca o arquivo). Retorna a função de re-render, pra chamar no blur do campo de texto. */
+function montarSincroniaAudio(wrapEl, obj, campos, getAudioEl) {
+  let selecionado = null;
+  let marcando = null; // { palavras, tempoInicio } enquanto o trecho está sendo montado
+
+  function render() {
+    const presentes = campos.filter(c => obj[c.campo] && obj[c.campo].trim());
+    if (!obj.audioUrl || !presentes.length) { wrapEl.innerHTML = ''; return; }
+    if (!Array.isArray(obj.audioSincronia)) obj.audioSincronia = [];
+    if (!presentes.some(c => c.campo === selecionado)) { selecionado = null; marcando = null; }
+
+    wrapEl.innerHTML = `
+      <div class="secao-titulo-editor" style="margin-top:14px">Sincronizar texto com o áudio (opcional)</div>
+      <p class="campo-ajuda">Escolha um texto da tela, marque as palavras de um trecho e toque o áudio pra marcar quando ele começa e termina de falar esse trecho — ao estudar, o trecho fica destacado enquanto o áudio passa por ali.</p>
+      <div class="campo">
+        <label>Qual texto?</label>
+        <select id="sincroniaSelectCampo">
+          <option value="">Selecione...</option>
+          ${presentes.map(c => `<option value="${c.campo}"${selecionado === c.campo ? ' selected' : ''}>${escaparHtml(c.rotulo)}</option>`).join('')}
+        </select>
+      </div>
+      <div id="sincroniaChecklistArea"></div>
+      <div id="sincroniaLista"></div>`;
+
+    const checklistArea = wrapEl.querySelector('#sincroniaChecklistArea');
+    const listaArea = wrapEl.querySelector('#sincroniaLista');
+
+    function renderLista() {
+      const itens = obj.audioSincronia.filter(s => presentes.some(c => c.campo === s.campo));
+      listaArea.innerHTML = itens.length ? `<div class="lista-itens">${itens.map(s => {
+        const rotulo = (campos.find(c => c.campo === s.campo) || {}).rotulo || s.campo;
+        const tokens = tokenizarFrase(obj[s.campo] || '');
+        const trecho = s.palavras.map(i => tokens[i]).filter(Boolean).join(' ');
+        const idx = obj.audioSincronia.indexOf(s);
+        return `<div class="sincronia-item">
+          <div class="sincronia-item-info"><strong>${escaparHtml(rotulo)}:</strong> "${escaparHtml(trecho)}"
+            <span class="sincronia-item-tempo">${formatarTempoSincronia(s.tempoInicio)} – ${formatarTempoSincronia(s.tempoFim)}</span></div>
+          <button type="button" class="sincronia-item-remover" data-idx="${idx}" title="Remover">×</button>
+        </div>`;
+      }).join('')}</div>` : '';
+      listaArea.querySelectorAll('.sincronia-item-remover').forEach(btn => {
+        btn.addEventListener('click', () => {
+          obj.audioSincronia.splice(Number(btn.dataset.idx), 1);
+          renderLista();
+          renderPreviewAtual();
+        });
+      });
+    }
+
+    function renderChecklist() {
+      checklistArea.innerHTML = '';
+      const c = presentes.find(p => p.campo === selecionado);
+      if (!c) return;
+      const tokens = tokenizarFrase(obj[c.campo]);
+      const palavrasMarcadas = marcando ? new Set(marcando.palavras) : new Set();
+      const linhas = document.createElement('div');
+      linhas.className = 'lista-itens';
+      tokens.forEach((tok, i) => {
+        if (ehPontuacao(tok)) return;
+        const linha = document.createElement('label');
+        linha.style.cssText = 'font-size:13px;display:flex;align-items:center;gap:8px;';
+        linha.innerHTML = `<input type="checkbox" ${palavrasMarcadas.has(i) ? 'checked' : ''}> "${escaparHtml(tok)}"`;
+        linha.querySelector('input').addEventListener('change', e => {
+          if (!marcando) marcando = { palavras: [], tempoInicio: null };
+          if (e.target.checked) { if (!marcando.palavras.includes(i)) marcando.palavras.push(i); }
+          else { const p = marcando.palavras.indexOf(i); if (p !== -1) marcando.palavras.splice(p, 1); }
+          renderAcoes();
+        });
+        linhas.appendChild(linha);
+      });
+      checklistArea.appendChild(linhas);
+      renderAcoes();
+    }
+
+    let acoesEl = null;
+    function renderAcoes() {
+      if (acoesEl) { acoesEl.remove(); acoesEl = null; }
+      if (!marcando || !marcando.palavras.length) return;
+      acoesEl = document.createElement('div');
+      acoesEl.className = 'sincronia-acoes';
+      const aguardandoFim = marcando.tempoInicio != null;
+      acoesEl.innerHTML = `
+        <button type="button" class="btn-add-item sincronia-btn-marcar">${aguardandoFim ? '⏹ Tocar o áudio e marcar o FIM aqui' : '▶ Tocar o áudio e marcar o INÍCIO aqui'}</button>
+        <button type="button" class="btn-remover-item sincronia-btn-cancelar">Cancelar seleção</button>`;
+      checklistArea.appendChild(acoesEl);
+      acoesEl.querySelector('.sincronia-btn-marcar').addEventListener('click', () => {
+        const audioEl = getAudioEl();
+        if (!audioEl) return;
+        if (!aguardandoFim) {
+          marcando.tempoInicio = audioEl.currentTime;
+          audioEl.play().catch(() => {}); // toca a partir daqui — a professora ouve o áudio pra saber a hora certa de marcar o fim
+          renderAcoes();
+        } else {
+          const tempoFim = Math.max(audioEl.currentTime, marcando.tempoInicio + 0.05);
+          audioEl.pause(); // pausa ao marcar o fim — o próprio "parar" indica visualmente o ponto marcado
+          obj.audioSincronia.push({
+            campo: selecionado,
+            palavras: marcando.palavras.slice().sort((a, b) => a - b),
+            tempoInicio: marcando.tempoInicio,
+            tempoFim,
+          });
+          marcando = null;
+          renderChecklist();
+          renderLista();
+          renderPreviewAtual();
+        }
+      });
+      acoesEl.querySelector('.sincronia-btn-cancelar').addEventListener('click', () => {
+        const audioEl = getAudioEl();
+        if (audioEl) audioEl.pause();
+        marcando = null;
+        renderChecklist();
+      });
+    }
+
+    wrapEl.querySelector('#sincroniaSelectCampo').addEventListener('change', e => {
+      selecionado = e.target.value || null;
+      marcando = null;
+      renderChecklist();
+    });
+    renderChecklist();
+    renderLista();
+  }
+  render();
+  return render;
 }
 
 /** Barra de áudio "de verdade" (toca/pausa/arrasta) mostrada no topo da prévia quando a tela
@@ -1900,15 +2073,18 @@ function renderFormChecagem(el, conteudo, passo) {
       ${htmlCampoAudioTela()}
       <div id="corpoChecagem"></div>
     </div>`;
-  ligarCampoAudioTela(el, item);
+  const camposTextoChecagem = (modo === 'multipla' || modo === 'certoErrado')
+    ? [{ rotulo: 'Título / pergunta', campo: 'titulo' }, { rotulo: 'Subtítulo', campo: 'subtitulo' }]
+    : [];
+  const atualizarSincroniaChecagem = ligarCampoAudioTela(el, item, camposTextoChecagem);
 
   const corpo = el.querySelector('#corpoChecagem');
   if (modo === 'multiplosRotulos') renderCorpoChecagemMultiplosRotulos(corpo, item);
   else if (modo === 'palavra') renderCorpoChecagemPalavra(corpo, item);
-  else renderCorpoChecagemMultipla(corpo, item);
+  else renderCorpoChecagemMultipla(corpo, item, atualizarSincroniaChecagem);
 }
 
-function renderCorpoChecagemMultipla(corpo, item) {
+function renderCorpoChecagemMultipla(corpo, item, atualizarSincroniaChecagem) {
   if (!Array.isArray(item.opcoes) || item.opcoes.length < 2) item.opcoes = ['', ''];
   migrarFeedbackChecagem(item);
   corpo.innerHTML = `
@@ -1941,7 +2117,7 @@ function renderCorpoChecagemMultipla(corpo, item) {
     { rotulo: 'Subtítulo', campo: 'subtitulo' },
   ]);
   corpo.querySelectorAll('[data-f="titulo"], [data-f="subtitulo"]').forEach(input => {
-    input.addEventListener('blur', () => { podarDestaque(item, input.dataset.f); renderDestaquesChecMultipla(); });
+    input.addEventListener('blur', () => { podarDestaque(item, input.dataset.f); renderDestaquesChecMultipla(); podarSincronia(item, input.dataset.f); if (atualizarSincroniaChecagem) atualizarSincroniaChecagem(); });
   });
 
   if (!Array.isArray(item.opcoesNegrito)) item.opcoesNegrito = [];
@@ -2181,15 +2357,14 @@ function renderFormResumo(el, conteudo) {
       <div class="lista-itens" id="listaResumoItens"></div>
       <button class="btn-add-item" type="button" id="btnAddResumoItem">+ Adicionar item</button>
     </div>`;
-  ligarCampoAudioTela(el, r);
+  const camposTextoResumo = [{ rotulo: 'Título do resumo', campo: 'titulo' }];
+  const atualizarSincroniaResumo = ligarCampoAudioTela(el, r, camposTextoResumo);
   el.querySelector('#resumoTitulo').value = r.titulo || '';
   el.querySelector('#resumoTitulo').addEventListener('input', e => { r.titulo = e.target.value; renderPreviewAtual(); });
   ligarBotoesEstiloTexto(el, r);
 
-  const renderDestaquesResumo = montarDestaqueFrases(el.querySelector('#listaDestaqueResumo'), r, [
-    { rotulo: 'Título do resumo', campo: 'titulo' },
-  ]);
-  el.querySelector('#resumoTitulo').addEventListener('blur', () => { podarDestaque(r, 'titulo'); renderDestaquesResumo(); });
+  const renderDestaquesResumo = montarDestaqueFrases(el.querySelector('#listaDestaqueResumo'), r, camposTextoResumo);
+  el.querySelector('#resumoTitulo').addEventListener('blur', () => { podarDestaque(r, 'titulo'); renderDestaquesResumo(); podarSincronia(r, 'titulo'); atualizarSincroniaResumo(); });
 
   const lista = el.querySelector('#listaResumoItens');
   function renderItens() {
@@ -2268,7 +2443,12 @@ function renderFormLista(el, conteudo, passo) {
       <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
       <div id="listaDestaqueListaDescricao"></div>
     </div>`;
-  ligarCampoAudioTela(el, li);
+  const camposTextoLista = [
+    { rotulo: 'Título', campo: 'titulo' },
+    { rotulo: 'Texto antes', campo: 'textoAntes' },
+    { rotulo: 'Descrição', campo: 'descricao' },
+  ];
+  const atualizarSincroniaLista = ligarCampoAudioTela(el, li, camposTextoLista);
 
   const chkIcone = el.querySelector('#chkListaIcone');
   const iconeWrap = el.querySelector('#listaIconeWrap');
@@ -2303,17 +2483,17 @@ function renderFormLista(el, conteudo, passo) {
   const renderDestaquesListaTitulo = montarDestaqueFrases(el.querySelector('#listaDestaqueListaTitulo'), li, [
     { rotulo: 'Título', campo: 'titulo' },
   ]);
-  el.querySelector('#listaTitulo').addEventListener('blur', () => { podarDestaque(li, 'titulo'); renderDestaquesListaTitulo(); });
+  el.querySelector('#listaTitulo').addEventListener('blur', () => { podarDestaque(li, 'titulo'); renderDestaquesListaTitulo(); podarSincronia(li, 'titulo'); atualizarSincroniaLista(); });
 
   const renderDestaquesListaTextoAntes = montarDestaqueFrases(el.querySelector('#listaDestaqueListaTextoAntes'), li, [
     { rotulo: 'Texto antes', campo: 'textoAntes' },
   ]);
-  el.querySelector('#listaTextoAntes').addEventListener('blur', () => { podarDestaque(li, 'textoAntes'); renderDestaquesListaTextoAntes(); });
+  el.querySelector('#listaTextoAntes').addEventListener('blur', () => { podarDestaque(li, 'textoAntes'); renderDestaquesListaTextoAntes(); podarSincronia(li, 'textoAntes'); atualizarSincroniaLista(); });
 
   const renderDestaquesListaDescricao = montarDestaqueFrases(el.querySelector('#listaDestaqueListaDescricao'), li, [
     { rotulo: 'Descrição', campo: 'descricao' },
   ]);
-  el.querySelector('#listaDescricao').addEventListener('blur', () => { podarDestaque(li, 'descricao'); renderDestaquesListaDescricao(); });
+  el.querySelector('#listaDescricao').addEventListener('blur', () => { podarDestaque(li, 'descricao'); renderDestaquesListaDescricao(); podarSincronia(li, 'descricao'); atualizarSincroniaLista(); });
 
   const lista = el.querySelector('#listaListaItens');
   function renderItens() {
@@ -2378,7 +2558,11 @@ function renderFormTimeline(el, conteudo, passo) {
       <div class="lista-itens" id="tlEventos"></div>
       <button class="btn-add-item" type="button" id="btnAddTlEvento">+ Adicionar período</button>
     </div>`;
-  ligarCampoAudioTela(el, tl);
+  const camposTextoTl = [
+    { rotulo: 'Título', campo: 'titulo' },
+    { rotulo: 'Instrução', campo: 'instrucao' },
+  ];
+  const atualizarSincroniaTl = ligarCampoAudioTela(el, tl, camposTextoTl);
 
   el.querySelector('#tlTitulo').value = tl.titulo || '';
   el.querySelector('#tlTitulo').addEventListener('input', e => { tl.titulo = e.target.value; renderPreviewAtual(); });
@@ -2389,12 +2573,12 @@ function renderFormTimeline(el, conteudo, passo) {
   const renderDestaquesTlTitulo = montarDestaqueFrases(el.querySelector('#tlDestaqueTitulo'), tl, [
     { rotulo: 'Título', campo: 'titulo' },
   ]);
-  el.querySelector('#tlTitulo').addEventListener('blur', () => { podarDestaque(tl, 'titulo'); renderDestaquesTlTitulo(); });
+  el.querySelector('#tlTitulo').addEventListener('blur', () => { podarDestaque(tl, 'titulo'); renderDestaquesTlTitulo(); podarSincronia(tl, 'titulo'); atualizarSincroniaTl(); });
 
   const renderDestaquesTlInstrucao = montarDestaqueFrases(el.querySelector('#tlDestaqueInstrucao'), tl, [
     { rotulo: 'Instrução', campo: 'instrucao' },
   ]);
-  el.querySelector('#tlInstrucao').addEventListener('blur', () => { podarDestaque(tl, 'instrucao'); renderDestaquesTlInstrucao(); });
+  el.querySelector('#tlInstrucao').addEventListener('blur', () => { podarDestaque(tl, 'instrucao'); renderDestaquesTlInstrucao(); podarSincronia(tl, 'instrucao'); atualizarSincroniaTl(); });
 
   const listaEventos = el.querySelector('#tlEventos');
   function renderEventos() {
@@ -2467,7 +2651,11 @@ function renderFormJogoSinais(el, conteudo, passo) {
       <div id="jgDestaqueInstrucao"></div>
       <p class="campo-ajuda">Quem digita o ponto inicial e o movimento (de -10 a 10, com + ou -) é a própria aluna, ao estudar a aula — a reta, a expressão e a explicação são montadas na hora, a partir do que ela digitar.</p>
     </div>`;
-  ligarCampoAudioTela(el, jg);
+  const camposTextoJg = [
+    { rotulo: 'Título', campo: 'titulo' },
+    { rotulo: 'Instrução', campo: 'instrucao' },
+  ];
+  const atualizarSincroniaJg = ligarCampoAudioTela(el, jg, camposTextoJg);
 
   el.querySelector('#jgTitulo').value = jg.titulo || '';
   el.querySelector('#jgTitulo').addEventListener('input', e => { jg.titulo = e.target.value; renderPreviewAtual(); });
@@ -2478,12 +2666,12 @@ function renderFormJogoSinais(el, conteudo, passo) {
   const renderDestaquesTitulo = montarDestaqueFrases(el.querySelector('#jgDestaqueTitulo'), jg, [
     { rotulo: 'Título', campo: 'titulo' },
   ]);
-  el.querySelector('#jgTitulo').addEventListener('blur', () => { podarDestaque(jg, 'titulo'); renderDestaquesTitulo(); });
+  el.querySelector('#jgTitulo').addEventListener('blur', () => { podarDestaque(jg, 'titulo'); renderDestaquesTitulo(); podarSincronia(jg, 'titulo'); atualizarSincroniaJg(); });
 
   const renderDestaquesInstrucao = montarDestaqueFrases(el.querySelector('#jgDestaqueInstrucao'), jg, [
     { rotulo: 'Instrução', campo: 'instrucao' },
   ]);
-  el.querySelector('#jgInstrucao').addEventListener('blur', () => { podarDestaque(jg, 'instrucao'); renderDestaquesInstrucao(); });
+  el.querySelector('#jgInstrucao').addEventListener('blur', () => { podarDestaque(jg, 'instrucao'); renderDestaquesInstrucao(); podarSincronia(jg, 'instrucao'); atualizarSincroniaJg(); });
 }
 
 /** Agrupamento do "Agrupamento — Multiplicação" sempre no máximo 5×5 — quem digita a
@@ -2507,7 +2695,11 @@ function renderFormAgrupamento(el, conteudo, passo) {
       <div id="agDestaqueInstrucao"></div>
       <p class="campo-ajuda">Quem digita a quantidade de grupos e de elementos por grupo (de 1 a 5) é a própria aluna, ao estudar a aula — os grupos, a multiplicação e a explicação são montados na hora, a partir do que ela digitar.</p>
     </div>`;
-  ligarCampoAudioTela(el, ag);
+  const camposTextoAg = [
+    { rotulo: 'Título', campo: 'titulo' },
+    { rotulo: 'Instrução', campo: 'instrucao' },
+  ];
+  const atualizarSincroniaAg = ligarCampoAudioTela(el, ag, camposTextoAg);
 
   el.querySelector('#agTitulo').value = ag.titulo || '';
   el.querySelector('#agTitulo').addEventListener('input', e => { ag.titulo = e.target.value; renderPreviewAtual(); });
@@ -2518,12 +2710,12 @@ function renderFormAgrupamento(el, conteudo, passo) {
   const renderDestaquesTitulo = montarDestaqueFrases(el.querySelector('#agDestaqueTitulo'), ag, [
     { rotulo: 'Título', campo: 'titulo' },
   ]);
-  el.querySelector('#agTitulo').addEventListener('blur', () => { podarDestaque(ag, 'titulo'); renderDestaquesTitulo(); });
+  el.querySelector('#agTitulo').addEventListener('blur', () => { podarDestaque(ag, 'titulo'); renderDestaquesTitulo(); podarSincronia(ag, 'titulo'); atualizarSincroniaAg(); });
 
   const renderDestaquesInstrucao = montarDestaqueFrases(el.querySelector('#agDestaqueInstrucao'), ag, [
     { rotulo: 'Instrução', campo: 'instrucao' },
   ]);
-  el.querySelector('#agInstrucao').addEventListener('blur', () => { podarDestaque(ag, 'instrucao'); renderDestaquesInstrucao(); });
+  el.querySelector('#agInstrucao').addEventListener('blur', () => { podarDestaque(ag, 'instrucao'); renderDestaquesInstrucao(); podarSincronia(ag, 'instrucao'); atualizarSincroniaAg(); });
 }
 
 /** Limites da "Distribuição — Divisão" — quem digita a quantidade de elementos e de
@@ -2546,7 +2738,11 @@ function renderFormDistribuicao(el, conteudo, passo) {
       <div id="dvDestaqueInstrucao"></div>
       <p class="campo-ajuda">Quem digita a quantidade de elementos (1 a 25) e de grupos (1 a 5) é a própria aluna, ao estudar a aula — os grupos, a divisão e a explicação são montados na hora, a partir do que ela digitar. Se a divisão não for exata, a aluna vê um aviso pra escolher outros números.</p>
     </div>`;
-  ligarCampoAudioTela(el, dv);
+  const camposTextoDv = [
+    { rotulo: 'Título', campo: 'titulo' },
+    { rotulo: 'Instrução', campo: 'instrucao' },
+  ];
+  const atualizarSincroniaDv = ligarCampoAudioTela(el, dv, camposTextoDv);
 
   el.querySelector('#dvTitulo').value = dv.titulo || '';
   el.querySelector('#dvTitulo').addEventListener('input', e => { dv.titulo = e.target.value; renderPreviewAtual(); });
@@ -2557,12 +2753,12 @@ function renderFormDistribuicao(el, conteudo, passo) {
   const renderDestaquesTitulo = montarDestaqueFrases(el.querySelector('#dvDestaqueTitulo'), dv, [
     { rotulo: 'Título', campo: 'titulo' },
   ]);
-  el.querySelector('#dvTitulo').addEventListener('blur', () => { podarDestaque(dv, 'titulo'); renderDestaquesTitulo(); });
+  el.querySelector('#dvTitulo').addEventListener('blur', () => { podarDestaque(dv, 'titulo'); renderDestaquesTitulo(); podarSincronia(dv, 'titulo'); atualizarSincroniaDv(); });
 
   const renderDestaquesInstrucao = montarDestaqueFrases(el.querySelector('#dvDestaqueInstrucao'), dv, [
     { rotulo: 'Instrução', campo: 'instrucao' },
   ]);
-  el.querySelector('#dvInstrucao').addEventListener('blur', () => { podarDestaque(dv, 'instrucao'); renderDestaquesInstrucao(); });
+  el.querySelector('#dvInstrucao').addEventListener('blur', () => { podarDestaque(dv, 'instrucao'); renderDestaquesInstrucao(); podarSincronia(dv, 'instrucao'); atualizarSincroniaDv(); });
 }
 
 function renderFormLicao(el, conteudo) {
@@ -2575,17 +2771,16 @@ function renderFormLicao(el, conteudo) {
       <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
       <div id="listaDestaqueLicao"></div>
     </div>`;
-  ligarCampoAudioTela(el, l);
+  const camposTextoLicao = [{ rotulo: 'Título', campo: 'titulo' }];
+  const atualizarSincroniaLicao = ligarCampoAudioTela(el, l, camposTextoLicao);
   el.querySelectorAll('[data-f]').forEach(input => {
     input.value = l[input.dataset.f] || '';
     input.addEventListener('input', () => { l[input.dataset.f] = input.value; renderPreviewAtual(); });
   });
   ligarBotoesEstiloTexto(el, l);
 
-  const renderDestaquesLicao = montarDestaqueFrases(el.querySelector('#listaDestaqueLicao'), l, [
-    { rotulo: 'Título', campo: 'titulo' },
-  ]);
-  el.querySelector('[data-f="titulo"]').addEventListener('blur', () => { podarDestaque(l, 'titulo'); renderDestaquesLicao(); });
+  const renderDestaquesLicao = montarDestaqueFrases(el.querySelector('#listaDestaqueLicao'), l, camposTextoLicao);
+  el.querySelector('[data-f="titulo"]').addEventListener('blur', () => { podarDestaque(l, 'titulo'); renderDestaquesLicao(); podarSincronia(l, 'titulo'); atualizarSincroniaLicao(); });
 }
 
 /* ---------------------------------------------------------------------- */

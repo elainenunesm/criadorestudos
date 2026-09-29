@@ -726,6 +726,12 @@ body {
   color: #3B82F6;
 }
 
+/* Trecho de um texto da tela sincronizado com o áudio (ver montarSincroniaAudio em
+   js/conteudo.js) — fica destacado só enquanto o áudio passa pelo intervalo de tempo
+   marcado, ver trocarAudioDaTela em vendor/estudo/js/estudo.mjs. */
+.tela-sincronia-frase { transition: background-color .2s ease, color .2s ease; border-radius: 4px; }
+.tela-sincronia-frase.ativa { background: var(--cor-clara); color: var(--cor-primaria); font-weight: 700; box-shadow: 0 0 0 4px var(--cor-clara); }
+
 .passo-caixa-cabecalho {
   display: flex;
   align-items: center;
@@ -1118,6 +1124,7 @@ body {
 .tela-audio-barra { flex-shrink: 0; width: 3px; border-radius: 2px; background: var(--cor-borda-media); transition: background .1s; }
 .tela-audio-barra.tocada { background: var(--cor-primaria); }
 .tela-audio-tempo { flex-shrink: 0; font-size: 12px; font-weight: 600; color: #6b7280; white-space: nowrap; }
+
 
 /* TELA DE RETA NUMÉRICA — JOGO DE SINAIS: a aluna digita ponto inicial e movimento (os
    dois campos abaixo), a reta horizontal tem pontos igualmente espaçados (0 sempre no

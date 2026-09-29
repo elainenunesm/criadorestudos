@@ -197,7 +197,12 @@ function ligarAudioTela(container, { autoplay = false } = {}) {
  * - `item.audioPausarAoClicar`: qualquer clique na tela pausa o áudio na hora.
  * - `item.audioSincronizarAnimacao`: lido direto por quem chama play() nas telas de
  *   Matemática (ver mostrarJogoSinais/mostrarAgrupamento/mostrarDistribuicao) — aqui só
- *   cuida de ligar/trocar o áudio em si. */
+ *   cuida de ligar/trocar o áudio em si.
+ * - `item.audioSincronia`: destaca, dentro dos próprios campos de texto da tela (título,
+ *   descrição etc. — ver renderFraseComDestaque), o trecho marcado pela professora no
+ *   Construtor (ver montarSincroniaAudio em js/conteudo.js) enquanto o áudio passa pelo
+ *   intervalo de tempo daquele trecho — os spans já saem prontos do HTML com
+ *   data-tempo-inicio/data-tempo-fim, então aqui só liga o timeupdate que ativa/desativa. */
 function trocarAudioDaTela(item, opts = { autoplay: true }) {
   if (audioTelaAtual) { audioTelaAtual.pause(); audioTelaAtual = null; }
   if (audioTelaPausarAoClicarListener) {
@@ -223,6 +228,19 @@ function trocarAudioDaTela(item, opts = { autoplay: true }) {
     };
     opcoesEl.addEventListener('click', audioTelaPausarAoClicarListener);
   }
+  const spansSincronia = [...opcoesEl.querySelectorAll('.tela-sincronia-frase')];
+  if (spansSincronia.length) {
+    const atualizarSincroniaTexto = () => {
+      const t = audioTelaAtual.currentTime;
+      spansSincronia.forEach(el => {
+        const ini = parseFloat(el.dataset.tempoInicio);
+        const fim = parseFloat(el.dataset.tempoFim);
+        el.classList.toggle('ativa', t >= ini && t < fim);
+      });
+    };
+    audioTelaAtual.addEventListener('timeupdate', atualizarSincroniaTexto);
+    atualizarSincroniaTexto();
+  }
 }
 
 function mostrarIntro(aula, introIdx = 0) {
@@ -247,8 +265,8 @@ function mostrarIntro(aula, introIdx = 0) {
     <div class="intro-card">
       ${montarAudioTelaHtml(ac.audioUrl)}
       <span class="intro-label">Antes de começar</span>
-      <h2 class="intro-titulo"${estiloTextoInline(ac, 'titulo')}>${ac.titulo ? renderFraseComDestaque(ac.titulo, ac.tituloDestaque, ac.tituloDestaqueNegrito) : aula.titulo}</h2>
-      <p class="intro-desc"${estiloTextoInline(ac, 'descricao')}>${renderFraseComDestaque(ac.descricao || '', ac.descricaoDestaque, ac.descricaoDestaqueNegrito)}</p>
+      <h2 class="intro-titulo"${estiloTextoInline(ac, 'titulo')}>${ac.titulo ? renderFraseComDestaque(ac.titulo, ac.tituloDestaque, ac.tituloDestaqueNegrito, sincroniaDoCampo(ac, 'titulo')) : aula.titulo}</h2>
+      <p class="intro-desc"${estiloTextoInline(ac, 'descricao')}>${renderFraseComDestaque(ac.descricao || '', ac.descricaoDestaque, ac.descricaoDestaqueNegrito, sincroniaDoCampo(ac, 'descricao'))}</p>
       <div class="intro-info">
         <div class="intro-info-item">
           <div class="intro-info-icone-wrap">
@@ -259,7 +277,7 @@ function mostrarIntro(aula, introIdx = 0) {
           </div>
           <div class="intro-info-texto">
             <h3>O que você vai aprender</h3>
-            <p${estiloTextoInline(ac, 'aprender')}>${renderFraseComDestaque(ac.aprender || '', ac.aprenderDestaque, ac.aprenderDestaqueNegrito)}</p>
+            <p${estiloTextoInline(ac, 'aprender')}>${renderFraseComDestaque(ac.aprender || '', ac.aprenderDestaque, ac.aprenderDestaqueNegrito, sincroniaDoCampo(ac, 'aprender'))}</p>
           </div>
         </div>
         <div class="intro-info-item">
@@ -272,7 +290,7 @@ function mostrarIntro(aula, introIdx = 0) {
           </div>
           <div class="intro-info-texto">
             <h3>Por que isso é importante</h3>
-            <p${estiloTextoInline(ac, 'importancia')}>${renderFraseComDestaque(ac.importancia || '', ac.importanciaDestaque, ac.importanciaDestaqueNegrito)}</p>
+            <p${estiloTextoInline(ac, 'importancia')}>${renderFraseComDestaque(ac.importancia || '', ac.importanciaDestaque, ac.importanciaDestaqueNegrito, sincroniaDoCampo(ac, 'importancia'))}</p>
           </div>
         </div>
       </div>
@@ -465,15 +483,27 @@ function tokenizarFraseSimples(frase) {
   return tokens;
 }
 
+/** Devolve, de `item.audioSincronia`, só os trechos marcados pra esse `campo` — cada um é
+ * {campo, palavras: [índices de tokenizarFraseSimples], tempoInicio, tempoFim}, marcados no
+ * Construtor (ver montarSincroniaAudio em js/conteudo.js). */
+function sincroniaDoCampo(item, campo) {
+  return (item && Array.isArray(item.audioSincronia) ? item.audioSincronia : []).filter(s => s.campo === campo);
+}
+
 /** Renderiza um texto corrido (Título/Instrução) com algumas palavras em azul de destaque e/ou em
  * negrito — diferente dos word-chips, aqui o texto continua fluindo normalmente como frase. Uma
  * palavra pode ser só azul, só negrito, ou as duas coisas ao mesmo tempo. Quebras de linha ("\n",
  * Enter no Construtor de Aulas) viram <br> — os índices continuam contando palavra por palavra em
- * sequência ao longo das linhas, sem invalidar destaques salvos. */
-function renderFraseComDestaque(texto, indices, indicesNegrito) {
+ * sequência ao longo das linhas, sem invalidar destaques salvos. `sincronia` (opcional, vem de
+ * sincroniaDoCampo) marca palavras que devem ficar destacadas SÓ enquanto o áudio da tela passa
+ * pelo intervalo de tempo daquele trecho — ver trocarAudioDaTela, que liga/desliga a classe
+ * "ativa" desses spans a cada timeupdate, usando os data-tempo-inicio/data-tempo-fim abaixo. */
+function renderFraseComDestaque(texto, indices, indicesNegrito, sincronia) {
   if (!texto) return '';
   const destacadas = new Set(indices || []);
   const negritos = new Set(indicesNegrito || []);
+  const sincroniaPorPalavra = new Map();
+  (sincronia || []).forEach(s => { s.palavras.forEach(i => sincroniaPorPalavra.set(i, s)); });
   let contador = 0;
   return texto.split('\n').map(linha => {
     const partes = tokenizarFraseSimples(linha).map(tok => {
@@ -481,10 +511,12 @@ function renderFraseComDestaque(texto, indices, indicesNegrito) {
       if (/^[.,!?;:]+$/.test(tok)) return tok;
       const azul = destacadas.has(i);
       const negrito = negritos.has(i);
-      if (!azul && !negrito) return tok;
-      const classe = azul ? ' class="destaque-azul"' : '';
+      const trecho = sincroniaPorPalavra.get(i);
+      if (!azul && !negrito && !trecho) return tok;
+      const classes = [azul ? 'destaque-azul' : '', trecho ? 'tela-sincronia-frase' : ''].filter(Boolean).join(' ');
       const estilo = negrito ? ' style="font-weight:700"' : '';
-      return `<span${classe}${estilo}>${tok}</span>`;
+      const dataAttrs = trecho ? ` data-tempo-inicio="${trecho.tempoInicio}" data-tempo-fim="${trecho.tempoFim}"` : '';
+      return `<span${classes ? ` class="${classes}"` : ''}${estilo}${dataAttrs}>${tok}</span>`;
     });
     return partes.join(' ').replace(/ ([.,!?;:]+)/g, '$1');
   }).join('<br>');
@@ -953,12 +985,12 @@ function mostrarExemplo(aula, introIdx, i) {
           ${icone}
         </svg>
       </div>
-      ${ex.texto ? `<p class="exemplo-texto"${estiloTextoInline(ex, 'texto')}>${renderFraseComDestaque(ex.texto, ex.textoDestaque, ex.textoDestaqueNegrito)}</p>` : ''}
-      ${ex.conclusao ? `<p class="exemplo-conclusao"${estiloTextoInline(ex, 'conclusao')}>${renderFraseComDestaque(ex.conclusao, ex.conclusaoDestaque, ex.conclusaoDestaqueNegrito)}</p>` : ''}
+      ${ex.texto ? `<p class="exemplo-texto"${estiloTextoInline(ex, 'texto')}>${renderFraseComDestaque(ex.texto, ex.textoDestaque, ex.textoDestaqueNegrito, sincroniaDoCampo(ex, 'texto'))}</p>` : ''}
+      ${ex.conclusao ? `<p class="exemplo-conclusao"${estiloTextoInline(ex, 'conclusao')}>${renderFraseComDestaque(ex.conclusao, ex.conclusaoDestaque, ex.conclusaoDestaqueNegrito, sincroniaDoCampo(ex, 'conclusao'))}</p>` : ''}
       ${ex.obs ? `
       <div class="exemplo-obs-box">
         <span class="exemplo-obs-icone"><svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="10" fill="#4A80F0"/><rect x="11" y="10" width="2" height="7" rx="1" fill="#fff"/><rect x="11" y="6.5" width="2" height="2" rx="1" fill="#fff"/></svg></span>
-        <p class="exemplo-obs-texto"${estiloTextoInline(ex, 'obs')}>${renderFraseComDestaque(ex.obs, ex.obsDestaque, ex.obsDestaqueNegrito)}</p>
+        <p class="exemplo-obs-texto"${estiloTextoInline(ex, 'obs')}>${renderFraseComDestaque(ex.obs, ex.obsDestaque, ex.obsDestaqueNegrito, sincroniaDoCampo(ex, 'obs'))}</p>
       </div>` : ''}
       ${(ex.pontos || []).length ? `
       <div class="exemplo-pontos">
@@ -1306,7 +1338,7 @@ function mostrarResumo(aula, introIdx) {
   opcoesEl.innerHTML = `
     <div class="resumo-card">
       ${montarAudioTelaHtml(res.audioUrl)}
-      <p class="resumo-titulo"${estiloTextoInline(res, 'titulo')}>${renderFraseComDestaque(res.titulo || '', res.tituloDestaque, res.tituloDestaqueNegrito)}</p>
+      <p class="resumo-titulo"${estiloTextoInline(res, 'titulo')}>${renderFraseComDestaque(res.titulo || '', res.tituloDestaque, res.tituloDestaqueNegrito, sincroniaDoCampo(res, 'titulo'))}</p>
       ${(res.itens || []).map(item => `
       <div class="resumo-item">
         <div class="resumo-icone" style="background:${item.corFundo}">
@@ -1315,7 +1347,7 @@ function mostrarResumo(aula, introIdx) {
           </svg>
         </div>
         <div class="resumo-item-info">
-          <span class="resumo-item-titulo"${estiloTextoInline(item, 'titulo', `color:${item.cor}`)}>${renderFraseComDestaque(item.titulo || '', item.tituloDestaque, item.tituloDestaqueNegrito)}</span>
+          <span class="resumo-item-titulo"${estiloTextoInline(item, 'titulo', `color:${item.cor}`)}>${renderFraseComDestaque(item.titulo || '', item.tituloDestaque, item.tituloDestaqueNegrito, sincroniaDoCampo(item, 'titulo'))}</span>
           <span class="resumo-item-exemplos"${estiloTextoInline(item, 'exemplos')}>${renderFraseComDestaque(item.exemplos || '', item.exemplosDestaque, item.exemplosDestaqueNegrito)}</span>
         </div>
       </div>`).join('')}
@@ -1340,8 +1372,8 @@ function mostrarLista(aula, introIdx, i) {
     <div class="resumo-card">
       ${montarAudioTelaHtml(li.audioUrl)}
       ${li.icone ? `<div class="lista-icone-topo" style="background:${li.icone.corFundo || '#eef2ff'};color:${li.icone.cor || '#4A80F0'}"><svg viewBox="0 0 24 24" width="32" height="32">${iconeExternoOuNulo(li.icone) || (RESUMO_ICONES[li.icone.tipo] ? RESUMO_ICONES[li.icone.tipo](li.icone.cor || '#4A80F0') : '')}</svg></div>` : ''}
-      ${li.titulo ? `<p class="resumo-titulo"${estiloTextoInline(li, 'titulo')}>${renderFraseComDestaque(li.titulo || '', li.tituloDestaque, li.tituloDestaqueNegrito)}</p>` : ''}
-      ${li.textoAntes ? `<p class="lista-descricao lista-texto-antes"${estiloTextoInline(li, 'textoAntes')}>${renderFraseComDestaque(li.textoAntes, li.textoAntesDestaque, li.textoAntesDestaqueNegrito)}</p>` : ''}
+      ${li.titulo ? `<p class="resumo-titulo"${estiloTextoInline(li, 'titulo')}>${renderFraseComDestaque(li.titulo || '', li.tituloDestaque, li.tituloDestaqueNegrito, sincroniaDoCampo(li, 'titulo'))}</p>` : ''}
+      ${li.textoAntes ? `<p class="lista-descricao lista-texto-antes"${estiloTextoInline(li, 'textoAntes')}>${renderFraseComDestaque(li.textoAntes, li.textoAntesDestaque, li.textoAntesDestaqueNegrito, sincroniaDoCampo(li, 'textoAntes'))}</p>` : ''}
       ${(li.itens || []).map(item => `
       <div class="resumo-item">
         <div class="resumo-icone" style="background:${item.corFundo}">
@@ -1351,7 +1383,7 @@ function mostrarLista(aula, introIdx, i) {
         </div>
         <span class="lista-item-texto"${estiloTextoInline(item, 'texto')}>${renderFraseComDestaque(item.texto || '', item.textoDestaque, item.textoDestaqueNegrito)}</span>
       </div>`).join('')}
-      ${li.descricao ? `<p class="lista-descricao"${estiloTextoInline(li, 'descricao')}>${renderFraseComDestaque(li.descricao, li.descricaoDestaque, li.descricaoDestaqueNegrito)}</p>` : ''}
+      ${li.descricao ? `<p class="lista-descricao"${estiloTextoInline(li, 'descricao')}>${renderFraseComDestaque(li.descricao, li.descricaoDestaque, li.descricaoDestaqueNegrito, sincroniaDoCampo(li, 'descricao'))}</p>` : ''}
     </div>`;
   atualizarBotaoMarcar(`lista${i}`);
   trocarAudioDaTela(li);
@@ -1368,7 +1400,7 @@ function tlDetalheHtml(ev) {
   const caracteristicas = (ev.caracteristicas || '').split('\n').map(s => s.trim()).filter(Boolean);
   return `
     <div class="tl-detalhe-icone"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
-    <p class="tl-detalhe-titulo"${estiloTextoInline(ev, 'titulo')}>${renderFraseComDestaque(ev.titulo || '', ev.tituloDestaque, ev.tituloDestaqueNegrito)}</p>
+    <p class="tl-detalhe-titulo"${estiloTextoInline(ev, 'titulo')}>${renderFraseComDestaque(ev.titulo || '', ev.tituloDestaque, ev.tituloDestaqueNegrito, sincroniaDoCampo(ev, 'titulo'))}</p>
     ${ev.ano ? `<p class="tl-detalhe-ano">${ev.ano}</p>` : ''}
     ${ev.descricao ? `<p class="tl-detalhe-desc"${estiloTextoInline(ev, 'descricao')}>${renderFraseComDestaque(ev.descricao, ev.descricaoDestaque, ev.descricaoDestaqueNegrito)}</p>` : ''}
     ${caracteristicas.length ? `
@@ -1394,8 +1426,8 @@ function mostrarTimeline(aula, introIdx, i) {
   opcoesEl.innerHTML = `
     <div class="resumo-card">
       ${montarAudioTelaHtml(tl.audioUrl)}
-      ${tl.titulo ? `<p class="resumo-titulo"${estiloTextoInline(tl, 'titulo')}>${renderFraseComDestaque(tl.titulo || '', tl.tituloDestaque, tl.tituloDestaqueNegrito)}</p>` : ''}
-      ${tl.instrucao ? `<p class="lista-descricao"${estiloTextoInline(tl, 'instrucao')}>${renderFraseComDestaque(tl.instrucao, tl.instrucaoDestaque, tl.instrucaoDestaqueNegrito)}</p>` : ''}
+      ${tl.titulo ? `<p class="resumo-titulo"${estiloTextoInline(tl, 'titulo')}>${renderFraseComDestaque(tl.titulo || '', tl.tituloDestaque, tl.tituloDestaqueNegrito, sincroniaDoCampo(tl, 'titulo'))}</p>` : ''}
+      ${tl.instrucao ? `<p class="lista-descricao"${estiloTextoInline(tl, 'instrucao')}>${renderFraseComDestaque(tl.instrucao, tl.instrucaoDestaque, tl.instrucaoDestaqueNegrito, sincroniaDoCampo(tl, 'instrucao'))}</p>` : ''}
       <div class="tl-trilha" id="tlTrilha">
         ${eventos.map((ev, idx) => `
         <button type="button" class="tl-ponto" data-idx="${idx}" style="--tl-cor:${ev.cor || '#5B2BCB'}">
@@ -1509,8 +1541,8 @@ function mostrarJogoSinais(aula, introIdx, i) {
   opcoesEl.innerHTML = `
     <div class="resumo-card">
       ${montarAudioTelaHtml(jg.audioUrl)}
-      ${jg.titulo ? `<p class="resumo-titulo"${estiloTextoInline(jg, 'titulo')}>${renderFraseComDestaque(jg.titulo || '', jg.tituloDestaque, jg.tituloDestaqueNegrito)}</p>` : ''}
-      ${jg.instrucao ? `<p class="lista-descricao"${estiloTextoInline(jg, 'instrucao')}>${renderFraseComDestaque(jg.instrucao, jg.instrucaoDestaque, jg.instrucaoDestaqueNegrito)}</p>` : ''}
+      ${jg.titulo ? `<p class="resumo-titulo"${estiloTextoInline(jg, 'titulo')}>${renderFraseComDestaque(jg.titulo || '', jg.tituloDestaque, jg.tituloDestaqueNegrito, sincroniaDoCampo(jg, 'titulo'))}</p>` : ''}
+      ${jg.instrucao ? `<p class="lista-descricao"${estiloTextoInline(jg, 'instrucao')}>${renderFraseComDestaque(jg.instrucao, jg.instrucaoDestaque, jg.instrucaoDestaqueNegrito, sincroniaDoCampo(jg, 'instrucao'))}</p>` : ''}
       <div class="jg-campos">
         <div class="jg-campo">
           <label for="jgPontoInicial${i}">Ponto inicial</label>
@@ -1714,8 +1746,8 @@ function mostrarAgrupamento(aula, introIdx, i) {
   opcoesEl.innerHTML = `
     <div class="resumo-card">
       ${montarAudioTelaHtml(ag.audioUrl)}
-      ${ag.titulo ? `<p class="resumo-titulo"${estiloTextoInline(ag, 'titulo')}>${renderFraseComDestaque(ag.titulo || '', ag.tituloDestaque, ag.tituloDestaqueNegrito)}</p>` : ''}
-      ${ag.instrucao ? `<p class="lista-descricao"${estiloTextoInline(ag, 'instrucao')}>${renderFraseComDestaque(ag.instrucao, ag.instrucaoDestaque, ag.instrucaoDestaqueNegrito)}</p>` : ''}
+      ${ag.titulo ? `<p class="resumo-titulo"${estiloTextoInline(ag, 'titulo')}>${renderFraseComDestaque(ag.titulo || '', ag.tituloDestaque, ag.tituloDestaqueNegrito, sincroniaDoCampo(ag, 'titulo'))}</p>` : ''}
+      ${ag.instrucao ? `<p class="lista-descricao"${estiloTextoInline(ag, 'instrucao')}>${renderFraseComDestaque(ag.instrucao, ag.instrucaoDestaque, ag.instrucaoDestaqueNegrito, sincroniaDoCampo(ag, 'instrucao'))}</p>` : ''}
       <div class="jg-campos">
         <div class="jg-campo">
           <label for="agGrupos${i}">Quantos grupos?</label>
@@ -1938,8 +1970,8 @@ function mostrarDistribuicao(aula, introIdx, i) {
   opcoesEl.innerHTML = `
     <div class="resumo-card">
       ${montarAudioTelaHtml(dv.audioUrl)}
-      ${dv.titulo ? `<p class="resumo-titulo"${estiloTextoInline(dv, 'titulo')}>${renderFraseComDestaque(dv.titulo || '', dv.tituloDestaque, dv.tituloDestaqueNegrito)}</p>` : ''}
-      ${dv.instrucao ? `<p class="lista-descricao"${estiloTextoInline(dv, 'instrucao')}>${renderFraseComDestaque(dv.instrucao, dv.instrucaoDestaque, dv.instrucaoDestaqueNegrito)}</p>` : ''}
+      ${dv.titulo ? `<p class="resumo-titulo"${estiloTextoInline(dv, 'titulo')}>${renderFraseComDestaque(dv.titulo || '', dv.tituloDestaque, dv.tituloDestaqueNegrito, sincroniaDoCampo(dv, 'titulo'))}</p>` : ''}
+      ${dv.instrucao ? `<p class="lista-descricao"${estiloTextoInline(dv, 'instrucao')}>${renderFraseComDestaque(dv.instrucao, dv.instrucaoDestaque, dv.instrucaoDestaqueNegrito, sincroniaDoCampo(dv, 'instrucao'))}</p>` : ''}
       <div class="jg-campos">
         <div class="jg-campo">
           <label for="dvElementos${i}">Quantos elementos para distribuir?</label>
@@ -2162,7 +2194,7 @@ function mostrarLicao(aula, introIdx) {
   opcoesEl.innerHTML = `
     <div class="resumo-card">
       ${montarAudioTelaHtml(lic.audioUrl)}
-      <p class="resumo-titulo"${estiloTextoInline(lic, 'titulo')}>${renderFraseComDestaque(lic.titulo || '', lic.tituloDestaque, lic.tituloDestaqueNegrito)}</p>
+      <p class="resumo-titulo"${estiloTextoInline(lic, 'titulo')}>${renderFraseComDestaque(lic.titulo || '', lic.tituloDestaque, lic.tituloDestaqueNegrito, sincroniaDoCampo(lic, 'titulo'))}</p>
       <div class="licao-corpo">${lic.html || ''}</div>
     </div>`;
   atualizarBotaoMarcar('licao');
@@ -2256,10 +2288,10 @@ function mostrarChecagem(aula, introIdx, dados, checagemIdx, origemAulaId = aula
   // Checagens com "banco" (reordenar) não mostram subtítulo — o "sentenca" (clicar na palavra)
   // mostra normalmente quando preenchido (descrição opcional, definida no Construtor de Aulas).
   opcoesEl.innerHTML = montarAudioTelaHtml(dados.audioUrl) + (dados.invertido
-    ? `<p class="questao-subtitulo checagem-pergunta"${estiloTextoInline(dados, 'subtitulo')}>${renderFraseComDestaque(dados.subtitulo || '', dados.subtituloDestaque, dados.subtituloDestaqueNegrito)}</p>
-       <h2 class="questao-titulo checagem-titulo"${estiloTextoInline(dados, 'titulo')}>${renderFraseComDestaque(dados.titulo || '', dados.tituloDestaque, dados.tituloDestaqueNegrito)}</h2>`
-    : `<h2 class="questao-titulo checagem-instrucao"${estiloTextoInline(dados, 'titulo')}>${renderFraseComDestaque(dados.titulo || '', dados.tituloDestaque, dados.tituloDestaqueNegrito)}</h2>` +
-      (dados.banco ? '' : `<p class="questao-subtitulo checagem-frase"${estiloTextoInline(dados, 'subtitulo')}>${renderFraseComDestaque(dados.subtitulo || '', dados.subtituloDestaque, dados.subtituloDestaqueNegrito)}</p>`)) +
+    ? `<p class="questao-subtitulo checagem-pergunta"${estiloTextoInline(dados, 'subtitulo')}>${renderFraseComDestaque(dados.subtitulo || '', dados.subtituloDestaque, dados.subtituloDestaqueNegrito, sincroniaDoCampo(dados, 'subtitulo'))}</p>
+       <h2 class="questao-titulo checagem-titulo"${estiloTextoInline(dados, 'titulo')}>${renderFraseComDestaque(dados.titulo || '', dados.tituloDestaque, dados.tituloDestaqueNegrito, sincroniaDoCampo(dados, 'titulo'))}</h2>`
+    : `<h2 class="questao-titulo checagem-instrucao"${estiloTextoInline(dados, 'titulo')}>${renderFraseComDestaque(dados.titulo || '', dados.tituloDestaque, dados.tituloDestaqueNegrito, sincroniaDoCampo(dados, 'titulo'))}</h2>` +
+      (dados.banco ? '' : `<p class="questao-subtitulo checagem-frase"${estiloTextoInline(dados, 'subtitulo')}>${renderFraseComDestaque(dados.subtitulo || '', dados.subtituloDestaque, dados.subtituloDestaqueNegrito, sincroniaDoCampo(dados, 'subtitulo'))}</p>`)) +
     (dados.multiplosRotulos ? '<div class="mr-select-wrap" id="mrSelectWrap"></div>'
       : dados.predicado ? '<div class="tri-select-wrap" id="triSelectWrap"></div>'
       : dados.sujeito ? '<div class="dual-select-wrap" id="dualSelectWrap"></div>'
