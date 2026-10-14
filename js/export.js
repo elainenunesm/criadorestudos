@@ -147,7 +147,7 @@ ${trilhasTexto}
 /** Ordem final de exibição das telas, como tokens simples ('antesComecar', 'exemplo0', 'checagem1', 'lista0', 'timeline0', 'jogoSinais0', 'agrupamento0', 'distribuicao0', 'resumo', 'licao')
  * — reaproveita montarPassos() (js/conteudo.js) pra garantir que os índices batem exatamente com os arrays exportados abaixo. */
 function serializarOrdem(conteudo) {
-  return montarPassos(conteudo).map(p => (p.tipo === 'exemplo' || p.tipo === 'checagem' || p.tipo === 'lista' || p.tipo === 'timeline' || p.tipo === 'jogoSinais' || p.tipo === 'agrupamento' || p.tipo === 'distribuicao') ? `${p.tipo}${p.idx}` : p.tipo);
+  return montarPassos(conteudo).map(p => (p.tipo === 'exemplo' || p.tipo === 'checagem' || p.tipo === 'lista' || p.tipo === 'timeline' || p.tipo === 'jogoSinais' || p.tipo === 'agrupamento' || p.tipo === 'distribuicao' || p.tipo === 'mapaMental') ? `${p.tipo}${p.idx}` : p.tipo);
 }
 
 function gerarAulaJs(aula, tituloEtapa) {
@@ -185,6 +185,8 @@ window.AULA_DATA = {
   agrupamento: ${paraJs(c.agrupamento)},
 
   distribuicao: ${paraJs(c.distribuicao)},
+
+  mapaMental: ${paraJs(c.mapaMental)},
 
   questoes: [],
 };
@@ -528,6 +530,17 @@ function pdfRenderAula(aula) {
     if (dv.titulo) corpo += `<p class="pdf-destaque">${renderFraseComDestaque(dv.titulo, dv.tituloDestaque, dv.tituloDestaqueNegrito)}</p>`;
     if (dv.instrucao) corpo += `<p>${renderFraseComDestaque(dv.instrucao, dv.instrucaoDestaque, dv.instrucaoDestaqueNegrito)}</p>`;
     secoes += pdfSecao(`Distribuição${distribuicoes.length > 1 ? ` ${i + 1}` : ''}`, '#0891B2', corpo);
+  });
+
+  const mapasMentais = (c.mapaMental || []).filter(mm => mm.conceito || (mm.topicos || []).length);
+  mapasMentais.forEach((mm, i) => {
+    let corpo = '';
+    if (mm.titulo) corpo += `<p class="pdf-destaque">${renderFraseComDestaque(mm.titulo, mm.tituloDestaque, mm.tituloDestaqueNegrito)}</p>`;
+    if (mm.conceito) corpo += `<p><strong>${escaparHtml(mm.conceito)}</strong></p>`;
+    if ((mm.topicos || []).length) corpo += '<ul>' + mm.topicos.map(t =>
+      `<li><strong>${renderFraseComDestaque(t.titulo || '', t.tituloDestaque, t.tituloDestaqueNegrito)}</strong>${t.texto ? ' — ' + renderFraseComDestaque(t.texto, t.textoDestaque, t.textoDestaqueNegrito) : ''}</li>`
+    ).join('') + '</ul>';
+    secoes += pdfSecao(`Mapa Mental${mapasMentais.length > 1 ? ` ${i + 1}` : ''}`, '#5724D6', corpo);
   });
 
   const res = c.resumo || {};

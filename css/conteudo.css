@@ -229,6 +229,19 @@
   background: #fff; color: #B3261E; font-size: 15px; line-height: 1; cursor: pointer;
 }
 .sincronia-item-remover:hover { background: #fdeceb; }
+
+/* Mapa Mental — paleta de cores sugeridas por tópico (ver renderFormMapaMental) e o widget
+   de marcar início/fim do destaque sincronizado ao áudio por tópico (mesma interação
+   tocar/pausar do widget de sincronia de texto, ver montarMarcacaoTempoTopico). */
+.mm-paleta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.mm-paleta-cor {
+  width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; cursor: pointer;
+  padding: 0;
+}
+.mm-paleta-cor.ativa { border-color: #5724D6; box-shadow: 0 0 0 2px #fff inset; }
+.mm-paleta input[type="color"] { width: 26px; height: 26px; padding: 0; border: none; border-radius: 50%; cursor: pointer; }
+.mm-topico-tempo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.mm-topico-tempo-valores { font-size: 12px; font-weight: 700; color: #6E6A7A; font-variant-numeric: tabular-nums; }
 .campo-linha-imagem { display: flex; gap: 8px; }
 .campo-linha-imagem input { flex: 1; }
 .campo-linha-imagem .btn-importar-imagem { flex-shrink: 0; margin-top: 0; white-space: nowrap; }
@@ -553,6 +566,48 @@
 .player-preview .pp-jg-ponto-num { font-size: 10.5px; color: #9ca3af; font-weight: 600; }
 .player-preview .pp-jg-zero .pp-jg-ponto-num { color: #5B2BCB; font-weight: 800; }
 .player-preview .pp-jg-mock-nota { font-size: 11.5px; color: #9ca3af; text-align: center; margin-top: 10px; }
+
+/* Mapa Mental — mesmo visual do player exportado (hexágono central + tópicos em círculo,
+   conectados por setas coloridas em SVG), só numa escala menor pra caber na caixinha de
+   prévia do Construtor — o posicionamento/desenho das setas é recalculado em JS depois do
+   HTML entrar na página (ver ligarMapaMentalPreview em js/conteudo.js; equivalente de
+   verdade em mostrarMapaMental/posicionarTopicosMapaMental/desenharSetasMapaMental em
+   vendor/estudo/js/estudo.mjs — precisa bater visualmente com o que a aluna vai ver). */
+.player-preview .mm-mapa { position: relative; min-height: 340px; margin-top: 10px; }
+.player-preview .mm-setas { position: absolute; inset: 0; pointer-events: none; z-index: 1; stroke-width: 2; fill: none; }
+.player-preview .mm-seta { opacity: 0.85; }
+.player-preview .mm-conceito {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 108px; height: 108px; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 4px; text-align: center; background: #F1EBFF;
+  border: 1.5px solid #5724D6; clip-path: polygon(22% 4%, 78% 4%, 98% 50%, 78% 96%, 22% 96%, 2% 50%);
+  padding: 8px 16px; z-index: 2;
+}
+.player-preview .mm-conceito-icone {
+  width: 26px; height: 26px; border-radius: 50%; background: #5724D6; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.player-preview .mm-conceito-icone svg { width: 15px; height: 15px; }
+.player-preview .mm-conceito-icone svg * { stroke: #fff !important; fill: #fff !important; }
+.player-preview .mm-conceito-texto { font-size: 10.5px; font-weight: 700; color: #202033; line-height: 1.2; }
+.player-preview .mm-topico {
+  position: absolute; top: 0; left: 0; transform: translate(-50%, -50%); width: 128px;
+  background: var(--mm-cor, #F1EBFF); border-radius: 12px; padding: 8px 10px; display: flex;
+  flex-direction: column; gap: 5px; z-index: 2; box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+.player-preview .mm-topico-cabecalho { display: flex; align-items: center; gap: 6px; }
+.player-preview .mm-topico-icone {
+  width: 20px; height: 20px; border-radius: 50%; background: rgba(255,255,255,0.7); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.player-preview .mm-topico-icone svg { width: 12px; height: 12px; }
+.player-preview .mm-topico-icone svg * { stroke: #5724D6 !important; }
+.player-preview .mm-topico-titulo { font-size: 10px; font-weight: 700; color: #202033; line-height: 1.2; }
+.player-preview .mm-topico-paragrafo { font-size: 9px; color: #4b4b5a; line-height: 1.35; text-align: left; margin: 0; }
+.player-preview .mm-topico-lista { list-style: none; padding: 0; margin: 0; text-align: left; }
+.player-preview .mm-topico-lista li { position: relative; padding-left: 10px; font-size: 9px; color: #4b4b5a; line-height: 1.35; }
+.player-preview .mm-topico-lista li + li { margin-top: 1px; }
+.player-preview .mm-topico-lista li::before { content: '•'; position: absolute; left: 0; font-weight: 800; color: #5724D6; }
 
 /* Barra de "Áudio da tela" — narração opcional, disponível em qualquer tipo de tela (ver
    htmlCampoAudioTela/montarAudioTelaHtml). Funciona de verdade aqui na prévia (a professora

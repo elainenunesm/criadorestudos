@@ -24,7 +24,7 @@ function conteudoAulaAtual() {
 
 /** Próximo _id livre pra um novo item de exemplo/checagem/lista/timeline/jogoSinais/agrupamento/distribuicao (referenciado em conteudo.ordem). */
 function proximoIdItem(conteudo) {
-  const ids = [...conteudo.exemplo, ...conteudo.checagem, ...conteudo.lista, ...conteudo.timeline, ...conteudo.jogoSinais, ...conteudo.agrupamento, ...conteudo.distribuicao].map(i => i._id || 0);
+  const ids = [...conteudo.exemplo, ...conteudo.checagem, ...conteudo.lista, ...conteudo.timeline, ...conteudo.jogoSinais, ...conteudo.agrupamento, ...conteudo.distribuicao, ...conteudo.mapaMental].map(i => i._id || 0);
   return Math.max(0, ...ids) + 1;
 }
 
@@ -43,6 +43,7 @@ function garantirOrdem(conteudo) {
   if (!Array.isArray(conteudo.jogoSinais)) conteudo.jogoSinais = [];
   if (!Array.isArray(conteudo.agrupamento)) conteudo.agrupamento = [];
   if (!Array.isArray(conteudo.distribuicao)) conteudo.distribuicao = [];
+  if (!Array.isArray(conteudo.mapaMental)) conteudo.mapaMental = [];
 
   conteudo.exemplo.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
   conteudo.checagem.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
@@ -51,6 +52,7 @@ function garantirOrdem(conteudo) {
   conteudo.jogoSinais.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
   conteudo.agrupamento.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
   conteudo.distribuicao.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
+  conteudo.mapaMental.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
 
   // Remove entradas de itens que não existem mais.
   conteudo.ordem = conteudo.ordem.filter(t => {
@@ -61,6 +63,7 @@ function garantirOrdem(conteudo) {
     if (t.tipo === 'jogoSinais') return conteudo.jogoSinais.some(i => i._id === t.id);
     if (t.tipo === 'agrupamento') return conteudo.agrupamento.some(i => i._id === t.id);
     if (t.tipo === 'distribuicao') return conteudo.distribuicao.some(i => i._id === t.id);
+    if (t.tipo === 'mapaMental') return conteudo.mapaMental.some(i => i._id === t.id);
     return true;
   });
 
@@ -87,6 +90,9 @@ function garantirOrdem(conteudo) {
   conteudo.distribuicao.forEach(item => {
     if (!presentes.has(`distribuicao:${item._id}`)) conteudo.ordem.push({ tipo: 'distribuicao', id: item._id });
   });
+  conteudo.mapaMental.forEach(item => {
+    if (!presentes.has(`mapaMental:${item._id}`)) conteudo.ordem.push({ tipo: 'mapaMental', id: item._id });
+  });
   // Resumo/Lição nascem junto com a aula, mas podem ser excluídos (ver removerPassoAtual) — nesse
   // caso NÃO voltam sozinhos aqui, só se a professora clicar em "Tipo (Telas)" pra adicionar de novo.
   if (!presentes.has('resumo:') && !conteudo.resumoRemovido) conteudo.ordem.push({ tipo: 'resumo' });
@@ -106,6 +112,7 @@ function montarPassos(conteudo) {
   let numJogoSinais = 0;
   let numAgrupamento = 0;
   let numDistribuicao = 0;
+  let numMapaMental = 0;
   return conteudo.ordem.map(token => {
     if (token.tipo === 'exemplo') {
       numExemplo++;
@@ -138,6 +145,10 @@ function montarPassos(conteudo) {
     if (token.tipo === 'distribuicao') {
       numDistribuicao++;
       return { tipo: 'distribuicao', idx: conteudo.distribuicao.findIndex(i => i._id === token.id), id: token.id, titulo: `Distribuição ${numDistribuicao}` };
+    }
+    if (token.tipo === 'mapaMental') {
+      numMapaMental++;
+      return { tipo: 'mapaMental', idx: conteudo.mapaMental.findIndex(i => i._id === token.id), id: token.id, titulo: `Mapa Mental ${numMapaMental}` };
     }
     return { tipo: token.tipo, titulo: TITULO_TELA_FIXO[token.tipo] };
   });
@@ -191,6 +202,7 @@ const ICONE_TELA = {
   jogoSinais: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="19" y2="12"/><polyline points="15 8 19 12 15 16"/><circle cx="8" cy="12" r="1.6" fill="#fff" stroke="none"/></svg>',
   agrupamento: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6"><rect x="2" y="4" width="9" height="16" rx="2"/><rect x="13" y="4" width="9" height="16" rx="2"/><circle cx="6.5" cy="9" r="1.4" fill="#fff" stroke="none"/><circle cx="6.5" cy="15" r="1.4" fill="#fff" stroke="none"/><circle cx="17.5" cy="9" r="1.4" fill="#fff" stroke="none"/><circle cx="17.5" cy="15" r="1.4" fill="#fff" stroke="none"/></svg>',
   distribuicao: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><line x1="4" y1="12" x2="20" y2="12"/><circle cx="12" cy="6" r="1.8" fill="#fff" stroke="none"/><circle cx="12" cy="18" r="1.8" fill="#fff" stroke="none"/></svg>',
+  mapaMental: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="2.6" fill="#fff" stroke="none"/><circle cx="4" cy="5" r="2" fill="#fff" stroke="none"/><circle cx="20" cy="5" r="2" fill="#fff" stroke="none"/><circle cx="4" cy="19" r="2" fill="#fff" stroke="none"/><circle cx="20" cy="19" r="2" fill="#fff" stroke="none"/><line x1="12" y1="12" x2="4" y2="5"/><line x1="12" y1="12" x2="20" y2="5"/><line x1="12" y1="12" x2="4" y2="19"/><line x1="12" y1="12" x2="20" y2="19"/></svg>',
 };
 
 /** Dados de mentira só pra prévia de "que tipo de tela é essa" — nunca chegam a entrar
@@ -284,6 +296,16 @@ const DADOS_FICTICIOS_TELA = {
     titulo: 'Assim vai aparecer o título (opcional).',
     instrucao: 'Assim vai aparecer a instrução (opcional) — quem digita a quantidade de elementos e de grupos é a aluna, ao estudar a aula.',
   },
+  mapaMental: {
+    titulo: 'Assim vai aparecer o título (opcional).',
+    conceito: 'Conceito central',
+    tipo: 'livro',
+    topicos: [
+      { tipo: 'tarefa', cor: '#DFF3FC', titulo: 'Tópico 1', texto: 'Assim vai aparecer o texto do tópico.' },
+      { tipo: 'dica', cor: '#FFF8D9', titulo: 'Tópico 2', texto: 'E aqui outro tópico.' },
+      { tipo: 'busca', cor: '#DFF5E5', titulo: 'Tópico 3', texto: 'E mais um tópico.' },
+    ],
+  },
 };
 
 const NOME_TELA_ADICIONAR = {
@@ -308,6 +330,7 @@ const NOME_TELA_ADICIONAR = {
   jogoSinais: 'Adicionar reta numérica',
   agrupamento: 'Adicionar agrupamento',
   distribuicao: 'Adicionar distribuição',
+  mapaMental: 'Adicionar mapa mental',
 };
 
 /** Tipo (e, se aplicável, a variante) escolhidos no popup "Tipo (Telas)" — ainda não
@@ -361,6 +384,8 @@ function mostrarPreviewNovaTela(tipo, modo) {
     body.innerHTML = previewAgrupamento(DADOS_FICTICIOS_TELA.agrupamento);
   } else if (tipo === 'distribuicao') {
     body.innerHTML = previewDistribuicao(DADOS_FICTICIOS_TELA.distribuicao);
+  } else if (tipo === 'mapaMental') {
+    body.innerHTML = previewMapaMental(DADOS_FICTICIOS_TELA.mapaMental);
   } else {
     const DADOS_CHECAGEM_POR_MODO = {
       palavra: DADOS_FICTICIOS_TELA.checagemPalavra,
@@ -371,6 +396,7 @@ function mostrarPreviewNovaTela(tipo, modo) {
     body.innerHTML = previewChecagemCorpo(dados, 'padrao');
   }
   ligarAudioTelaPreview(body);
+  ligarMapaMentalPreview(body);
 
   // Cabeçalho com a mesma cor de marca das outras prévias — só pra mostrar como vai ficar,
   // por isso o "passo" é fictício (essa tela ainda nem foi adicionada de verdade).
@@ -516,6 +542,11 @@ function renderEstruturaTelas() {
           iconeHtml: badgeIcone(ICONE_TELA.distribuicao, '#0891B2'),
           onClick: () => mostrarPreviewNovaTela('distribuicao'),
         },
+        {
+          label: 'Adicionar mapa mental', sublabel: 'Conceito central + tópicos ao redor, conectados por setas, com destaque sincronizado ao áudio', grupo: 'Mapa Mental',
+          iconeHtml: badgeIcone(ICONE_TELA.mapaMental, '#5724D6'),
+          onClick: () => mostrarPreviewNovaTela('mapaMental'),
+        },
       ];
       // "Resumo" e "Lição" são fixos por padrão (toda aula nasce com os dois) — só aparecem aqui
       // pra adicionar de volta se a professora tiver excluído antes (ver abrirMenuTela/removerPassoAtual).
@@ -571,7 +602,7 @@ function abrirMenuTela(event, idx) {
   if (podeMoverTela(passos, idx, 1)) itens.push({ acao: 'descer', label: '⬇️ Mover para baixo', onClick: () => moverTela(idx, 1) });
   // Resumo e Lição são opcionais (podem ser excluídos e depois adicionados de volta pelo "Tipo
   // (Telas)"), diferente de "Antes de começar", que é sempre obrigatório.
-  if (passo.tipo === 'exemplo' || passo.tipo === 'checagem' || passo.tipo === 'resumo' || passo.tipo === 'licao' || passo.tipo === 'lista' || passo.tipo === 'timeline' || passo.tipo === 'jogoSinais' || passo.tipo === 'agrupamento' || passo.tipo === 'distribuicao') {
+  if (passo.tipo === 'exemplo' || passo.tipo === 'checagem' || passo.tipo === 'resumo' || passo.tipo === 'licao' || passo.tipo === 'lista' || passo.tipo === 'timeline' || passo.tipo === 'jogoSinais' || passo.tipo === 'agrupamento' || passo.tipo === 'distribuicao' || passo.tipo === 'mapaMental') {
     itens.push({
       acao: 'excluir', label: '🗑 Excluir esta tela', onClick: () => {
         conteudoEstado.passoIndex = idx;
@@ -700,6 +731,9 @@ function adicionarItemPasso(tipoLista, variante) {
   } else if (tipoLista === 'distribuicao') {
     conteudo.distribuicao.push({ _id: id, titulo: '', instrucao: '' });
     inserirNaOrdemAntesDoResumo(conteudo, { tipo: 'distribuicao', id });
+  } else if (tipoLista === 'mapaMental') {
+    conteudo.mapaMental.push({ _id: id, titulo: '', conceito: '', tipo: 'livro', topicos: [] });
+    inserirNaOrdemAntesDoResumo(conteudo, { tipo: 'mapaMental', id });
   } else if (tipoLista === 'resumo' || tipoLista === 'licao') {
     // Só existe uma de cada — o conteúdo (texto já preenchido antes de excluir) não se perde,
     // então "adicionar de volta" é só religar a tela na ordem, via garantirOrdem().
@@ -728,6 +762,7 @@ function removerPassoAtual() {
   else if (passo.tipo === 'jogoSinais') conteudo.jogoSinais.splice(passo.idx, 1);
   else if (passo.tipo === 'agrupamento') conteudo.agrupamento.splice(passo.idx, 1);
   else if (passo.tipo === 'distribuicao') conteudo.distribuicao.splice(passo.idx, 1);
+  else if (passo.tipo === 'mapaMental') conteudo.mapaMental.splice(passo.idx, 1);
   else if (passo.tipo === 'resumo') conteudo.resumoRemovido = true;
   else if (passo.tipo === 'licao') conteudo.licaoRemovido = true;
   else return;
@@ -1090,6 +1125,7 @@ function renderizarConteudo() {
     jogoSinais: renderFormJogoSinais,
     agrupamento: renderFormAgrupamento,
     distribuicao: renderFormDistribuicao,
+    mapaMental: renderFormMapaMental,
   };
   renderers[passo.tipo](formEl, aula.conteudo, passo);
 
@@ -2761,6 +2797,166 @@ function renderFormDistribuicao(el, conteudo, passo) {
   el.querySelector('#dvInstrucao').addEventListener('blur', () => { podarDestaque(dv, 'instrucao'); renderDestaquesInstrucao(); podarSincronia(dv, 'instrucao'); atualizarSincroniaDv(); });
 }
 
+/** Paleta sugerida pro fundo de cada tópico do Mapa Mental — a professora pode escolher uma
+ * dessas ou uma cor livre (input color ao lado das amostras). */
+const PALETA_MAPA_MENTAL = ['#DFF3FC', '#FFF8D9', '#DFF5E5', '#FCE8E8', '#EAE8FF', '#F1EBFF'];
+
+/** Marca o início/fim (em segundos do áudio) em que um tópico do Mapa Mental fica em
+ * destaque — mesma interação do widget de sincronia de texto (ver montarSincroniaAudio):
+ * clicar em "Marcar início" toca o áudio a partir de onde ele estiver, clicar em "Marcar
+ * fim" pausa e grava o tempo. Guarda direto em `topico.audioInicio`/`topico.audioFim`
+ * (sem checklist de palavras, é o tópico inteiro que acende — ver mostrarMapaMental em
+ * vendor/estudo/js/estudo.mjs). */
+function montarMarcacaoTempoTopico(wrapEl, topico, getAudioEl) {
+  function formatar(s) {
+    if (s == null || !isFinite(s)) return '—';
+    return `${String(Math.floor(s / 60)).padStart(2, '0')}:${(s % 60).toFixed(1).padStart(4, '0')}`;
+  }
+  function render() {
+    const temTempo = topico.audioInicio != null || topico.audioFim != null;
+    wrapEl.innerHTML = `
+      <div class="mm-topico-tempo">
+        <span class="mm-topico-tempo-valores">${formatar(topico.audioInicio)} – ${formatar(topico.audioFim)}</span>
+        <button type="button" class="btn-add-item mm-btn-marcar-inicio">▶ Marcar início aqui</button>
+        <button type="button" class="btn-add-item mm-btn-marcar-fim">⏹ Marcar fim aqui</button>
+        ${temTempo ? '<button type="button" class="btn-remover-item mm-btn-limpar-tempo">Limpar</button>' : ''}
+      </div>`;
+    wrapEl.querySelector('.mm-btn-marcar-inicio').addEventListener('click', () => {
+      const audioEl = getAudioEl();
+      if (!audioEl) return;
+      topico.audioInicio = audioEl.currentTime;
+      audioEl.play().catch(() => {});
+      render();
+      renderPreviewAtual();
+    });
+    wrapEl.querySelector('.mm-btn-marcar-fim').addEventListener('click', () => {
+      const audioEl = getAudioEl();
+      if (!audioEl) return;
+      topico.audioFim = audioEl.currentTime;
+      audioEl.pause();
+      render();
+      renderPreviewAtual();
+    });
+    const btnLimpar = wrapEl.querySelector('.mm-btn-limpar-tempo');
+    if (btnLimpar) btnLimpar.addEventListener('click', () => {
+      delete topico.audioInicio;
+      delete topico.audioFim;
+      render();
+      renderPreviewAtual();
+    });
+  }
+  render();
+}
+
+/** Mapa Mental: conceito central + tópicos ao redor dele, conectados por setas coloridas no
+ * player exportado (ver mostrarMapaMental em vendor/estudo/js/estudo.mjs). A posição de cada
+ * tópico no mapa é automática, pela ordem em que são adicionados aqui (preenche um grid 3×3
+ * em volta do conceito central — por isso o limite de 8). */
+function renderFormMapaMental(el, conteudo, passo) {
+  const mm = conteudo.mapaMental[passo.idx];
+  if (!Array.isArray(mm.topicos)) mm.topicos = [];
+  el.innerHTML = `
+    <div class="form-secao">
+      ${htmlCampoAudioTela()}
+      <div class="campo" style="margin-top:16px">${htmlLabelComEstilo('Título da tela (opcional)', 'titulo')}<input type="text" id="mmTitulo"></div>
+      <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
+      <div id="mmDestaqueTitulo"></div>
+      <div class="secao-titulo-editor" style="margin-top:16px">Conceito central</div>
+      <div class="campo">${htmlTipoIconePicker(mm, '#5724D6')}</div>
+      ${htmlCampoIconeExterno(mm)}
+      <div class="campo">${htmlLabelComEstilo('Texto do conceito central', 'conceito')}<input type="text" id="mmConceito" placeholder="Ex: Regime Jurídico Administrativo"></div>
+      <div class="secao-titulo-editor">Tópicos (até 8 — preenchem o mapa na ordem em que forem adicionados)</div>
+      <div class="lista-itens" id="listaMmTopicos"></div>
+      <button class="btn-add-item" type="button" id="btnAddMmTopico">+ Adicionar tópico</button>
+    </div>`;
+
+  const camposTextoMm = [
+    { rotulo: 'Título da tela', campo: 'titulo' },
+    { rotulo: 'Conceito central', campo: 'conceito' },
+  ];
+  const atualizarSincroniaMm = ligarCampoAudioTela(el, mm, camposTextoMm);
+
+  el.querySelector('#mmTitulo').value = mm.titulo || '';
+  el.querySelector('#mmTitulo').addEventListener('input', e => { mm.titulo = e.target.value; renderPreviewAtual(); });
+  el.querySelector('#mmConceito').value = mm.conceito || '';
+  el.querySelector('#mmConceito').addEventListener('input', e => { mm.conceito = e.target.value; renderPreviewAtual(); });
+  ligarBotoesEstiloTexto(el, mm);
+  ligarCampoIconeExterno(el, mm);
+  ligarTipoIconePicker(el, mm, '#5724D6', renderPreviewAtual);
+
+  const renderDestaquesMmTitulo = montarDestaqueFrases(el.querySelector('#mmDestaqueTitulo'), mm, [
+    { rotulo: 'Título da tela', campo: 'titulo' },
+  ]);
+  el.querySelector('#mmTitulo').addEventListener('blur', () => { podarDestaque(mm, 'titulo'); renderDestaquesMmTitulo(); podarSincronia(mm, 'titulo'); atualizarSincroniaMm(); });
+  el.querySelector('#mmConceito').addEventListener('blur', () => { podarSincronia(mm, 'conceito'); atualizarSincroniaMm(); });
+
+  const lista = el.querySelector('#listaMmTopicos');
+  function renderTopicos() {
+    lista.innerHTML = '';
+    mm.topicos.forEach((t, i) => {
+      const card = document.createElement('div');
+      card.className = 'item-card';
+      card.innerHTML = `
+        <div class="item-card-topo"><strong>Tópico ${i + 1}</strong><button class="btn-remover-item" type="button">Remover</button></div>
+        <div class="campo">${htmlTipoIconePicker(t, '#5724D6')}</div>
+        ${htmlCampoIconeExterno(t)}
+        <div class="campo">
+          <label>Cor</label>
+          <div class="mm-paleta">
+            ${PALETA_MAPA_MENTAL.map(cor => `<button type="button" class="mm-paleta-cor${t.cor === cor ? ' ativa' : ''}" data-cor="${cor}" style="background:${cor}" title="${cor}"></button>`).join('')}
+            <input type="color" data-tf="cor" title="Cor personalizada">
+          </div>
+        </div>
+        <div class="campo">${htmlLabelComEstilo('Título do tópico', 'titulo')}<input type="text" data-tf="titulo" placeholder="Ex: Conceito"></div>
+        <div class="campo">${htmlLabelComEstilo('Texto explicativo', 'texto')}<textarea data-tf="texto" rows="3" placeholder="Ex: Conjunto de normas que regula a atuação da Administração Pública."></textarea></div>
+        <div class="secao-titulo-editor" style="margin-top:12px">Destaque nas frases (palavras em azul)</div>
+        <div id="mmDestaqueTopico${i}"></div>
+        <div class="secao-titulo-editor" style="margin-top:12px">Destaque sincronizado com o áudio (opcional)</div>
+        <div id="mmTempoTopico${i}"></div>`;
+      card.querySelector('[data-tf="cor"]').value = t.cor || PALETA_MAPA_MENTAL[0];
+      card.querySelector('[data-tf="titulo"]').value = t.titulo || '';
+      card.querySelector('[data-tf="texto"]').value = t.texto || '';
+      card.querySelectorAll('[data-tf="titulo"], [data-tf="texto"]').forEach(input => {
+        input.addEventListener('input', () => { t[input.dataset.tf] = input.value; renderPreviewAtual(); });
+      });
+      card.querySelectorAll('.mm-paleta-cor').forEach(btn => {
+        btn.addEventListener('click', () => {
+          t.cor = btn.dataset.cor;
+          card.querySelector('[data-tf="cor"]').value = t.cor;
+          card.querySelectorAll('.mm-paleta-cor').forEach(b => b.classList.toggle('ativa', b === btn));
+          renderPreviewAtual();
+        });
+      });
+      card.querySelector('[data-tf="cor"]').addEventListener('input', e => {
+        t.cor = e.target.value;
+        card.querySelectorAll('.mm-paleta-cor').forEach(b => b.classList.toggle('ativa', b.dataset.cor === t.cor));
+        renderPreviewAtual();
+      });
+      ligarBotoesEstiloTexto(card, t);
+      const renderDestaquesMmTopico = montarDestaqueFrases(card.querySelector(`#mmDestaqueTopico${i}`), t, [
+        { rotulo: 'Título do tópico', campo: 'titulo' },
+        { rotulo: 'Texto explicativo', campo: 'texto' },
+      ]);
+      card.querySelectorAll('[data-tf="titulo"], [data-tf="texto"]').forEach(input => {
+        input.addEventListener('blur', () => { podarDestaque(t, input.dataset.tf); renderDestaquesMmTopico(); });
+      });
+      ligarCampoIconeExterno(card, t);
+      ligarTipoIconePicker(card, t, '#5724D6', renderPreviewAtual);
+      montarMarcacaoTempoTopico(card.querySelector(`#mmTempoTopico${i}`), t, () => el.querySelector('.campo-audio-tela-preview audio'));
+      card.querySelector('.btn-remover-item').addEventListener('click', () => { mm.topicos.splice(i, 1); renderTopicos(); renderPreviewAtual(); });
+      lista.appendChild(card);
+    });
+    el.querySelector('#btnAddMmTopico').style.display = mm.topicos.length >= 8 ? 'none' : '';
+  }
+  renderTopicos();
+  el.querySelector('#btnAddMmTopico').addEventListener('click', () => {
+    if (mm.topicos.length >= 8) return;
+    const cor = PALETA_MAPA_MENTAL[mm.topicos.length % PALETA_MAPA_MENTAL.length];
+    mm.topicos.push({ tipo: 'acao', cor, titulo: '', texto: '' });
+    renderTopicos(); renderPreviewAtual();
+  });
+}
+
 function renderFormLicao(el, conteudo) {
   const l = conteudo.licao;
   el.innerHTML = `
@@ -2847,6 +3043,7 @@ function corpoDoPasso(aula, passo, resp) {
   if (passo.tipo === 'jogoSinais') return { html: previewJogoSinais(aula.conteudo.jogoSinais[passo.idx]), temToggle: false };
   if (passo.tipo === 'agrupamento') return { html: previewAgrupamento(aula.conteudo.agrupamento[passo.idx]), temToggle: false };
   if (passo.tipo === 'distribuicao') return { html: previewDistribuicao(aula.conteudo.distribuicao[passo.idx]), temToggle: false };
+  if (passo.tipo === 'mapaMental') return { html: previewMapaMental(aula.conteudo.mapaMental[passo.idx]), temToggle: false };
   return { html: '', temToggle: false };
 }
 
@@ -2863,6 +3060,7 @@ function preencherCaixaPreview(prefixo, aula, passos, indice, resp) {
   const bodyEl = document.getElementById(`${prefixo}Body`);
   bodyEl.innerHTML = html;
   ligarAudioTelaPreview(bodyEl);
+  ligarMapaMentalPreview(bodyEl);
 
   const feedbackEl = document.getElementById(`${prefixo}Feedback`);
   feedbackEl.className = 'pp-feedback';
@@ -3452,6 +3650,133 @@ function previewDistribuicao(dv) {
     </div>
     <button type="button" class="pp-btn-confirmar" disabled>▶ Iniciar animação</button>
     <p class="pp-jg-mock-nota">A aluna digita os dois números aqui (elementos de 1 a 25, grupos de 1 a 5) e vê a distribuição acontecer, ao estudar a aula.</p>`;
+}
+
+/** Mesma paleta de setas de vendor/estudo/js/estudo.mjs (CORES_SETA_MAPA_MENTAL) — precisa
+ * ser idêntica pra prévia do Construtor bater com o player de verdade. */
+const CORES_SETA_MAPA_MENTAL = ['#3B82F6', '#F97316', '#EAB308', '#16A34A', '#EF4444', '#7C3AED', '#0891B2', '#DB2777'];
+
+/** Texto de um tópico do Mapa Mental: mais de uma linha vira lista com marcadores (ex:
+ * "Princípios" no mock de referência), uma linha só vira parágrafo normal — mesma lógica de
+ * renderTopicoTextoMapaMental em vendor/estudo/js/estudo.mjs, duplicada aqui com
+ * tokenizarFrase/escaparHtml (as versões já usadas pelas outras prévias do Construtor). */
+function renderTopicoTextoMapaMental(texto, indices, indicesNegrito) {
+  if (!texto) return '';
+  const linhas = texto.split('\n').map(l => l.trim()).filter(Boolean);
+  if (!linhas.length) return '';
+  const destacadas = new Set(indices || []);
+  const negritos = new Set(indicesNegrito || []);
+  let contador = 0;
+  const renderLinha = linha => tokenizarFrase(linha).map(tok => {
+    const i = contador++;
+    if (ehPontuacao(tok)) return escaparHtml(tok);
+    const azul = destacadas.has(i);
+    const negrito = negritos.has(i);
+    if (!azul && !negrito) return escaparHtml(tok);
+    const classe = azul ? ' class="pp-destaque-azul"' : '';
+    const estilo = negrito ? ' style="font-weight:700"' : '';
+    return `<span${classe}${estilo}>${escaparHtml(tok)}</span>`;
+  }).join(' ').replace(/ ([.,!?;:]+)/g, '$1');
+
+  if (linhas.length === 1) return `<p class="mm-topico-paragrafo">${renderLinha(linhas[0])}</p>`;
+  return `<ul class="mm-topico-lista">${linhas.map(l => `<li>${renderLinha(l)}</li>`).join('')}</ul>`;
+}
+
+/** Prévia do mapa mental — mesmo visual do player exportado (hexágono central + tópicos em
+ * círculo ao redor, conectados por setas coloridas em SVG), só que calculado aqui dentro da
+ * caixinha de prévia do Construtor em vez da tela cheia — ver ligarMapaMentalPreview logo
+ * abaixo, que roda o posicionamento depois do HTML entrar na página (ver mostrarMapaMental/
+ * posicionarTopicosMapaMental em vendor/estudo/js/estudo.mjs pro equivalente de verdade). */
+function previewMapaMental(mm) {
+  const topicos = (mm.topicos || []).slice(0, 8);
+  if (!mm.conceito && !topicos.length && !mm.audioUrl) return '<p class="pp-vazio">Preencha o conceito central e adicione tópicos para ver a prévia.</p>';
+  return `
+    ${montarAudioTelaHtml(mm.audioUrl)}
+    ${mm.titulo ? `<p class="pp-titulo"${estiloTextoInline(mm, 'titulo')}>${renderFraseComDestaque(mm.titulo, mm.tituloDestaque, mm.tituloDestaqueNegrito)}</p>` : ''}
+    <div class="mm-mapa">
+      <svg class="mm-setas"></svg>
+      <div class="mm-conceito">
+        <div class="mm-conceito-icone">${iconeTipo(mm.tipo, '#5724D6', mm.iconeUrl)}</div>
+        <span class="mm-conceito-texto">${escaparHtml(mm.conceito || '')}</span>
+      </div>
+      ${topicos.map((t, ti) => `
+        <div class="mm-topico" style="--mm-cor:${t.cor || '#DFF3FC'}" data-seta-cor="${CORES_SETA_MAPA_MENTAL[ti % CORES_SETA_MAPA_MENTAL.length]}">
+          <div class="mm-topico-cabecalho">
+            <div class="mm-topico-icone">${iconeTipo(t.tipo, '#5724D6', t.iconeUrl)}</div>
+            <span class="mm-topico-titulo">${escaparHtml(t.titulo || '')}</span>
+          </div>
+          ${renderTopicoTextoMapaMental(t.texto, t.textoDestaque, t.textoDestaqueNegrito)}
+        </div>`).join('')}
+    </div>`;
+}
+
+/** Posiciona os tópicos em círculo ao redor do conceito central dentro da caixinha de prévia
+ * (ângulos igualmente espaçados, começando no topo) e desenha as setas — mesma lógica de
+ * posicionarTopicosMapaMental/desenharSetasMapaMental em vendor/estudo/js/estudo.mjs,
+ * duplicada aqui porque a caixinha de prévia do Construtor é um DOM separado da tela de
+ * verdade. Chamada sempre que o HTML da prévia é trocado (ver preencherCaixaPreview/
+ * mostrarPreviewNovaTela) — se não tiver `.mm-mapa` dentro, não faz nada. */
+function ligarMapaMentalPreview(container) {
+  const mapaEl = container && container.querySelector('.mm-mapa');
+  if (!mapaEl) return;
+
+  function posicionar() {
+    const conceitoEl = mapaEl.querySelector('.mm-conceito');
+    const topicoEls = [...mapaEl.querySelectorAll('.mm-topico')];
+    if (!conceitoEl || !topicoEls.length) return;
+    if (getComputedStyle(mapaEl.querySelector('.mm-setas')).display === 'none') {
+      topicoEls.forEach(el => { el.style.left = ''; el.style.top = ''; });
+      return;
+    }
+    const rect = mapaEl.getBoundingClientRect();
+    const cx = rect.width / 2, cy = rect.height / 2;
+    const raio = Math.max(110, Math.min(rect.width, rect.height) * 0.4);
+    const n = topicoEls.length;
+    topicoEls.forEach((el, i) => {
+      const angulo = (2 * Math.PI * i) / n - Math.PI / 2;
+      el.style.left = `${cx + raio * Math.cos(angulo)}px`;
+      el.style.top = `${cy + raio * Math.sin(angulo)}px`;
+    });
+  }
+
+  function desenharSetas() {
+    posicionar();
+    const svg = mapaEl.querySelector('.mm-setas');
+    const conceitoEl = mapaEl.querySelector('.mm-conceito');
+    const topicoEls = [...mapaEl.querySelectorAll('.mm-topico')];
+    if (!svg || !conceitoEl || !topicoEls.length) { if (svg) svg.innerHTML = ''; return; }
+    if (getComputedStyle(svg).display === 'none') return;
+    const rectMapa = mapaEl.getBoundingClientRect();
+    const w = rectMapa.width, h = rectMapa.height;
+    if (!w || !h) return;
+    svg.setAttribute('width', w);
+    svg.setAttribute('height', h);
+    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    const centro = el => {
+      const r = el.getBoundingClientRect();
+      return { x: r.left + r.width / 2 - rectMapa.left, y: r.top + r.height / 2 - rectMapa.top };
+    };
+    const c0 = centro(conceitoEl);
+    let defs = '<defs>';
+    let paths = '';
+    topicoEls.forEach((el, i) => {
+      const cor = el.dataset.setaCor || '#5724D6';
+      const p1 = centro(el);
+      const dx = p1.x - c0.x, dy = p1.y - c0.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const mx = (c0.x + p1.x) / 2, my = (c0.y + p1.y) / 2;
+      const offset = Math.min(30, dist * 0.16) * (i % 2 === 0 ? 1 : -1);
+      const qx = mx - (dy / dist) * offset;
+      const qy = my + (dx / dist) * offset;
+      const markerId = `ppMmSetaPonta${i}`;
+      defs += `<marker id="${markerId}" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="${cor}"/></marker>`;
+      paths += `<path class="mm-seta" d="M${c0.x},${c0.y} Q${qx},${qy} ${p1.x},${p1.y}" stroke="${cor}" marker-end="url(#${markerId})"/>`;
+    });
+    svg.innerHTML = defs + '</defs>' + paths;
+  }
+
+  desenharSetas();
+  requestAnimationFrame(desenharSetas); // o layout final (ícones/fontes) só se acomoda após o 1º paint
 }
 
 function previewLicao(l) {

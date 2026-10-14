@@ -47,6 +47,9 @@ function novoConteudo() {
     // "Distribuição — Divisão" (elementos ÷ grupos, distribuição animada) — também
     // repetível, mesmo esquema da Lista/Timeline/Jogo de Sinais/Agrupamento.
     distribuicao: [],
+    // "Mapa Mental" (conceito central + tópicos ao redor, conectados por setas, com
+    // destaque sincronizado ao áudio) — também repetível, mesmo esquema da Lista/Timeline.
+    mapaMental: [],
   };
 }
 

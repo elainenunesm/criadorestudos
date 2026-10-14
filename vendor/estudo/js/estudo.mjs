@@ -2183,6 +2183,196 @@ function mostrarDistribuicao(aula, introIdx, i) {
   });
 }
 
+/** Ícone de um item do Mapa Mental (conceito central ou tópico) — mesmo <svg> embrulhado
+ * já usado pros ícones de Resumo/Lista (RESUMO_ICONES/iconeExternoOuNulo), só junta os dois
+ * num helper porque aqui é chamado várias vezes (central + cada tópico). */
+function iconeMapaMentalSvg(item, cor) {
+  return `<svg viewBox="0 0 24 24" width="22" height="22">${iconeExternoOuNulo(item) || (RESUMO_ICONES[item.tipo] ? RESUMO_ICONES[item.tipo](cor) : '')}</svg>`;
+}
+
+/** Texto explicativo de um tópico do Mapa Mental: se tiver mais de uma linha (a professora
+ * digitou um item por linha), vira lista com marcadores — como "Princípios"/"Sujeitos" no
+ * mock de referência; com uma linha só, fica um parágrafo normal (como "Conceito"/
+ * "Finalidade"). Mesma lógica de token/destaque de renderFraseComDestaque, só reorganizando
+ * a saída em linhas/<li> em vez de <br> — precisa ser uma cópia em vez de reusar porque os
+ * índices de destaque continuam contando palavra por palavra em sequência por TODO o texto
+ * (entre linhas), exatamente como tokenizarFrase em js/conteudo.js já espera. */
+function renderTopicoTextoMapaMental(texto, indices, indicesNegrito, sincronia) {
+  if (!texto) return '';
+  const linhas = texto.split('\n').map(l => l.trim()).filter(Boolean);
+  if (!linhas.length) return '';
+  const destacadas = new Set(indices || []);
+  const negritos = new Set(indicesNegrito || []);
+  const sincroniaPorPalavra = new Map();
+  (sincronia || []).forEach(s => { s.palavras.forEach(i => sincroniaPorPalavra.set(i, s)); });
+  let contador = 0;
+  const renderLinha = linha => tokenizarFraseSimples(linha).map(tok => {
+    const i = contador++;
+    if (/^[.,!?;:]+$/.test(tok)) return tok;
+    const azul = destacadas.has(i);
+    const negrito = negritos.has(i);
+    const trecho = sincroniaPorPalavra.get(i);
+    if (!azul && !negrito && !trecho) return tok;
+    const classes = [azul ? 'destaque-azul' : '', trecho ? 'tela-sincronia-frase' : ''].filter(Boolean).join(' ');
+    const estilo = negrito ? ' style="font-weight:700"' : '';
+    const dataAttrs = trecho ? ` data-tempo-inicio="${trecho.tempoInicio}" data-tempo-fim="${trecho.tempoFim}"` : '';
+    return `<span${classes ? ` class="${classes}"` : ''}${estilo}${dataAttrs}>${tok}</span>`;
+  }).join(' ').replace(/ ([.,!?;:]+)/g, '$1');
+
+  if (linhas.length === 1) return `<p class="mm-topico-paragrafo">${renderLinha(linhas[0])}</p>`;
+  return `<ul class="mm-topico-lista">${linhas.map(l => `<li>${renderLinha(l)}</li>`).join('')}</ul>`;
+}
+
+/** Cor de cada seta (uma por tópico, cicla se houver mais tópicos que cores) — sempre num tom
+ * saturado, nunca a cor pastel de fundo do próprio tópico (essa é clara demais pra servir de
+ * traço visível). Ordem segue a sugestão do spec: azul, laranja, amarelo, verde, vermelho,
+ * roxo, +2 extras pro 7º/8º tópico. */
+const CORES_SETA_MAPA_MENTAL = ['#3B82F6', '#F97316', '#EAB308', '#16A34A', '#EF4444', '#7C3AED', '#0891B2', '#DB2777'];
+
+/** Posiciona os tópicos em círculo ao redor do conceito central (ângulos igualmente
+ * espaçados, começando no topo e girando no sentido horário) — diferente de um grid fixo
+ * com posições pré-definidas, isso fica equilibrado e sem espaços vazios não importa quantos
+ * tópicos existam (1 a 8). Em telas estreitas (ver .mm-mapa em estudo.css) o CSS empilha os
+ * tópicos verticalmente e essa função não faz nada — só entra em ação na largura em que o
+ * mapa vira um círculo de verdade. */
+function posicionarTopicosMapaMental(mapaEl) {
+  const conceitoEl = mapaEl.querySelector('.mm-conceito');
+  const topicoEls = [...mapaEl.querySelectorAll('.mm-topico')];
+  if (!conceitoEl || !topicoEls.length) return;
+  const modoCirculo = window.matchMedia('(min-width: 640px)').matches;
+  if (!modoCirculo) {
+    topicoEls.forEach(el => { el.style.left = ''; el.style.top = ''; });
+    return;
+  }
+  const rect = mapaEl.getBoundingClientRect();
+  const cx = rect.width / 2, cy = rect.height / 2;
+  const raio = Math.max(190, Math.min(rect.width, rect.height) * 0.42);
+  const n = topicoEls.length;
+  topicoEls.forEach((el, i) => {
+    const angulo = (2 * Math.PI * i) / n - Math.PI / 2;
+    el.style.left = `${cx + raio * Math.cos(angulo)}px`;
+    el.style.top = `${cy + raio * Math.sin(angulo)}px`;
+  });
+}
+
+/** Desenha (ou redesenha) as setas curvas que conectam o conceito central a cada tópico, a
+ * partir da posição real dos elementos na tela (já posicionados por posicionarTopicosMapaMental)
+ * — nunca uma imagem estática, por isso acompanha o redimensionamento automaticamente (chamada
+ * nos resizes e sempre que algum tópico entra/sai do destaque sincronizado ao áudio). Em telas
+ * estreitas o CSS empilha os tópicos verticalmente e esconde esse SVG (ver .mm-setas em
+ * estudo.css), então a função simplesmente não desenha nada nesse caso. */
+function desenharSetasMapaMental(mapaEl) {
+  posicionarTopicosMapaMental(mapaEl);
+  const svg = mapaEl.querySelector('.mm-setas');
+  const conceitoEl = mapaEl.querySelector('.mm-conceito');
+  const topicoEls = [...mapaEl.querySelectorAll('.mm-topico')];
+  if (!svg || !conceitoEl || !topicoEls.length) { if (svg) svg.innerHTML = ''; return; }
+  if (getComputedStyle(svg).display === 'none') return;
+
+  const rectMapa = mapaEl.getBoundingClientRect();
+  const w = rectMapa.width, h = rectMapa.height;
+  if (!w || !h) return;
+  svg.setAttribute('width', w);
+  svg.setAttribute('height', h);
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+
+  const centro = el => {
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2 - rectMapa.left, y: r.top + r.height / 2 - rectMapa.top };
+  };
+  const c0 = centro(conceitoEl);
+  let defs = '<defs>';
+  let paths = '';
+  topicoEls.forEach((el, i) => {
+    const cor = el.dataset.setaCor || '#5724D6';
+    const p1 = centro(el);
+    const dx = p1.x - c0.x, dy = p1.y - c0.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    const mx = (c0.x + p1.x) / 2, my = (c0.y + p1.y) / 2;
+    // Desloca o ponto de controle perpendicularmente à reta — curva a linha o bastante pra
+    // reduzir cruzamentos entre setas vizinhas, alternando o lado a cada tópico.
+    const offset = Math.min(36, dist * 0.16) * (i % 2 === 0 ? 1 : -1);
+    const qx = mx - (dy / dist) * offset;
+    const qy = my + (dx / dist) * offset;
+    const markerId = `mmSetaPonta${i}`;
+    const ativa = el.classList.contains('ativa');
+    defs += `<marker id="${markerId}" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="${cor}"/></marker>`;
+    paths += `<path class="mm-seta${ativa ? ' ativa' : ''}" d="M${c0.x},${c0.y} Q${qx},${qy} ${p1.x},${p1.y}" stroke="${cor}" marker-end="url(#${markerId})"/>`;
+  });
+  svg.innerHTML = defs + '</defs>' + paths;
+}
+
+function mostrarMapaMental(aula, introIdx, i) {
+  const mm = (aula.mapaMental || [])[i] || {};
+  const topicos = (mm.topicos || []).slice(0, 8);
+
+  questaoInfo.textContent      = aula.titulo;
+  feedbackBar.style.display    = 'none';
+  btnAnterior.style.display    = '';
+  renderIntroSegs(introIdx - 1);
+  questaoTitulo.innerHTML      = '';
+  questaoSubtitulo.textContent = '';
+
+  opcoesEl.innerHTML = `
+    <div class="resumo-card">
+      ${montarAudioTelaHtml(mm.audioUrl)}
+      ${mm.titulo ? `<p class="resumo-titulo"${estiloTextoInline(mm, 'titulo')}>${renderFraseComDestaque(mm.titulo || '', mm.tituloDestaque, mm.tituloDestaqueNegrito, sincroniaDoCampo(mm, 'titulo'))}</p>` : ''}
+      <div class="mm-mapa" id="mmMapa${i}">
+        <svg class="mm-setas"></svg>
+        <div class="mm-conceito">
+          <div class="mm-conceito-icone">${iconeMapaMentalSvg(mm, '#5724D6')}</div>
+          <span class="mm-conceito-texto">${renderFraseComDestaque(mm.conceito || '', mm.conceitoDestaque, mm.conceitoDestaqueNegrito, sincroniaDoCampo(mm, 'conceito'))}</span>
+        </div>
+        ${topicos.map((t, ti) => `
+          <div class="mm-topico" style="--mm-cor:${t.cor || '#DFF3FC'}" data-seta-cor="${CORES_SETA_MAPA_MENTAL[ti % CORES_SETA_MAPA_MENTAL.length]}" data-idx="${ti}">
+            <div class="mm-topico-cabecalho">
+              <div class="mm-topico-icone">${iconeMapaMentalSvg(t, '#5724D6')}</div>
+              <span class="mm-topico-titulo">${renderFraseComDestaque(t.titulo || '', t.tituloDestaque, t.tituloDestaqueNegrito)}</span>
+            </div>
+            ${renderTopicoTextoMapaMental(t.texto, t.textoDestaque, t.textoDestaqueNegrito)}
+          </div>`).join('')}
+      </div>
+    </div>`;
+
+  atualizarBotaoMarcar(`mapaMental${i}`);
+  trocarAudioDaTela(mm);
+  btnProxima.innerHTML = 'Próximo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+  btnProxima.disabled  = false;
+  questaoArea.scrollTop = 0;
+  atualizarScrollFade();
+
+  const mapaEl = document.getElementById(`mmMapa${i}`);
+  const topicoEls = [...mapaEl.querySelectorAll('.mm-topico')];
+  const redesenhar = () => desenharSetasMapaMental(mapaEl);
+  redesenhar();
+  requestAnimationFrame(redesenhar); // o layout final (fontes/ícones) só se acomoda após o 1º paint
+
+  let resizeTimer = null;
+  const onResize = () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(redesenhar, 120); };
+  window.addEventListener('resize', onResize);
+  // Desliga o listener sozinho quando essa tela sai do ar (troca pra outra), evitando acumular
+  // handlers de telas anteriores a cada navegação.
+  const observer = new MutationObserver(() => {
+    if (!mapaEl.isConnected) { window.removeEventListener('resize', onResize); observer.disconnect(); }
+  });
+  observer.observe(opcoesEl, { childList: true });
+
+  if (audioTelaAtual && topicos.some(t => t.audioInicio != null)) {
+    const atualizarTopicoAtivo = () => {
+      const t = audioTelaAtual.currentTime;
+      let idxAtivo = -1;
+      topicos.forEach((topico, ti) => {
+        if (topico.audioInicio != null && t >= topico.audioInicio && (topico.audioFim == null || t < topico.audioFim)) idxAtivo = ti;
+      });
+      topicoEls.forEach((el, ti) => el.classList.toggle('ativa', ti === idxAtivo));
+      mapaEl.classList.toggle('mm-tem-ativo', idxAtivo !== -1);
+      redesenhar();
+    };
+    audioTelaAtual.addEventListener('timeupdate', atualizarTopicoAtivo);
+    atualizarTopicoAtivo();
+  }
+}
+
 function mostrarLicao(aula, introIdx) {
   const lic = aula.licao || {};
   questaoInfo.textContent      = aula.titulo;
@@ -3488,6 +3678,7 @@ carregarDadosIniciais().then((carregado) => {
     (aula.jogoSinais || []).forEach((_, i) => { introFns[`jogoSinais${i}`] = (a, idx) => mostrarJogoSinais(a, idx, i); });
     (aula.agrupamento || []).forEach((_, i) => { introFns[`agrupamento${i}`] = (a, idx) => mostrarAgrupamento(a, idx, i); });
     (aula.distribuicao || []).forEach((_, i) => { introFns[`distribuicao${i}`] = (a, idx) => mostrarDistribuicao(a, idx, i); });
+    (aula.mapaMental || []).forEach((_, i) => { introFns[`mapaMental${i}`] = (a, idx) => mostrarMapaMental(a, idx, i); });
     aula.ordem.forEach(token => {
       const chave = token === 'antesComecar' ? 'justificativa' : token;
       if (introFns[chave]) introScreens.push(chave);
