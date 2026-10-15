@@ -1300,6 +1300,50 @@ body {
   .mm-topico.ativa { transform: translate(-50%, -50%) scale(1.04); }
 }
 
+/* TABELA GUIADA POR ANIMAÇÃO — cartão explicativo fixo no topo + tabela fixa embaixo; ao
+   navegar entre itens (Anterior/Próximo "tomam conta" da navegação primeiro — ver
+   navInterceptorAnterior/navInterceptorProximo em estudo.mjs), um "chip" com o ícone do item
+   (.ta-viajante) viaja numa curva do cartão até a célula de destino, que só ganha o contorno
+   roxo luminoso quando o chip "pousa" nela (ver lancarConteudoTabelaAnimada em estudo.mjs) —
+   não é uma seta se desenhando, é o próprio conteúdo sendo conduzido. A tabela rola na
+   horizontal sozinha quando não cabe (overflow-x), inclusive no celular. */
+.ta-tela { position: relative; margin-top: 10px; }
+.ta-cartao { position: relative; z-index: 2; background: #F1EBFF; border-radius: 18px; padding: 16px 18px; margin-bottom: 18px; }
+.ta-cartao-contagem { font-size: 11.5px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; color: #5724D6; }
+.ta-cartao-cabecalho { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.ta-cartao-icone {
+  width: 34px; height: 34px; border-radius: 50%; background: #5724D6; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.ta-cartao-icone svg * { stroke: #fff !important; fill: #fff !important; }
+.ta-cartao-titulo { font-size: 16px; font-weight: 700; color: #202033; }
+.ta-cartao-texto { font-size: 13.5px; color: #4b4b5a; line-height: 1.5; margin: 8px 0 0; }
+
+.ta-tabela-scroll {
+  overflow-x: auto; border-radius: 14px; border: 1px solid var(--cor-borda-clara, #e9dffb);
+  position: relative; z-index: 2; -webkit-overflow-scrolling: touch;
+}
+.ta-tabela { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.ta-tabela th, .ta-tabela td {
+  border: 1px solid var(--cor-borda-clara, #e9dffb); padding: 10px 12px; text-align: left;
+  white-space: pre-line; min-width: 110px;
+  transition: border-color .3s ease, background .3s ease, box-shadow .3s ease;
+}
+.ta-tabela th { background: var(--cor-clara, #f0eaff); font-weight: 700; color: #202033; }
+.ta-tabela td { background: #fff; color: #4b4b5a; }
+.ta-celula-ativa {
+  border-color: var(--cor-primaria, #5724D6) !important; background: var(--cor-clara, #f0eaff) !important;
+  box-shadow: 0 0 0 3px rgba(87,36,214,0.18); font-weight: 600; color: #202033 !important;
+}
+
+.ta-viajante {
+  position: absolute; top: 0; left: 0; z-index: 4; pointer-events: none; opacity: 0;
+  box-sizing: border-box; display: flex; align-items: center; overflow: hidden;
+  border: 1px solid var(--cor-primaria, #5724D6); border-radius: 4px; padding: 10px 12px;
+  background: var(--cor-clara, #f0eaff); font-size: 12.5px; font-weight: 600; color: #202033;
+  white-space: pre-line; box-shadow: 0 6px 16px rgba(87,36,214,0.25);
+}
+
 /* TELA DE IDENTIFICAÇÃO */
 .idf-card {
   display: flex;

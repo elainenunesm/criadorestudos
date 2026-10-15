@@ -111,7 +111,20 @@ function marcarOverflowNasFrasesAnotadas() {
 // ── TELAS DE INTRODUÇÃO ─────────────────────────────────────
 let introTotal = 0;
 
+/** Permite que a TELA ATUAL "intercepte" o clique de Anterior/Próximo pra navegar dentro de
+ * si mesma antes de trocar de tela (ver mostrarTabelaAnimada, onde Próximo primeiro avança
+ * pelos itens da tabela e só troca de tela de verdade quando chega no último item). Cada
+ * função recebe nenhum argumento e devolve `true` quando tomou conta do clique (não deixa o
+ * clique também trocar de tela) ou `false`/nada quando a tela não tem mais nada pra navegar
+ * internamente (o clique então segue pro comportamento padrão normal). Resetados aqui, em
+ * renderIntroSegs, porque TODA tela chama essa função logo no início — assim nunca fica um
+ * interceptor de uma tela anterior grudado depois de trocar de tela. */
+let navInterceptorAnterior = null;
+let navInterceptorProximo = null;
+
 function renderIntroSegs(step) {
+  navInterceptorAnterior = null;
+  navInterceptorProximo = null;
   progressSegs.innerHTML = '';
   for (let i = 0; i < introTotal; i++) {
     const seg = document.createElement('div');
@@ -251,6 +264,12 @@ function mostrarIntro(aula, introIdx = 0) {
   // Atualiza header
   questaoInfo.textContent = aula.titulo;
   if (introIdx === 0) {
+    // Mesma limpeza de navInterceptorAnterior/navInterceptorProximo que renderIntroSegs faz
+    // (ver essa função) — sem isso, voltar até a 1ª tela depois de passar por uma tela que
+    // usa esses interceptadores (ex: Tabela Animada) deixava o clique de Anterior/Próximo
+    // ainda "preso" na lógica da tela anterior, bugando o rótulo do botão aqui.
+    navInterceptorAnterior = null;
+    navInterceptorProximo = null;
     progressSegs.innerHTML = '';
   } else {
     renderIntroSegs(introIdx - 1);
@@ -2373,6 +2392,218 @@ function mostrarMapaMental(aula, introIdx, i) {
   }
 }
 
+/** Ícone de um item da Tabela Animada — mesmo <svg> embrulhado já usado pelos ícones de
+ * Resumo/Lista/Mapa Mental (RESUMO_ICONES/iconeExternoOuNulo). */
+function iconeTabelaAnimadaSvg(item, cor) {
+  return `<svg viewBox="0 0 24 24" width="20" height="20">${iconeExternoOuNulo(item) || (RESUMO_ICONES[item.tipo] ? RESUMO_ICONES[item.tipo](cor) : '')}</svg>`;
+}
+
+/** Anima o próprio TEXTO da explicação "virando" a célula de destino — técnica FLIP (First-
+ * Last-Invert-Play): o "chip" nasce do tamanho/posição exatos da célula final, mas recebe um
+ * transform inicial que faz ele aparentar estar no tamanho/posição do texto do cartão; ao
+ * animar esse transform pra "identidade", ele encolhe/se move suavemente do cartão até a
+ * célula — dando a impressão de que o conteúdo sendo explicado é literalmente o que ocupa
+ * aquele lugar na tabela (não é uma seta ou ícone abstrato se movendo). Se a célula de
+ * destino já tiver um texto configurado na tabela, é ESSE texto que viaja (a tabela permanece
+ * fixa, só destaca a célula já existente); se a célula estiver em branco, quem viaja — e
+ * passa a PREENCHER a célula de verdade ao pousar — é a explicação do item (a professora não
+ * precisa duplicar o mesmo texto na tabela e no item). Chamada em toda navegação (ver
+ * mostrarTabelaAnimada/mostrarItem), inclusive ao abrir a tela no 1º item. Devolve uma
+ * Promise que resolve quando o chip "pousa" — sem célula de destino configurada pra esse item
+ * (ou sem ela estar visível ainda), resolve na hora sem animar nada. */
+function lancarConteudoTabelaAnimada(telaEl, celulaEl, item) {
+  const chip = telaEl.querySelector('.ta-viajante');
+  const cartaoEl = telaEl.querySelector('.ta-cartao');
+  const cartaoTextoEl = telaEl.querySelector('.ta-cartao-texto');
+  if (!chip || !cartaoEl || !celulaEl) return Promise.resolve();
+  const rectTela = telaEl.getBoundingClientRect();
+  if (!rectTela.width || !rectTela.height) return Promise.resolve();
+  // Sem explicação escrita, o <p> do texto fica com altura zero (nenhum conteúdo pra
+  // formar uma linha) — nesse caso usa o cartão inteiro como ponto de partida, senão a
+  // animação seria silenciosamente pulada (startRect inválido).
+  const textoRect = cartaoTextoEl ? cartaoTextoEl.getBoundingClientRect() : null;
+  const startRect = (textoRect && textoRect.width && textoRect.height) ? textoRect : cartaoEl.getBoundingClientRect();
+  const endRect = celulaEl.getBoundingClientRect();
+  if (!startRect.width || !startRect.height || !endRect.width || !endRect.height) return Promise.resolve();
+
+  const celulaVazia = !celulaEl.textContent.trim();
+  const textoExplicacao = (cartaoTextoEl && cartaoTextoEl.textContent.trim())
+    ? cartaoTextoEl.innerHTML
+    : renderFraseComDestaque(item.titulo || '', item.tituloDestaque, item.tituloDestaqueNegrito);
+  const conteudo = celulaVazia ? textoExplicacao : celulaEl.innerHTML;
+  chip.innerHTML = conteudo;
+  chip.style.left = `${endRect.left - rectTela.left}px`;
+  chip.style.top = `${endRect.top - rectTela.top}px`;
+  chip.style.width = `${endRect.width}px`;
+  chip.style.height = `${endRect.height}px`;
+
+  const scaleX = startRect.width / endRect.width;
+  const scaleY = startRect.height / endRect.height;
+  const translateX = (startRect.left + startRect.width / 2) - (endRect.left + endRect.width / 2);
+  const translateY = (startRect.top + startRect.height / 2) - (endRect.top + endRect.height / 2);
+
+  chip.getAnimations().forEach(a => a.cancel());
+  chip.style.opacity = '1';
+  const animacao = chip.animate(
+    [
+      { transform: `translate(${translateX}px, ${translateY}px) scale(${scaleX}, ${scaleY})`, opacity: 1, offset: 0 },
+      { transform: 'translate(0px, 0px) scale(1, 1)', opacity: 1, offset: 0.85 },
+      { transform: 'translate(0px, 0px) scale(1, 1)', opacity: 0, offset: 1 },
+    ],
+    { duration: 650, easing: 'cubic-bezier(.3,0,.2,1)', fill: 'forwards' }
+  );
+  return animacao.finished.catch(() => {}).then(() => {
+    chip.style.opacity = '0';
+    if (celulaVazia) celulaEl.innerHTML = conteudo; // preenche a célula que estava em branco
+  });
+}
+
+/** "Tabela Guiada por Animação": cartão explicativo fixo no topo + tabela fixa embaixo. O
+ * botão principal faz dois papéis diferentes dependendo do estado do item atual (ver
+ * atualizarBotaoNav/navInterceptorProximo):
+ * - Item ainda não animado: botão mostra "Mover" — clicar faz o conteúdo do cartão "voar"
+ *   numa trajetória curva até a célula configurada daquele item (ver
+ *   lancarConteudoTabelaAnimada; não é uma seta se movendo, é o próprio conteúdo sendo
+ *   conduzido), sem navegar pra lugar nenhum ainda.
+ * - Item já animado: botão vira "Próximo" — clicar avança pro próximo item (que nasce nesse
+ *   mesmo estado "Mover" de novo), ou, se for o último item, troca de tela de verdade.
+ * Anterior sempre volta um item (ou uma tela, no primeiro item) direto, sem passar pelo
+ * estado "Mover". Se a tela tiver áudio com tempos marcados por item (ver
+ * montarMarcacaoTempoTopico em js/conteudo.js), o item avança E anima sozinho ao cruzar o
+ * tempo marcado — a narração já serve de "clique automático", sem travar a navegação
+ * manual. */
+function mostrarTabelaAnimada(aula, introIdx, i) {
+  const ta = (aula.tabelaAnimada || [])[i] || {};
+  const tabela = ta.tabela || { colunas: [], linhas: [] };
+  const colunas = tabela.colunas || [];
+  const linhas = tabela.linhas || [];
+  const itens = ta.itens || [];
+  let itemIdx = 0;
+  let animado = false; // se o item atual já "voou" até a célula (controla o rótulo do botão)
+
+  questaoInfo.textContent      = aula.titulo;
+  feedbackBar.style.display    = 'none';
+  btnAnterior.style.display    = '';
+  renderIntroSegs(introIdx - 1);
+  questaoTitulo.innerHTML      = '';
+  questaoSubtitulo.textContent = '';
+
+  opcoesEl.innerHTML = `
+    <div class="resumo-card">
+      ${montarAudioTelaHtml(ta.audioUrl)}
+      ${ta.titulo ? `<p class="resumo-titulo"${estiloTextoInline(ta, 'titulo')}>${renderFraseComDestaque(ta.titulo || '', ta.tituloDestaque, ta.tituloDestaqueNegrito, sincroniaDoCampo(ta, 'titulo'))}</p>` : ''}
+      <div class="ta-tela" id="taTela${i}">
+        <div class="ta-cartao" id="taCartao${i}">
+          <span class="ta-cartao-contagem" id="taContagem${i}"></span>
+          <div class="ta-cartao-cabecalho">
+            <div class="ta-cartao-icone" id="taIcone${i}"></div>
+            <span class="ta-cartao-titulo" id="taCartaoTitulo${i}"></span>
+          </div>
+          <p class="ta-cartao-texto" id="taCartaoTexto${i}"></p>
+        </div>
+        <div class="ta-tabela-scroll" id="taTabelaScroll${i}">
+          <table class="ta-tabela">
+            <thead><tr>${colunas.map(c => `<th>${c || ''}</th>`).join('')}</tr></thead>
+            <tbody>
+              ${linhas.map((linha, li) => `<tr>${(linha.celulas || []).map((cel, ci) => `<td data-li="${li}" data-ci="${ci}">${cel || ''}</td>`).join('')}</tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div class="ta-viajante"></div>
+      </div>
+    </div>`;
+
+  atualizarBotaoMarcar(`tabelaAnimada${i}`);
+  trocarAudioDaTela(ta);
+  btnProxima.disabled  = false;
+  questaoArea.scrollTop = 0;
+  atualizarScrollFade();
+
+  const telaEl        = document.getElementById(`taTela${i}`);
+  const contagemEl    = document.getElementById(`taContagem${i}`);
+  const iconeEl       = document.getElementById(`taIcone${i}`);
+  const cartaoTitulo  = document.getElementById(`taCartaoTitulo${i}`);
+  const cartaoTexto   = document.getElementById(`taCartaoTexto${i}`);
+  const todasCelulas  = [...telaEl.querySelectorAll('.ta-tabela td')];
+
+  function celulaDoItem(item) {
+    if (!item || item.destinoLinha == null || item.destinoColuna == null) return null;
+    return telaEl.querySelector(`.ta-tabela td[data-li="${item.destinoLinha}"][data-ci="${item.destinoColuna}"]`);
+  }
+
+  // Rótulo do botão principal reflete se o item atual já "voou" até a célula ou não — ver
+  // navInterceptorProximo: o 1º clique sempre só anima (não navega), o 2º clique avança de
+  // verdade (pro próximo item, ou pra próxima tela se for o último).
+  function atualizarBotaoNav() {
+    btnProxima.innerHTML = animado
+      ? 'Próximo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>'
+      : 'Mover <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+  }
+
+  // Dispara a viagem do conteúdo até a célula do item ATUAL — chamada pelo clique em "Mover"
+  // (ver navInterceptorProximo) e também pelo avanço automático por áudio (que pula direto
+  // pra animação, sem esperar um clique, já que a narração em si já está "pedindo" a troca).
+  function animarItemAtual() {
+    const item = itens[itemIdx];
+    const celula = celulaDoItem(item);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      lancarConteudoTabelaAnimada(telaEl, celula, item).then(() => {
+        if (celula && itens[itemIdx] === item) {
+          celula.classList.add('ta-celula-ativa');
+          animado = true;
+          atualizarBotaoNav();
+        }
+      });
+    }));
+  }
+
+  function mostrarItem(idx, { comRolagem = true, animarAutomaticamente = false } = {}) {
+    itemIdx = Math.max(0, Math.min(Math.max(itens.length - 1, 0), idx));
+    const item = itens[itemIdx];
+    todasCelulas.forEach(c => c.classList.remove('ta-celula-ativa'));
+    animado = false;
+    if (!item) {
+      contagemEl.textContent = '';
+      iconeEl.innerHTML = '';
+      cartaoTitulo.textContent = '';
+      cartaoTexto.innerHTML = '';
+      atualizarBotaoNav();
+      return;
+    }
+    contagemEl.textContent = `${itemIdx + 1} de ${itens.length}`;
+    iconeEl.innerHTML = iconeTabelaAnimadaSvg(item, '#0D6EFD');
+    cartaoTitulo.innerHTML = renderFraseComDestaque(item.titulo || '', item.tituloDestaque, item.tituloDestaqueNegrito);
+    cartaoTexto.innerHTML = renderFraseComDestaque(item.texto || '', item.textoDestaque, item.textoDestaqueNegrito);
+    const celula = celulaDoItem(item);
+    if (celula && comRolagem) celula.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+    atualizarBotaoNav();
+    if (animarAutomaticamente) animarItemAtual();
+  }
+
+  mostrarItem(0, { comRolagem: false });
+
+  navInterceptorProximo = () => {
+    if (!itens[itemIdx]) return false; // sem itens configurados — Próximo troca de tela normalmente
+    if (!animado) { animarItemAtual(); return true; }
+    if (itemIdx < itens.length - 1) { mostrarItem(itemIdx + 1); return true; }
+    return false;
+  };
+  navInterceptorAnterior = () => {
+    if (itemIdx > 0) { mostrarItem(itemIdx - 1); return true; }
+    return false;
+  };
+
+  if (audioTelaAtual && itens.some(it => it.audioInicio != null)) {
+    const atualizarPorAudio = () => {
+      const t = audioTelaAtual.currentTime;
+      let alvo = -1;
+      itens.forEach((it, idx) => { if (it.audioInicio != null && t >= it.audioInicio) alvo = idx; });
+      if (alvo !== -1 && alvo !== itemIdx) mostrarItem(alvo, { animarAutomaticamente: true });
+    };
+    audioTelaAtual.addEventListener('timeupdate', atualizarPorAudio);
+  }
+}
+
 function mostrarLicao(aula, introIdx) {
   const lic = aula.licao || {};
   questaoInfo.textContent      = aula.titulo;
@@ -3237,6 +3468,8 @@ function renderQuestao(aula) {
   questaoInfo.textContent = `Questão ${idx + 1} de ${total} • ${aula.titulo}`;
 
   // Segmentos de progresso
+  navInterceptorAnterior = null; // mesma limpeza de renderIntroSegs — ver mostrarIntro
+  navInterceptorProximo = null;
   progressSegs.innerHTML = '';
   questoes.forEach((_, i) => {
     const seg = document.createElement('div');
@@ -3639,6 +3872,21 @@ carregarDadosIniciais().then((carregado) => {
       introScreens.push('contexto');
       introFns.contexto = mostrarContexto;
     }
+    // "Antes de começar"/Resumo/Lição são as telas fixas do formato do Construtor de Aulas
+    // (ver aula.ordem) — não existiam quando esse modo revisão foi escrito (só tinha
+    // definição/contexto, do formato antigo escrito à mão), então nunca entravam aqui.
+    if (mostrarTelas && cartaoMarcadoSet.has('antesComecar') && aula.antesComecar) {
+      introScreens.push('antesComecar');
+      introFns.antesComecar = mostrarIntro;
+    }
+    if (mostrarTelas && cartaoMarcadoSet.has('resumo') && aula.resumo) {
+      introScreens.push('resumo');
+      introFns.resumo = mostrarResumo;
+    }
+    if (mostrarTelas && cartaoMarcadoSet.has('licao') && aula.licao) {
+      introScreens.push('licao');
+      introFns.licao = mostrarLicao;
+    }
     if (mostrarTelas) {
       (aula.exemplo || []).forEach((_, i) => {
         const chave = `exemplo${i}`;
@@ -3646,6 +3894,38 @@ carregarDadosIniciais().then((carregado) => {
           introScreens.push(chave);
           introFns[chave] = (a, idx) => mostrarExemplo(a, idx, i);
         }
+      });
+      // Mesmo esquema pros demais tipos de tela de conteúdo (todos marcáveis pra revisão
+      // via atualizarBotaoMarcar) — sem isso, marcar uma dessas telas e tentar revisar
+      // resultava numa lista de telas vazia, mandando de volta pro "index.html?view=erros"
+      // em vez de abrir a tela marcada de verdade.
+      (aula.lista || []).forEach((_, i) => {
+        const chave = `lista${i}`;
+        if (cartaoMarcadoSet.has(chave)) { introScreens.push(chave); introFns[chave] = (a, idx) => mostrarLista(a, idx, i); }
+      });
+      (aula.timeline || []).forEach((_, i) => {
+        const chave = `timeline${i}`;
+        if (cartaoMarcadoSet.has(chave)) { introScreens.push(chave); introFns[chave] = (a, idx) => mostrarTimeline(a, idx, i); }
+      });
+      (aula.jogoSinais || []).forEach((_, i) => {
+        const chave = `jogoSinais${i}`;
+        if (cartaoMarcadoSet.has(chave)) { introScreens.push(chave); introFns[chave] = (a, idx) => mostrarJogoSinais(a, idx, i); }
+      });
+      (aula.agrupamento || []).forEach((_, i) => {
+        const chave = `agrupamento${i}`;
+        if (cartaoMarcadoSet.has(chave)) { introScreens.push(chave); introFns[chave] = (a, idx) => mostrarAgrupamento(a, idx, i); }
+      });
+      (aula.distribuicao || []).forEach((_, i) => {
+        const chave = `distribuicao${i}`;
+        if (cartaoMarcadoSet.has(chave)) { introScreens.push(chave); introFns[chave] = (a, idx) => mostrarDistribuicao(a, idx, i); }
+      });
+      (aula.mapaMental || []).forEach((_, i) => {
+        const chave = `mapaMental${i}`;
+        if (cartaoMarcadoSet.has(chave)) { introScreens.push(chave); introFns[chave] = (a, idx) => mostrarMapaMental(a, idx, i); }
+      });
+      (aula.tabelaAnimada || []).forEach((_, i) => {
+        const chave = `tabelaAnimada${i}`;
+        if (cartaoMarcadoSet.has(chave)) { introScreens.push(chave); introFns[chave] = (a, idx) => mostrarTabelaAnimada(a, idx, i); }
       });
     }
     if (mostrarPerguntas) {
@@ -3679,6 +3959,7 @@ carregarDadosIniciais().then((carregado) => {
     (aula.agrupamento || []).forEach((_, i) => { introFns[`agrupamento${i}`] = (a, idx) => mostrarAgrupamento(a, idx, i); });
     (aula.distribuicao || []).forEach((_, i) => { introFns[`distribuicao${i}`] = (a, idx) => mostrarDistribuicao(a, idx, i); });
     (aula.mapaMental || []).forEach((_, i) => { introFns[`mapaMental${i}`] = (a, idx) => mostrarMapaMental(a, idx, i); });
+    (aula.tabelaAnimada || []).forEach((_, i) => { introFns[`tabelaAnimada${i}`] = (a, idx) => mostrarTabelaAnimada(a, idx, i); });
     aula.ordem.forEach(token => {
       const chave = token === 'antesComecar' ? 'justificativa' : token;
       if (introFns[chave]) introScreens.push(chave);
@@ -3782,6 +4063,7 @@ carregarDadosIniciais().then((carregado) => {
 
   // Navegação
   btnAnterior.addEventListener('click', () => {
+    if (navInterceptorAnterior && navInterceptorAnterior()) return;
     if (revisandoChecagem) {
       if (checagemPos > 0) { checagemPos--; mostrarChecagemRevisaoAtual(); }
       return;
@@ -3797,6 +4079,7 @@ carregarDadosIniciais().then((carregado) => {
   });
 
   btnProxima.addEventListener('click', () => {
+    if (navInterceptorProximo && navInterceptorProximo()) return;
     if (revisandoChecagem) {
       checagemPos++;
       if (checagemPos < checagemFila.length) {

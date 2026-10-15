@@ -147,7 +147,7 @@ ${trilhasTexto}
 /** Ordem final de exibição das telas, como tokens simples ('antesComecar', 'exemplo0', 'checagem1', 'lista0', 'timeline0', 'jogoSinais0', 'agrupamento0', 'distribuicao0', 'resumo', 'licao')
  * — reaproveita montarPassos() (js/conteudo.js) pra garantir que os índices batem exatamente com os arrays exportados abaixo. */
 function serializarOrdem(conteudo) {
-  return montarPassos(conteudo).map(p => (p.tipo === 'exemplo' || p.tipo === 'checagem' || p.tipo === 'lista' || p.tipo === 'timeline' || p.tipo === 'jogoSinais' || p.tipo === 'agrupamento' || p.tipo === 'distribuicao' || p.tipo === 'mapaMental') ? `${p.tipo}${p.idx}` : p.tipo);
+  return montarPassos(conteudo).map(p => (p.tipo === 'exemplo' || p.tipo === 'checagem' || p.tipo === 'lista' || p.tipo === 'timeline' || p.tipo === 'jogoSinais' || p.tipo === 'agrupamento' || p.tipo === 'distribuicao' || p.tipo === 'mapaMental' || p.tipo === 'tabelaAnimada') ? `${p.tipo}${p.idx}` : p.tipo);
 }
 
 function gerarAulaJs(aula, tituloEtapa) {
@@ -187,6 +187,8 @@ window.AULA_DATA = {
   distribuicao: ${paraJs(c.distribuicao)},
 
   mapaMental: ${paraJs(c.mapaMental)},
+
+  tabelaAnimada: ${paraJs(c.tabelaAnimada)},
 
   questoes: [],
 };
@@ -543,6 +545,22 @@ function pdfRenderAula(aula) {
     secoes += pdfSecao(`Mapa Mental${mapasMentais.length > 1 ? ` ${i + 1}` : ''}`, '#5724D6', corpo);
   });
 
+  const tabelasAnimadas = (c.tabelaAnimada || []).filter(ta => (ta.itens || []).length || ((ta.tabela || {}).linhas || []).length);
+  tabelasAnimadas.forEach((ta, i) => {
+    let corpo = '';
+    if (ta.titulo) corpo += `<p class="pdf-destaque">${renderFraseComDestaque(ta.titulo, ta.tituloDestaque, ta.tituloDestaqueNegrito)}</p>`;
+    const tabela = ta.tabela || { colunas: [], linhas: [] };
+    if ((tabela.colunas || []).length) {
+      corpo += '<table class="pdf-tabela"><thead><tr>' + tabela.colunas.map(col => `<th>${escaparHtml(col || '')}</th>`).join('') + '</tr></thead><tbody>'
+        + (tabela.linhas || []).map(linha => '<tr>' + (linha.celulas || []).map(cel => `<td>${escaparHtml(cel || '')}</td>`).join('') + '</tr>').join('')
+        + '</tbody></table>';
+    }
+    if ((ta.itens || []).length) corpo += '<ul>' + ta.itens.map(it =>
+      `<li><strong>${renderFraseComDestaque(it.titulo || '', it.tituloDestaque, it.tituloDestaqueNegrito)}</strong>${it.texto ? ' — ' + renderFraseComDestaque(it.texto, it.textoDestaque, it.textoDestaqueNegrito) : ''}</li>`
+    ).join('') + '</ul>';
+    secoes += pdfSecao(`Tabela${tabelasAnimadas.length > 1 ? ` ${i + 1}` : ''}`, '#0D6EFD', corpo);
+  });
+
   const res = c.resumo || {};
   if (res.titulo || (res.itens || []).length) {
     let corpo = '';
@@ -655,6 +673,10 @@ function gerarHtmlEstudoPdf() {
   .pdf-opcoes li.pdf-certo { background: #eafaf0; font-weight: 700; }
 
   .pdf-licao-corpo p { text-align: justify; margin: 8px 0; }
+
+  .pdf-tabela { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px; }
+  .pdf-tabela th, .pdf-tabela td { border: 1px solid #e7e5ef; padding: 6px 8px; text-align: left; }
+  .pdf-tabela th { background: #f5f3fb; font-weight: 700; }
 
   @media print {
     body { padding: 24px 28px 40px; }

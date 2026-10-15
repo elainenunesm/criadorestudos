@@ -50,6 +50,10 @@ function novoConteudo() {
     // "Mapa Mental" (conceito central + tópicos ao redor, conectados por setas, com
     // destaque sincronizado ao áudio) — também repetível, mesmo esquema da Lista/Timeline.
     mapaMental: [],
+    // "Tabela Guiada por Animação" (cartão explicativo no topo + tabela fixa; ao navegar,
+    // uma seta anima do cartão até a célula de destino daquele item) — também repetível,
+    // mesmo esquema da Lista/Timeline/Mapa Mental.
+    tabelaAnimada: [],
   };
 }
 

@@ -24,7 +24,7 @@ function conteudoAulaAtual() {
 
 /** Próximo _id livre pra um novo item de exemplo/checagem/lista/timeline/jogoSinais/agrupamento/distribuicao (referenciado em conteudo.ordem). */
 function proximoIdItem(conteudo) {
-  const ids = [...conteudo.exemplo, ...conteudo.checagem, ...conteudo.lista, ...conteudo.timeline, ...conteudo.jogoSinais, ...conteudo.agrupamento, ...conteudo.distribuicao, ...conteudo.mapaMental].map(i => i._id || 0);
+  const ids = [...conteudo.exemplo, ...conteudo.checagem, ...conteudo.lista, ...conteudo.timeline, ...conteudo.jogoSinais, ...conteudo.agrupamento, ...conteudo.distribuicao, ...conteudo.mapaMental, ...conteudo.tabelaAnimada].map(i => i._id || 0);
   return Math.max(0, ...ids) + 1;
 }
 
@@ -44,6 +44,7 @@ function garantirOrdem(conteudo) {
   if (!Array.isArray(conteudo.agrupamento)) conteudo.agrupamento = [];
   if (!Array.isArray(conteudo.distribuicao)) conteudo.distribuicao = [];
   if (!Array.isArray(conteudo.mapaMental)) conteudo.mapaMental = [];
+  if (!Array.isArray(conteudo.tabelaAnimada)) conteudo.tabelaAnimada = [];
 
   conteudo.exemplo.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
   conteudo.checagem.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
@@ -53,6 +54,7 @@ function garantirOrdem(conteudo) {
   conteudo.agrupamento.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
   conteudo.distribuicao.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
   conteudo.mapaMental.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
+  conteudo.tabelaAnimada.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
 
   // Remove entradas de itens que não existem mais.
   conteudo.ordem = conteudo.ordem.filter(t => {
@@ -64,6 +66,7 @@ function garantirOrdem(conteudo) {
     if (t.tipo === 'agrupamento') return conteudo.agrupamento.some(i => i._id === t.id);
     if (t.tipo === 'distribuicao') return conteudo.distribuicao.some(i => i._id === t.id);
     if (t.tipo === 'mapaMental') return conteudo.mapaMental.some(i => i._id === t.id);
+    if (t.tipo === 'tabelaAnimada') return conteudo.tabelaAnimada.some(i => i._id === t.id);
     return true;
   });
 
@@ -93,6 +96,9 @@ function garantirOrdem(conteudo) {
   conteudo.mapaMental.forEach(item => {
     if (!presentes.has(`mapaMental:${item._id}`)) conteudo.ordem.push({ tipo: 'mapaMental', id: item._id });
   });
+  conteudo.tabelaAnimada.forEach(item => {
+    if (!presentes.has(`tabelaAnimada:${item._id}`)) conteudo.ordem.push({ tipo: 'tabelaAnimada', id: item._id });
+  });
   // Resumo/Lição nascem junto com a aula, mas podem ser excluídos (ver removerPassoAtual) — nesse
   // caso NÃO voltam sozinhos aqui, só se a professora clicar em "Tipo (Telas)" pra adicionar de novo.
   if (!presentes.has('resumo:') && !conteudo.resumoRemovido) conteudo.ordem.push({ tipo: 'resumo' });
@@ -113,6 +119,7 @@ function montarPassos(conteudo) {
   let numAgrupamento = 0;
   let numDistribuicao = 0;
   let numMapaMental = 0;
+  let numTabelaAnimada = 0;
   return conteudo.ordem.map(token => {
     if (token.tipo === 'exemplo') {
       numExemplo++;
@@ -149,6 +156,10 @@ function montarPassos(conteudo) {
     if (token.tipo === 'mapaMental') {
       numMapaMental++;
       return { tipo: 'mapaMental', idx: conteudo.mapaMental.findIndex(i => i._id === token.id), id: token.id, titulo: `Mapa Mental ${numMapaMental}` };
+    }
+    if (token.tipo === 'tabelaAnimada') {
+      numTabelaAnimada++;
+      return { tipo: 'tabelaAnimada', idx: conteudo.tabelaAnimada.findIndex(i => i._id === token.id), id: token.id, titulo: `Tabela ${numTabelaAnimada}` };
     }
     return { tipo: token.tipo, titulo: TITULO_TELA_FIXO[token.tipo] };
   });
@@ -203,6 +214,7 @@ const ICONE_TELA = {
   agrupamento: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6"><rect x="2" y="4" width="9" height="16" rx="2"/><rect x="13" y="4" width="9" height="16" rx="2"/><circle cx="6.5" cy="9" r="1.4" fill="#fff" stroke="none"/><circle cx="6.5" cy="15" r="1.4" fill="#fff" stroke="none"/><circle cx="17.5" cy="9" r="1.4" fill="#fff" stroke="none"/><circle cx="17.5" cy="15" r="1.4" fill="#fff" stroke="none"/></svg>',
   distribuicao: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><line x1="4" y1="12" x2="20" y2="12"/><circle cx="12" cy="6" r="1.8" fill="#fff" stroke="none"/><circle cx="12" cy="18" r="1.8" fill="#fff" stroke="none"/></svg>',
   mapaMental: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="2.6" fill="#fff" stroke="none"/><circle cx="4" cy="5" r="2" fill="#fff" stroke="none"/><circle cx="20" cy="5" r="2" fill="#fff" stroke="none"/><circle cx="4" cy="19" r="2" fill="#fff" stroke="none"/><circle cx="20" cy="19" r="2" fill="#fff" stroke="none"/><line x1="12" y1="12" x2="4" y2="5"/><line x1="12" y1="12" x2="20" y2="5"/><line x1="12" y1="12" x2="4" y2="19"/><line x1="12" y1="12" x2="20" y2="19"/></svg>',
+  tabelaAnimada: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="10" x2="9" y2="20"/><line x1="15" y1="10" x2="15" y2="20"/></svg>',
 };
 
 /** Dados de mentira só pra prévia de "que tipo de tela é essa" — nunca chegam a entrar
@@ -306,6 +318,20 @@ const DADOS_FICTICIOS_TELA = {
       { tipo: 'busca', cor: '#DFF5E5', titulo: 'Tópico 3', texto: 'E mais um tópico.' },
     ],
   },
+  tabelaAnimada: {
+    titulo: 'Assim vai aparecer o título (opcional).',
+    tabela: {
+      colunas: ['Coluna 1', 'Coluna 2', 'Coluna 3'],
+      linhas: [
+        { celulas: ['Linha 1', 'Assim vai aparecer o conteúdo da célula.', ''] },
+        { celulas: ['Linha 2', '', 'Assim vai aparecer outra célula.'] },
+      ],
+    },
+    itens: [
+      { tipo: 'acao', titulo: 'Item 1', texto: 'Assim vai aparecer a explicação deste item.', destinoLinha: 0, destinoColuna: 1 },
+      { tipo: 'acao', titulo: 'Item 2', texto: 'E a explicação do segundo item.', destinoLinha: 1, destinoColuna: 2 },
+    ],
+  },
 };
 
 const NOME_TELA_ADICIONAR = {
@@ -331,6 +357,7 @@ const NOME_TELA_ADICIONAR = {
   agrupamento: 'Adicionar agrupamento',
   distribuicao: 'Adicionar distribuição',
   mapaMental: 'Adicionar mapa mental',
+  tabelaAnimada: 'Adicionar tabela animada',
 };
 
 /** Tipo (e, se aplicável, a variante) escolhidos no popup "Tipo (Telas)" — ainda não
@@ -386,6 +413,8 @@ function mostrarPreviewNovaTela(tipo, modo) {
     body.innerHTML = previewDistribuicao(DADOS_FICTICIOS_TELA.distribuicao);
   } else if (tipo === 'mapaMental') {
     body.innerHTML = previewMapaMental(DADOS_FICTICIOS_TELA.mapaMental);
+  } else if (tipo === 'tabelaAnimada') {
+    body.innerHTML = previewTabelaAnimada(DADOS_FICTICIOS_TELA.tabelaAnimada);
   } else {
     const DADOS_CHECAGEM_POR_MODO = {
       palavra: DADOS_FICTICIOS_TELA.checagemPalavra,
@@ -397,6 +426,7 @@ function mostrarPreviewNovaTela(tipo, modo) {
   }
   ligarAudioTelaPreview(body);
   ligarMapaMentalPreview(body);
+  ligarTabelaAnimadaPreview(body);
 
   // Cabeçalho com a mesma cor de marca das outras prévias — só pra mostrar como vai ficar,
   // por isso o "passo" é fictício (essa tela ainda nem foi adicionada de verdade).
@@ -547,6 +577,11 @@ function renderEstruturaTelas() {
           iconeHtml: badgeIcone(ICONE_TELA.mapaMental, '#5724D6'),
           onClick: () => mostrarPreviewNovaTela('mapaMental'),
         },
+        {
+          label: 'Adicionar tabela animada', sublabel: 'Cartão explicativo + tabela fixa — uma seta anima até a célula de cada item ao navegar', grupo: 'Tabela',
+          iconeHtml: badgeIcone(ICONE_TELA.tabelaAnimada, '#0D6EFD'),
+          onClick: () => mostrarPreviewNovaTela('tabelaAnimada'),
+        },
       ];
       // "Resumo" e "Lição" são fixos por padrão (toda aula nasce com os dois) — só aparecem aqui
       // pra adicionar de volta se a professora tiver excluído antes (ver abrirMenuTela/removerPassoAtual).
@@ -602,7 +637,7 @@ function abrirMenuTela(event, idx) {
   if (podeMoverTela(passos, idx, 1)) itens.push({ acao: 'descer', label: '⬇️ Mover para baixo', onClick: () => moverTela(idx, 1) });
   // Resumo e Lição são opcionais (podem ser excluídos e depois adicionados de volta pelo "Tipo
   // (Telas)"), diferente de "Antes de começar", que é sempre obrigatório.
-  if (passo.tipo === 'exemplo' || passo.tipo === 'checagem' || passo.tipo === 'resumo' || passo.tipo === 'licao' || passo.tipo === 'lista' || passo.tipo === 'timeline' || passo.tipo === 'jogoSinais' || passo.tipo === 'agrupamento' || passo.tipo === 'distribuicao' || passo.tipo === 'mapaMental') {
+  if (passo.tipo === 'exemplo' || passo.tipo === 'checagem' || passo.tipo === 'resumo' || passo.tipo === 'licao' || passo.tipo === 'lista' || passo.tipo === 'timeline' || passo.tipo === 'jogoSinais' || passo.tipo === 'agrupamento' || passo.tipo === 'distribuicao' || passo.tipo === 'mapaMental' || passo.tipo === 'tabelaAnimada') {
     itens.push({
       acao: 'excluir', label: '🗑 Excluir esta tela', onClick: () => {
         conteudoEstado.passoIndex = idx;
@@ -734,6 +769,9 @@ function adicionarItemPasso(tipoLista, variante) {
   } else if (tipoLista === 'mapaMental') {
     conteudo.mapaMental.push({ _id: id, titulo: '', conceito: '', tipo: 'livro', topicos: [] });
     inserirNaOrdemAntesDoResumo(conteudo, { tipo: 'mapaMental', id });
+  } else if (tipoLista === 'tabelaAnimada') {
+    conteudo.tabelaAnimada.push({ _id: id, titulo: '', tabela: { colunas: ['', ''], linhas: [{ celulas: ['', ''] }] }, itens: [] });
+    inserirNaOrdemAntesDoResumo(conteudo, { tipo: 'tabelaAnimada', id });
   } else if (tipoLista === 'resumo' || tipoLista === 'licao') {
     // Só existe uma de cada — o conteúdo (texto já preenchido antes de excluir) não se perde,
     // então "adicionar de volta" é só religar a tela na ordem, via garantirOrdem().
@@ -763,6 +801,7 @@ function removerPassoAtual() {
   else if (passo.tipo === 'agrupamento') conteudo.agrupamento.splice(passo.idx, 1);
   else if (passo.tipo === 'distribuicao') conteudo.distribuicao.splice(passo.idx, 1);
   else if (passo.tipo === 'mapaMental') conteudo.mapaMental.splice(passo.idx, 1);
+  else if (passo.tipo === 'tabelaAnimada') conteudo.tabelaAnimada.splice(passo.idx, 1);
   else if (passo.tipo === 'resumo') conteudo.resumoRemovido = true;
   else if (passo.tipo === 'licao') conteudo.licaoRemovido = true;
   else return;
@@ -1126,6 +1165,7 @@ function renderizarConteudo() {
     agrupamento: renderFormAgrupamento,
     distribuicao: renderFormDistribuicao,
     mapaMental: renderFormMapaMental,
+    tabelaAnimada: renderFormTabelaAnimada,
   };
   renderers[passo.tipo](formEl, aula.conteudo, passo);
 
@@ -2957,6 +2997,193 @@ function renderFormMapaMental(el, conteudo, passo) {
   });
 }
 
+/** Ajusta destinoLinha/destinoColuna dos itens da Tabela Animada quando uma linha/coluna é
+ * removida — desloca os índices maiores pra trás e limpa (null) o destino de quem apontava
+ * exatamente pra linha/coluna removida (evita apontar pra uma célula que não existe mais). */
+function ajustarDestinosAoRemoverLinha(ta, liRemovida) {
+  ta.itens.forEach(item => {
+    if (item.destinoLinha == null) return;
+    if (item.destinoLinha === liRemovida) item.destinoLinha = null;
+    else if (item.destinoLinha > liRemovida) item.destinoLinha--;
+  });
+}
+function ajustarDestinosAoRemoverColuna(ta, ciRemovida) {
+  ta.itens.forEach(item => {
+    if (item.destinoColuna == null) return;
+    if (item.destinoColuna === ciRemovida) item.destinoColuna = null;
+    else if (item.destinoColuna > ciRemovida) item.destinoColuna--;
+  });
+}
+
+/** Tabela Guiada por Animação: cartão explicativo (um por item) + tabela fixa — cada item
+ * aponta pra uma célula da tabela, e no player uma seta anima até lá ao navegar (ver
+ * mostrarTabelaAnimada em vendor/estudo/js/estudo.mjs). A tabela em si é editada como um
+ * grid de campos de texto (cabeçalhos + células), com botões pra adicionar/remover linha e
+ * coluna — mexer na estrutura da tabela reconstrói o formulário inteiro (mesma estratégia já
+ * usada em "Lista" pro checkbox de ícone), porque os seletores de destino de cada item
+ * precisam refletir as linhas/colunas atuais. */
+function renderFormTabelaAnimada(el, conteudo, passo) {
+  const ta = conteudo.tabelaAnimada[passo.idx];
+  if (!ta.tabela) ta.tabela = { colunas: ['', ''], linhas: [{ celulas: ['', ''] }] };
+  if (!Array.isArray(ta.tabela.colunas)) ta.tabela.colunas = ['', ''];
+  if (!Array.isArray(ta.tabela.linhas)) ta.tabela.linhas = [{ celulas: ta.tabela.colunas.map(() => '') }];
+  if (!Array.isArray(ta.itens)) ta.itens = [];
+  const colunas = ta.tabela.colunas;
+  const linhas = ta.tabela.linhas;
+
+  el.innerHTML = `
+    <div class="form-secao">
+      ${htmlCampoAudioTela()}
+      <div class="campo" style="margin-top:16px">${htmlLabelComEstilo('Título da tela (opcional)', 'titulo')}<input type="text" id="taTitulo"></div>
+      <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
+      <div id="taDestaqueTitulo"></div>
+
+      <div class="secao-titulo-editor" style="margin-top:16px">Tabela</div>
+      <p class="campo-ajuda">A tabela fica fixa na tela — cada item abaixo aponta pra uma célula dela, e uma seta anima até lá quando a aluna navega entre os itens.</p>
+      <div class="ta-tabela-wrap" id="taTabelaWrap"></div>
+      <div class="campo-linha" style="margin-top:8px">
+        <button type="button" class="btn-add-item" id="btnAddTaColuna">+ Adicionar coluna</button>
+        <button type="button" class="btn-add-item" id="btnAddTaLinha">+ Adicionar linha</button>
+      </div>
+
+      <div class="secao-titulo-editor" style="margin-top:16px">Itens (ordem de apresentação)</div>
+      <div class="lista-itens" id="listaTaItens"></div>
+      <button class="btn-add-item" type="button" id="btnAddTaItem">+ Adicionar item</button>
+    </div>`;
+
+  const camposTextoTa = [{ rotulo: 'Título da tela', campo: 'titulo' }];
+  const atualizarSincroniaTa = ligarCampoAudioTela(el, ta, camposTextoTa);
+  el.querySelector('#taTitulo').value = ta.titulo || '';
+  el.querySelector('#taTitulo').addEventListener('input', e => { ta.titulo = e.target.value; renderPreviewAtual(); });
+  ligarBotoesEstiloTexto(el, ta);
+  const renderDestaquesTaTitulo = montarDestaqueFrases(el.querySelector('#taDestaqueTitulo'), ta, camposTextoTa);
+  el.querySelector('#taTitulo').addEventListener('blur', () => { podarDestaque(ta, 'titulo'); renderDestaquesTaTitulo(); podarSincronia(ta, 'titulo'); atualizarSincroniaTa(); });
+
+  const tabelaWrap = el.querySelector('#taTabelaWrap');
+  tabelaWrap.innerHTML = `
+    <table class="ta-tabela-editor">
+      <thead><tr>
+        <th class="ta-th-corner"></th>
+        ${colunas.map((c, ci) => `
+          <th>
+            <input type="text" data-col="${ci}" placeholder="Coluna ${ci + 1}">
+            ${colunas.length > 1 ? `<button type="button" class="ta-remover-coluna" data-ci="${ci}" title="Remover coluna">×</button>` : ''}
+          </th>`).join('')}
+      </tr></thead>
+      <tbody>
+        ${linhas.map((linha, li) => `
+          <tr>
+            <td class="ta-th-linha">${linhas.length > 1 ? `<button type="button" class="ta-remover-linha" data-li="${li}" title="Remover linha">×</button>` : ''}</td>
+            ${linha.celulas.map((cel, ci) => `<td><textarea rows="2" data-li="${li}" data-ci="${ci}"></textarea></td>`).join('')}
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+  tabelaWrap.querySelectorAll('[data-col]').forEach(input => {
+    input.value = colunas[Number(input.dataset.col)] || '';
+    input.addEventListener('input', e => { colunas[Number(input.dataset.col)] = e.target.value; renderPreviewAtual(); });
+  });
+  tabelaWrap.querySelectorAll('textarea[data-li]').forEach(textarea => {
+    const li = Number(textarea.dataset.li), ci = Number(textarea.dataset.ci);
+    textarea.value = linhas[li].celulas[ci] || '';
+    textarea.addEventListener('input', e => { linhas[li].celulas[ci] = e.target.value; renderPreviewAtual(); });
+  });
+  tabelaWrap.querySelectorAll('.ta-remover-coluna').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ci = Number(btn.dataset.ci);
+      colunas.splice(ci, 1);
+      linhas.forEach(linha => linha.celulas.splice(ci, 1));
+      ajustarDestinosAoRemoverColuna(ta, ci);
+      renderFormTabelaAnimada(el, conteudo, passo);
+      renderPreviewAtual();
+    });
+  });
+  tabelaWrap.querySelectorAll('.ta-remover-linha').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const li = Number(btn.dataset.li);
+      linhas.splice(li, 1);
+      ajustarDestinosAoRemoverLinha(ta, li);
+      renderFormTabelaAnimada(el, conteudo, passo);
+      renderPreviewAtual();
+    });
+  });
+
+  el.querySelector('#btnAddTaColuna').addEventListener('click', () => {
+    colunas.push('');
+    linhas.forEach(linha => linha.celulas.push(''));
+    renderFormTabelaAnimada(el, conteudo, passo);
+    renderPreviewAtual();
+  });
+  el.querySelector('#btnAddTaLinha').addEventListener('click', () => {
+    linhas.push({ celulas: colunas.map(() => '') });
+    renderFormTabelaAnimada(el, conteudo, passo);
+    renderPreviewAtual();
+  });
+
+  const listaItens = el.querySelector('#listaTaItens');
+  function renderItens() {
+    listaItens.innerHTML = '';
+    ta.itens.forEach((item, i) => {
+      const card = document.createElement('div');
+      card.className = 'item-card';
+      card.innerHTML = `
+        <div class="item-card-topo"><strong>Item ${i + 1}</strong><button class="btn-remover-item" type="button">Remover</button></div>
+        <div class="campo">${htmlTipoIconePicker(item, '#0D6EFD')}</div>
+        ${htmlCampoIconeExterno(item)}
+        <div class="campo">${htmlLabelComEstilo('Título', 'titulo')}<input type="text" data-tf="titulo" placeholder="Ex: Poder Disciplinar"></div>
+        <div class="campo">${htmlLabelComEstilo('Explicação', 'texto')}<textarea data-tf="texto" rows="3" placeholder="Ex: É o poder de aplicar sanções administrativas..."></textarea></div>
+        <div class="secao-titulo-editor" style="margin-top:12px">Destaque nas frases (palavras em azul)</div>
+        <div id="taDestaqueItem${i}"></div>
+        <div class="campo-linha" style="margin-top:12px">
+          <div class="campo"><label>Linha de destino</label>
+            <select data-tf="destinoLinha">
+              <option value="">— nenhuma —</option>
+              ${linhas.map((linha, li) => `<option value="${li}"${item.destinoLinha === li ? ' selected' : ''}>${escaparHtml(linha.celulas[0] || `Linha ${li + 1}`)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="campo"><label>Coluna de destino</label>
+            <select data-tf="destinoColuna">
+              <option value="">— nenhuma —</option>
+              ${colunas.map((c, ci) => `<option value="${ci}"${item.destinoColuna === ci ? ' selected' : ''}>${escaparHtml(c || `Coluna ${ci + 1}`)}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="secao-titulo-editor" style="margin-top:12px">Destaque sincronizado com o áudio (opcional)</div>
+        <div id="taTempoItem${i}"></div>`;
+      card.querySelector('[data-tf="titulo"]').value = item.titulo || '';
+      card.querySelector('[data-tf="texto"]').value = item.texto || '';
+      card.querySelectorAll('[data-tf="titulo"], [data-tf="texto"]').forEach(input => {
+        input.addEventListener('input', () => { item[input.dataset.tf] = input.value; renderPreviewAtual(); });
+      });
+      card.querySelector('[data-tf="destinoLinha"]').addEventListener('change', e => {
+        item.destinoLinha = e.target.value === '' ? null : Number(e.target.value);
+        renderPreviewAtual();
+      });
+      card.querySelector('[data-tf="destinoColuna"]').addEventListener('change', e => {
+        item.destinoColuna = e.target.value === '' ? null : Number(e.target.value);
+        renderPreviewAtual();
+      });
+      ligarBotoesEstiloTexto(card, item);
+      const renderDestaquesTaItem = montarDestaqueFrases(card.querySelector(`#taDestaqueItem${i}`), item, [
+        { rotulo: 'Título', campo: 'titulo' },
+        { rotulo: 'Explicação', campo: 'texto' },
+      ]);
+      card.querySelectorAll('[data-tf="titulo"], [data-tf="texto"]').forEach(input => {
+        input.addEventListener('blur', () => { podarDestaque(item, input.dataset.tf); renderDestaquesTaItem(); });
+      });
+      ligarCampoIconeExterno(card, item);
+      ligarTipoIconePicker(card, item, '#0D6EFD', renderPreviewAtual);
+      montarMarcacaoTempoTopico(card.querySelector(`#taTempoItem${i}`), item, () => el.querySelector('.campo-audio-tela-preview audio'));
+      card.querySelector('.btn-remover-item').addEventListener('click', () => { ta.itens.splice(i, 1); renderItens(); renderPreviewAtual(); });
+      listaItens.appendChild(card);
+    });
+  }
+  renderItens();
+  el.querySelector('#btnAddTaItem').addEventListener('click', () => {
+    ta.itens.push({ tipo: 'acao', titulo: '', texto: '', destinoLinha: null, destinoColuna: null });
+    renderItens(); renderPreviewAtual();
+  });
+}
+
 function renderFormLicao(el, conteudo) {
   const l = conteudo.licao;
   el.innerHTML = `
@@ -3044,6 +3271,7 @@ function corpoDoPasso(aula, passo, resp) {
   if (passo.tipo === 'agrupamento') return { html: previewAgrupamento(aula.conteudo.agrupamento[passo.idx]), temToggle: false };
   if (passo.tipo === 'distribuicao') return { html: previewDistribuicao(aula.conteudo.distribuicao[passo.idx]), temToggle: false };
   if (passo.tipo === 'mapaMental') return { html: previewMapaMental(aula.conteudo.mapaMental[passo.idx]), temToggle: false };
+  if (passo.tipo === 'tabelaAnimada') return { html: previewTabelaAnimada(aula.conteudo.tabelaAnimada[passo.idx]), temToggle: false };
   return { html: '', temToggle: false };
 }
 
@@ -3061,6 +3289,7 @@ function preencherCaixaPreview(prefixo, aula, passos, indice, resp) {
   bodyEl.innerHTML = html;
   ligarAudioTelaPreview(bodyEl);
   ligarMapaMentalPreview(bodyEl);
+  ligarTabelaAnimadaPreview(bodyEl);
 
   const feedbackEl = document.getElementById(`${prefixo}Feedback`);
   feedbackEl.className = 'pp-feedback';
@@ -3777,6 +4006,110 @@ function ligarMapaMentalPreview(container) {
 
   desenharSetas();
   requestAnimationFrame(desenharSetas); // o layout final (ícones/fontes) só se acomoda após o 1º paint
+}
+
+/** Prévia da Tabela Animada — mostra o cartão do primeiro item e a tabela completa, com a
+ * célula de destino desse item já destacada e uma seta até ela (ver ligarTabelaAnimadaPreview
+ * logo abaixo). A navegação de verdade (Anterior/Próximo trocando o cartão e reanimando a
+ * seta pra cada item) só existe no player exportado — ver mostrarTabelaAnimada em
+ * vendor/estudo/js/estudo.mjs. */
+function previewTabelaAnimada(ta) {
+  const tabela = ta.tabela || { colunas: [], linhas: [] };
+  const colunas = tabela.colunas || [];
+  const linhas = tabela.linhas || [];
+  const itens = ta.itens || [];
+  if (!colunas.length && !itens.length && !ta.audioUrl) return '<p class="pp-vazio">Monte a tabela e adicione itens para ver a prévia.</p>';
+  const item = itens[0];
+  return `
+    ${montarAudioTelaHtml(ta.audioUrl)}
+    ${ta.titulo ? `<p class="pp-titulo"${estiloTextoInline(ta, 'titulo')}>${renderFraseComDestaque(ta.titulo, ta.tituloDestaque, ta.tituloDestaqueNegrito)}</p>` : ''}
+    <div class="ta-tela">
+      <div class="ta-cartao">
+        ${item ? `
+          <span class="ta-cartao-contagem">1 de ${itens.length}</span>
+          <div class="ta-cartao-cabecalho">
+            <div class="ta-cartao-icone">${iconeTipo(item.tipo, '#0D6EFD', item.iconeUrl)}</div>
+            <span class="ta-cartao-titulo">${escaparHtml(item.titulo || '')}</span>
+          </div>
+          <p class="ta-cartao-texto">${renderFraseComDestaque(item.texto || '', item.textoDestaque, item.textoDestaqueNegrito)}</p>` : '<p class="pp-vazio">Adicione um item.</p>'}
+      </div>
+      <div class="ta-tabela-scroll">
+        <table class="ta-tabela">
+          <thead><tr>${colunas.map(c => `<th>${escaparHtml(c || '')}</th>`).join('')}</tr></thead>
+          <tbody>
+            ${linhas.map((linha, li) => `<tr>${(linha.celulas || []).map((cel, ci) => `
+              <td${item && item.destinoLinha === li && item.destinoColuna === ci ? ' class="ta-celula-destino"' : ''}>${escaparHtml(cel || '')}</td>`).join('')}</tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="ta-viajante"><div class="ta-viajante-icone">${item ? iconeTipo(item.tipo, '#fff', item.iconeUrl) : ''}</div></div>
+    </div>`;
+}
+
+/** Anima o próprio TEXTO da explicação "virando" a célula de destino na prévia — mesma
+ * técnica FLIP de lancarConteudoTabelaAnimada em vendor/estudo/js/estudo.mjs (duplicada aqui
+ * porque a caixinha de prévia do Construtor é um DOM separado da tela de verdade): o chip
+ * nasce do tamanho/posição exatos da célula final, ganha um transform inicial que o faz
+ * aparentar estar no lugar do texto do cartão, e ao animar esse transform pra "identidade"
+ * ele encolhe/se move até a célula — não é um ícone abstrato se movendo, é o conteúdo sendo
+ * indicado. Se a célula já tiver texto configurado na tabela, é esse texto que viaja (a
+ * tabela permanece fixa); se estiver em branco, quem viaja — e PREENCHE a célula ao pousar —
+ * é a explicação do item. Chamada sempre que o HTML da prévia é trocado (ver
+ * preencherCaixaPreview/mostrarPreviewNovaTela). Sem `.ta-tela` dentro, não faz nada. */
+function ligarTabelaAnimadaPreview(container) {
+  const telaEl = container && container.querySelector('.ta-tela');
+  if (!telaEl) return;
+  const cartaoEl = telaEl.querySelector('.ta-cartao');
+  const cartaoTextoEl = telaEl.querySelector('.ta-cartao-texto');
+  const cartaoTituloEl = telaEl.querySelector('.ta-cartao-titulo');
+  const chip = telaEl.querySelector('.ta-viajante');
+  if (!cartaoEl || !chip) return;
+
+  function lancar() {
+    const celulaEl = telaEl.querySelector('.ta-celula-destino');
+    if (!celulaEl) return;
+    const rectTela = telaEl.getBoundingClientRect();
+    if (!rectTela.width || !rectTela.height) return;
+    // Sem explicação escrita, o <p> do texto fica com altura zero — usa o cartão inteiro
+    // como ponto de partida nesse caso, senão a animação seria silenciosamente pulada.
+    const textoRect = cartaoTextoEl ? cartaoTextoEl.getBoundingClientRect() : null;
+    const startRect = (textoRect && textoRect.width && textoRect.height) ? textoRect : cartaoEl.getBoundingClientRect();
+    const endRect = celulaEl.getBoundingClientRect();
+    if (!startRect.width || !startRect.height || !endRect.width || !endRect.height) return;
+
+    const celulaVazia = !celulaEl.textContent.trim();
+    const textoExplicacao = (cartaoTextoEl && cartaoTextoEl.textContent.trim())
+      ? cartaoTextoEl.innerHTML
+      : (cartaoTituloEl ? cartaoTituloEl.innerHTML : '');
+    const conteudo = celulaVazia ? textoExplicacao : celulaEl.innerHTML;
+    chip.innerHTML = conteudo;
+    chip.style.left = `${endRect.left - rectTela.left}px`;
+    chip.style.top = `${endRect.top - rectTela.top}px`;
+    chip.style.width = `${endRect.width}px`;
+    chip.style.height = `${endRect.height}px`;
+
+    const scaleX = startRect.width / endRect.width;
+    const scaleY = startRect.height / endRect.height;
+    const translateX = (startRect.left + startRect.width / 2) - (endRect.left + endRect.width / 2);
+    const translateY = (startRect.top + startRect.height / 2) - (endRect.top + endRect.height / 2);
+
+    chip.getAnimations().forEach(a => a.cancel());
+    chip.style.opacity = '1';
+    const animacao = chip.animate(
+      [
+        { transform: `translate(${translateX}px, ${translateY}px) scale(${scaleX}, ${scaleY})`, opacity: 1, offset: 0 },
+        { transform: 'translate(0px, 0px) scale(1, 1)', opacity: 1, offset: 0.85 },
+        { transform: 'translate(0px, 0px) scale(1, 1)', opacity: 0, offset: 1 },
+      ],
+      { duration: 650, easing: 'cubic-bezier(.3,0,.2,1)', fill: 'forwards' }
+    );
+    animacao.finished.catch(() => {}).then(() => {
+      chip.style.opacity = '0';
+      if (celulaVazia) celulaEl.innerHTML = conteudo;
+      celulaEl.classList.add('ta-celula-ativa');
+    });
+  }
+  requestAnimationFrame(() => requestAnimationFrame(lancar));
 }
 
 function previewLicao(l) {

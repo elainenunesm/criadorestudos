@@ -609,6 +609,62 @@
 .player-preview .mm-topico-lista li + li { margin-top: 1px; }
 .player-preview .mm-topico-lista li::before { content: '•'; position: absolute; left: 0; font-weight: 800; color: #5724D6; }
 
+/* Tabela Guiada por Animação — prévia: mesmo visual do player exportado (cartão explicativo +
+   tabela + chip com o ícone do item viajando até a célula), só que mostrando sempre o 1º
+   item (a navegação de verdade entre itens só existe no player — ver
+   ligarTabelaAnimadaPreview em js/conteudo.js; equivalente de verdade em
+   mostrarTabelaAnimada/lancarConteudoTabelaAnimada em vendor/estudo/js/estudo.mjs — precisa
+   bater visualmente com o que a aluna vai ver). */
+.player-preview .ta-tela { position: relative; margin-top: 10px; }
+.player-preview .ta-cartao { position: relative; z-index: 2; background: #F1EBFF; border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; }
+.player-preview .ta-cartao-contagem { font-size: 10px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; color: #5724D6; }
+.player-preview .ta-cartao-cabecalho { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.player-preview .ta-cartao-icone {
+  width: 26px; height: 26px; border-radius: 50%; background: #5724D6; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.player-preview .ta-cartao-icone svg * { stroke: #fff !important; fill: #fff !important; }
+.player-preview .ta-cartao-titulo { font-size: 12.5px; font-weight: 700; color: #202033; }
+.player-preview .ta-cartao-texto { font-size: 11px; color: #4b4b5a; line-height: 1.4; margin: 6px 0 0; }
+.player-preview .ta-tabela-scroll { overflow-x: auto; border-radius: 10px; border: 1px solid #e9dffb; position: relative; z-index: 2; }
+.player-preview .ta-tabela { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+.player-preview .ta-tabela th, .player-preview .ta-tabela td {
+  border: 1px solid #e9dffb; padding: 6px 8px; text-align: left; white-space: pre-line; min-width: 90px;
+}
+.player-preview .ta-tabela th { background: #f0eaff; font-weight: 700; color: #202033; }
+.player-preview .ta-tabela td { background: #fff; color: #4b4b5a; }
+.player-preview .ta-celula-ativa { border-color: #5724D6 !important; background: #f0eaff !important; box-shadow: 0 0 0 2px rgba(87,36,214,0.18); font-weight: 600; color: #202033 !important; }
+.player-preview .ta-viajante {
+  position: absolute; top: 0; left: 0; z-index: 4; pointer-events: none; opacity: 0;
+  box-sizing: border-box; display: flex; align-items: center; overflow: hidden;
+  border: 1px solid #5724D6; border-radius: 4px; padding: 6px 8px;
+  background: #f0eaff; font-size: 10.5px; font-weight: 600; color: #202033;
+  white-space: pre-line; box-shadow: 0 4px 10px rgba(87,36,214,0.25);
+}
+
+/* Tabela Guiada por Animação — EDITOR da tabela (grid de campos de texto pra cabeçalhos e
+   células, com botão de remover por linha/coluna — ver renderFormTabelaAnimada). */
+.ta-tabela-wrap { overflow-x: auto; margin-top: 8px; }
+.ta-tabela-editor { border-collapse: collapse; width: 100%; }
+.ta-tabela-editor th, .ta-tabela-editor td { border: 1px solid rgba(30,27,46,0.1); padding: 6px; vertical-align: top; }
+.ta-tabela-editor th { background: #faf7ff; position: relative; }
+.ta-tabela-editor th input {
+  width: 100%; min-width: 110px; border: 1.5px solid rgba(30,27,46,0.12); border-radius: 8px;
+  padding: 6px 8px; font-size: 12.5px; font-weight: 700; color: #1a1a2e;
+}
+.ta-tabela-editor td textarea {
+  width: 100%; min-width: 110px; min-height: 48px; border: 1.5px solid rgba(30,27,46,0.12);
+  border-radius: 8px; padding: 6px 8px; font-size: 12.5px; color: #1a1a2e; resize: vertical;
+}
+.ta-th-corner { background: transparent; border: none !important; }
+.ta-th-linha { text-align: center; vertical-align: middle; width: 28px; }
+.ta-remover-coluna, .ta-remover-linha {
+  width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid rgba(30,27,46,0.12);
+  background: #fff; color: #B3261E; font-size: 13px; line-height: 1; cursor: pointer; flex-shrink: 0;
+}
+.ta-remover-coluna:hover, .ta-remover-linha:hover { background: #fdeceb; }
+.ta-tabela-editor th .ta-remover-coluna { display: block; margin: 4px auto 0; }
+
 /* Barra de "Áudio da tela" — narração opcional, disponível em qualquer tipo de tela (ver
    htmlCampoAudioTela/montarAudioTelaHtml). Funciona de verdade aqui na prévia (a professora
    pode clicar em tocar/pausar/arrastar), só nunca toca sozinha — quem faz isso é só o
