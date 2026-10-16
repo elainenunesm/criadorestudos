@@ -2716,6 +2716,49 @@ function desenharLinhasMapaConceitual(mapaEl, nos, noIdxAtual, { animarNovas = f
   }
 }
 
+/** Rola suavemente (com duração própria, mais devagar que o scrollIntoView nativo) até um
+ * elemento ficar visível em TODOS os seus contêineres com scroll — tanto o mapa (que a aluna
+ * pode ter arrastado/rolado pra outro canto, já que cresce e pode não caber na tela) quanto a
+ * área da tela em si. Usada ao revelar um nó novo no Mapa Conceitual, pra garantir que a
+ * animação aconteça visível, mesmo que a aluna tenha mexido no scroll antes de clicar em
+ * "Próximo" — mas sem ser um pulo abrupto, pra dar tempo dela acompanhar. */
+function rolarAteElemento(el, { duracao = 700 } = {}) {
+  if (!el) return;
+  const containers = [];
+  let node = el.parentElement;
+  while (node) {
+    const estilo = getComputedStyle(node);
+    if (/(auto|scroll)/.test(estilo.overflowY) || /(auto|scroll)/.test(estilo.overflowX)) containers.push(node);
+    node = node.parentElement;
+  }
+  function animarScroll(container, propriedade, destino) {
+    const inicio = container[propriedade];
+    const distancia = destino - inicio;
+    if (Math.abs(distancia) < 1) return;
+    const t0 = performance.now();
+    function passo(agora) {
+      const p = Math.min(1, (agora - t0) / duracao);
+      const facil = 1 - Math.pow(1 - p, 3); // ease-out cúbico
+      container[propriedade] = inicio + distancia * facil;
+      if (p < 1) requestAnimationFrame(passo);
+    }
+    requestAnimationFrame(passo);
+  }
+  containers.forEach(container => {
+    const margem = 16;
+    const rectC = container.getBoundingClientRect();
+    const rectEl = el.getBoundingClientRect();
+    let destinoTop = container.scrollTop;
+    if (rectEl.top < rectC.top + margem) destinoTop -= (rectC.top + margem - rectEl.top);
+    else if (rectEl.bottom > rectC.bottom - margem) destinoTop += (rectEl.bottom - (rectC.bottom - margem));
+    let destinoLeft = container.scrollLeft;
+    if (rectEl.left < rectC.left + margem) destinoLeft -= (rectC.left + margem - rectEl.left);
+    else if (rectEl.right > rectC.right - margem) destinoLeft += (rectEl.right - (rectC.right - margem));
+    animarScroll(container, 'scrollTop', destinoTop);
+    animarScroll(container, 'scrollLeft', destinoLeft);
+  });
+}
+
 /** "Mapa Conceitual Progressivo": árvore de conceitos que cresce um nó por vez. Todos os nós já
  * estão no DOM desde o início, nas posições finais calculadas pela árvore completa (ver
  * posicionarNosMapaConceitual) — só a aparência de cada um muda: "revelado" (texto de verdade,
@@ -2806,7 +2849,7 @@ function mostrarMapaConceitual(aula, introIdx, i) {
       atualizarRevelacao({ animar });
       if (comRolagem) {
         const elNovo = mapaEl.querySelector(`.mc-no[data-id="${no.id}"]`);
-        if (elNovo) elNovo.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+        if (elNovo) rolarAteElemento(elNovo);
       }
     }));
   }
