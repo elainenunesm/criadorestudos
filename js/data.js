@@ -54,6 +54,10 @@ function novoConteudo() {
     // uma seta anima do cartão até a célula de destino daquele item) — também repetível,
     // mesmo esquema da Lista/Timeline/Mapa Mental.
     tabelaAnimada: [],
+    // "Mapa Conceitual Progressivo" (árvore de nós que cresce a cada "Próximo" — os nós já
+    // revelados nunca somem nem mudam de posição) — também repetível, mesmo esquema das
+    // demais telas de mapa/tabela.
+    mapaConceitual: [],
   };
 }
 

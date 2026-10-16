@@ -24,7 +24,7 @@ function conteudoAulaAtual() {
 
 /** Próximo _id livre pra um novo item de exemplo/checagem/lista/timeline/jogoSinais/agrupamento/distribuicao (referenciado em conteudo.ordem). */
 function proximoIdItem(conteudo) {
-  const ids = [...conteudo.exemplo, ...conteudo.checagem, ...conteudo.lista, ...conteudo.timeline, ...conteudo.jogoSinais, ...conteudo.agrupamento, ...conteudo.distribuicao, ...conteudo.mapaMental, ...conteudo.tabelaAnimada].map(i => i._id || 0);
+  const ids = [...conteudo.exemplo, ...conteudo.checagem, ...conteudo.lista, ...conteudo.timeline, ...conteudo.jogoSinais, ...conteudo.agrupamento, ...conteudo.distribuicao, ...conteudo.mapaMental, ...conteudo.tabelaAnimada, ...conteudo.mapaConceitual].map(i => i._id || 0);
   return Math.max(0, ...ids) + 1;
 }
 
@@ -45,6 +45,7 @@ function garantirOrdem(conteudo) {
   if (!Array.isArray(conteudo.distribuicao)) conteudo.distribuicao = [];
   if (!Array.isArray(conteudo.mapaMental)) conteudo.mapaMental = [];
   if (!Array.isArray(conteudo.tabelaAnimada)) conteudo.tabelaAnimada = [];
+  if (!Array.isArray(conteudo.mapaConceitual)) conteudo.mapaConceitual = [];
 
   conteudo.exemplo.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
   conteudo.checagem.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
@@ -55,6 +56,7 @@ function garantirOrdem(conteudo) {
   conteudo.distribuicao.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
   conteudo.mapaMental.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
   conteudo.tabelaAnimada.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
+  conteudo.mapaConceitual.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
 
   // Remove entradas de itens que não existem mais.
   conteudo.ordem = conteudo.ordem.filter(t => {
@@ -67,6 +69,7 @@ function garantirOrdem(conteudo) {
     if (t.tipo === 'distribuicao') return conteudo.distribuicao.some(i => i._id === t.id);
     if (t.tipo === 'mapaMental') return conteudo.mapaMental.some(i => i._id === t.id);
     if (t.tipo === 'tabelaAnimada') return conteudo.tabelaAnimada.some(i => i._id === t.id);
+    if (t.tipo === 'mapaConceitual') return conteudo.mapaConceitual.some(i => i._id === t.id);
     return true;
   });
 
@@ -99,6 +102,9 @@ function garantirOrdem(conteudo) {
   conteudo.tabelaAnimada.forEach(item => {
     if (!presentes.has(`tabelaAnimada:${item._id}`)) conteudo.ordem.push({ tipo: 'tabelaAnimada', id: item._id });
   });
+  conteudo.mapaConceitual.forEach(item => {
+    if (!presentes.has(`mapaConceitual:${item._id}`)) conteudo.ordem.push({ tipo: 'mapaConceitual', id: item._id });
+  });
   // Resumo/Lição nascem junto com a aula, mas podem ser excluídos (ver removerPassoAtual) — nesse
   // caso NÃO voltam sozinhos aqui, só se a professora clicar em "Tipo (Telas)" pra adicionar de novo.
   if (!presentes.has('resumo:') && !conteudo.resumoRemovido) conteudo.ordem.push({ tipo: 'resumo' });
@@ -120,6 +126,7 @@ function montarPassos(conteudo) {
   let numDistribuicao = 0;
   let numMapaMental = 0;
   let numTabelaAnimada = 0;
+  let numMapaConceitual = 0;
   return conteudo.ordem.map(token => {
     if (token.tipo === 'exemplo') {
       numExemplo++;
@@ -160,6 +167,10 @@ function montarPassos(conteudo) {
     if (token.tipo === 'tabelaAnimada') {
       numTabelaAnimada++;
       return { tipo: 'tabelaAnimada', idx: conteudo.tabelaAnimada.findIndex(i => i._id === token.id), id: token.id, titulo: `Tabela ${numTabelaAnimada}` };
+    }
+    if (token.tipo === 'mapaConceitual') {
+      numMapaConceitual++;
+      return { tipo: 'mapaConceitual', idx: conteudo.mapaConceitual.findIndex(i => i._id === token.id), id: token.id, titulo: `Mapa Conceitual ${numMapaConceitual}` };
     }
     return { tipo: token.tipo, titulo: TITULO_TELA_FIXO[token.tipo] };
   });
@@ -215,6 +226,7 @@ const ICONE_TELA = {
   distribuicao: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><line x1="4" y1="12" x2="20" y2="12"/><circle cx="12" cy="6" r="1.8" fill="#fff" stroke="none"/><circle cx="12" cy="18" r="1.8" fill="#fff" stroke="none"/></svg>',
   mapaMental: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="2.6" fill="#fff" stroke="none"/><circle cx="4" cy="5" r="2" fill="#fff" stroke="none"/><circle cx="20" cy="5" r="2" fill="#fff" stroke="none"/><circle cx="4" cy="19" r="2" fill="#fff" stroke="none"/><circle cx="20" cy="19" r="2" fill="#fff" stroke="none"/><line x1="12" y1="12" x2="4" y2="5"/><line x1="12" y1="12" x2="20" y2="5"/><line x1="12" y1="12" x2="4" y2="19"/><line x1="12" y1="12" x2="20" y2="19"/></svg>',
   tabelaAnimada: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="10" x2="9" y2="20"/><line x1="15" y1="10" x2="15" y2="20"/></svg>',
+  mapaConceitual: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="4" r="2" fill="#fff" stroke="none"/><circle cx="5" cy="13" r="2" fill="#fff" stroke="none"/><circle cx="19" cy="13" r="2" fill="#fff" stroke="none"/><circle cx="5" cy="20" r="1.6" fill="#fff" stroke="none"/><circle cx="19" cy="20" r="1.6" fill="#fff" stroke="none"/><line x1="12" y1="4" x2="5" y2="13"/><line x1="12" y1="4" x2="19" y2="13"/><line x1="5" y1="13" x2="5" y2="20"/><line x1="19" y1="13" x2="19" y2="20"/></svg>',
 };
 
 /** Dados de mentira só pra prévia de "que tipo de tela é essa" — nunca chegam a entrar
@@ -332,6 +344,15 @@ const DADOS_FICTICIOS_TELA = {
       { tipo: 'acao', titulo: 'Item 2', texto: 'E a explicação do segundo item.', destinoLinha: 1, destinoColuna: 2 },
     ],
   },
+  mapaConceitual: {
+    titulo: 'Assim vai aparecer o título (opcional).',
+    nos: [
+      { id: 'n1', texto: 'Conceito central', tipo: 'acao', paiId: null, cartaoTexto: 'Assim vai aparecer a explicação deste nó, quando ele for revelado.' },
+      { id: 'n2', texto: 'Tópico 1', tipo: 'acao', cor: '#DFF3FC', paiId: 'n1', cartaoTexto: 'Explicação do Tópico 1.' },
+      { id: 'n3', texto: 'Tópico 2', tipo: 'dica', cor: '#FFF8D9', paiId: 'n1', cartaoTexto: 'Explicação do Tópico 2.' },
+      { id: 'n4', texto: 'Detalhe', tipo: 'acao', cor: '#DFF5E5', paiId: 'n2', cartaoTexto: 'Explicação do Detalhe.' },
+    ],
+  },
 };
 
 const NOME_TELA_ADICIONAR = {
@@ -358,6 +379,7 @@ const NOME_TELA_ADICIONAR = {
   distribuicao: 'Adicionar distribuição',
   mapaMental: 'Adicionar mapa mental',
   tabelaAnimada: 'Adicionar tabela animada',
+  mapaConceitual: 'Adicionar mapa conceitual',
 };
 
 /** Tipo (e, se aplicável, a variante) escolhidos no popup "Tipo (Telas)" — ainda não
@@ -415,6 +437,8 @@ function mostrarPreviewNovaTela(tipo, modo) {
     body.innerHTML = previewMapaMental(DADOS_FICTICIOS_TELA.mapaMental);
   } else if (tipo === 'tabelaAnimada') {
     body.innerHTML = previewTabelaAnimada(DADOS_FICTICIOS_TELA.tabelaAnimada);
+  } else if (tipo === 'mapaConceitual') {
+    body.innerHTML = previewMapaConceitual(DADOS_FICTICIOS_TELA.mapaConceitual);
   } else {
     const DADOS_CHECAGEM_POR_MODO = {
       palavra: DADOS_FICTICIOS_TELA.checagemPalavra,
@@ -427,6 +451,7 @@ function mostrarPreviewNovaTela(tipo, modo) {
   ligarAudioTelaPreview(body);
   ligarMapaMentalPreview(body);
   ligarTabelaAnimadaPreview(body);
+  ligarMapaConceitualPreview(body);
 
   // Cabeçalho com a mesma cor de marca das outras prévias — só pra mostrar como vai ficar,
   // por isso o "passo" é fictício (essa tela ainda nem foi adicionada de verdade).
@@ -582,6 +607,11 @@ function renderEstruturaTelas() {
           iconeHtml: badgeIcone(ICONE_TELA.tabelaAnimada, '#0D6EFD'),
           onClick: () => mostrarPreviewNovaTela('tabelaAnimada'),
         },
+        {
+          label: 'Adicionar mapa conceitual', sublabel: 'Árvore de conceitos que cresce a cada "Próximo" — os nós já revelados nunca somem', grupo: 'Mapa Conceitual',
+          iconeHtml: badgeIcone(ICONE_TELA.mapaConceitual, '#7C3AED'),
+          onClick: () => mostrarPreviewNovaTela('mapaConceitual'),
+        },
       ];
       // "Resumo" e "Lição" são fixos por padrão (toda aula nasce com os dois) — só aparecem aqui
       // pra adicionar de volta se a professora tiver excluído antes (ver abrirMenuTela/removerPassoAtual).
@@ -637,7 +667,7 @@ function abrirMenuTela(event, idx) {
   if (podeMoverTela(passos, idx, 1)) itens.push({ acao: 'descer', label: '⬇️ Mover para baixo', onClick: () => moverTela(idx, 1) });
   // Resumo e Lição são opcionais (podem ser excluídos e depois adicionados de volta pelo "Tipo
   // (Telas)"), diferente de "Antes de começar", que é sempre obrigatório.
-  if (passo.tipo === 'exemplo' || passo.tipo === 'checagem' || passo.tipo === 'resumo' || passo.tipo === 'licao' || passo.tipo === 'lista' || passo.tipo === 'timeline' || passo.tipo === 'jogoSinais' || passo.tipo === 'agrupamento' || passo.tipo === 'distribuicao' || passo.tipo === 'mapaMental' || passo.tipo === 'tabelaAnimada') {
+  if (passo.tipo === 'exemplo' || passo.tipo === 'checagem' || passo.tipo === 'resumo' || passo.tipo === 'licao' || passo.tipo === 'lista' || passo.tipo === 'timeline' || passo.tipo === 'jogoSinais' || passo.tipo === 'agrupamento' || passo.tipo === 'distribuicao' || passo.tipo === 'mapaMental' || passo.tipo === 'tabelaAnimada' || passo.tipo === 'mapaConceitual') {
     itens.push({
       acao: 'excluir', label: '🗑 Excluir esta tela', onClick: () => {
         conteudoEstado.passoIndex = idx;
@@ -772,6 +802,12 @@ function adicionarItemPasso(tipoLista, variante) {
   } else if (tipoLista === 'tabelaAnimada') {
     conteudo.tabelaAnimada.push({ _id: id, titulo: '', tabela: { colunas: ['', ''], linhas: [{ celulas: ['', ''] }] }, itens: [] });
     inserirNaOrdemAntesDoResumo(conteudo, { tipo: 'tabelaAnimada', id });
+  } else if (tipoLista === 'mapaConceitual') {
+    conteudo.mapaConceitual.push({
+      _id: id, titulo: '',
+      nos: [{ id: 'n1', texto: '', tipo: 'acao', paiId: null, cartaoTexto: '' }],
+    });
+    inserirNaOrdemAntesDoResumo(conteudo, { tipo: 'mapaConceitual', id });
   } else if (tipoLista === 'resumo' || tipoLista === 'licao') {
     // Só existe uma de cada — o conteúdo (texto já preenchido antes de excluir) não se perde,
     // então "adicionar de volta" é só religar a tela na ordem, via garantirOrdem().
@@ -802,6 +838,7 @@ function removerPassoAtual() {
   else if (passo.tipo === 'distribuicao') conteudo.distribuicao.splice(passo.idx, 1);
   else if (passo.tipo === 'mapaMental') conteudo.mapaMental.splice(passo.idx, 1);
   else if (passo.tipo === 'tabelaAnimada') conteudo.tabelaAnimada.splice(passo.idx, 1);
+  else if (passo.tipo === 'mapaConceitual') conteudo.mapaConceitual.splice(passo.idx, 1);
   else if (passo.tipo === 'resumo') conteudo.resumoRemovido = true;
   else if (passo.tipo === 'licao') conteudo.licaoRemovido = true;
   else return;
@@ -1166,6 +1203,7 @@ function renderizarConteudo() {
     distribuicao: renderFormDistribuicao,
     mapaMental: renderFormMapaMental,
     tabelaAnimada: renderFormTabelaAnimada,
+    mapaConceitual: renderFormMapaConceitual,
   };
   renderers[passo.tipo](formEl, aula.conteudo, passo);
 
@@ -3184,6 +3222,161 @@ function renderFormTabelaAnimada(el, conteudo, passo) {
   });
 }
 
+/** Devolve o conjunto de ids descendentes de um nó (recursivo) — usado pra impedir que um nó
+ * vire "nó pai" dele mesmo ou de um dos seus próprios descendentes (ciclo na árvore). */
+function descendentesDeNo(nos, id) {
+  const diretos = nos.filter(n => n.paiId === id).map(n => n.id);
+  const todos = new Set(diretos);
+  diretos.forEach(d => descendentesDeNo(nos, d).forEach(x => todos.add(x)));
+  return todos;
+}
+
+/** Mapa Conceitual Progressivo: árvore de nós (cada um aponta pro seu "nó pai") que cresce um
+ * nó por vez — o nó[0] é sempre a raiz (conceito central, sem pai, já aparece assim que a tela
+ * abre). Cada nó seguinte tem seu próprio texto de cartão explicativo (+ tempo de áudio
+ * opcional) e aparece sozinho a cada clique em "Próximo" — igual à Tabela Animada, um item por
+ * vez, na ordem em que os nós estão nesta lista (ver mostrarMapaConceitual em
+ * vendor/estudo/js/estudo.mjs). A posição de cada nó no mapa é calculada automaticamente a
+ * partir da árvore (algoritmo de árvore organizada), não arrastável — ver
+ * layoutArvoreMapaConceitual. */
+function renderFormMapaConceitual(el, conteudo, passo) {
+  const mc = conteudo.mapaConceitual[passo.idx];
+  if (!Array.isArray(mc.nos) || !mc.nos.length) mc.nos = [{ id: 'n1', texto: '', tipo: 'acao', paiId: null, cartaoTexto: '' }];
+  const nos = mc.nos;
+  nos[0].paiId = null;
+
+  el.innerHTML = `
+    <div class="form-secao">
+      ${htmlCampoAudioTela()}
+      <div class="campo" style="margin-top:16px">${htmlLabelComEstilo('Título da tela (opcional)', 'titulo')}<input type="text" id="mcTitulo"></div>
+      <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
+      <div id="mcDestaqueTitulo"></div>
+
+      <div class="secao-titulo-editor" style="margin-top:16px">Conceito central</div>
+      <p class="campo-ajuda">Aparece assim que a tela abre, já com seu próprio texto no cartão explicativo.</p>
+      <div class="campo">${htmlTipoIconePicker(nos[0], '#5724D6')}</div>
+      ${htmlCampoIconeExterno(nos[0])}
+      <div class="campo"><label>Texto (dentro do nó)</label><input type="text" id="mcNoRaizTexto" placeholder="Ex: Administração Pública"></div>
+      <div id="mcNoRaizCartaoWrap">
+        <div class="campo">${htmlLabelComEstilo('Texto do cartão explicativo', 'cartaoTexto')}<textarea id="mcNoRaizCartao" rows="2" placeholder="Ex: Vamos entender como funciona a Administração Pública."></textarea></div>
+        <div class="secao-titulo-editor" style="margin-top:12px">Destaque nas frases (palavras em azul)</div>
+        <div id="mcDestaqueNoRaizCartao"></div>
+        <div class="secao-titulo-editor" style="margin-top:12px">Destaque sincronizado com o áudio (opcional)</div>
+        <div id="mcTempoNoRaiz"></div>
+      </div>
+
+      <div class="secao-titulo-editor" style="margin-top:16px">Demais nós (ordem de revelação)</div>
+      <p class="campo-ajuda">Cada nó aponta pra um "nó pai" (quem ele se conecta) e aparece sozinho, na ordem desta lista, a cada clique em "Próximo" — igual à Tabela Animada.</p>
+      <div class="lista-itens" id="listaMcNos"></div>
+      <button class="btn-add-item" type="button" id="btnAddMcNo">+ Adicionar nó</button>
+    </div>`;
+
+  const camposTextoMc = [{ rotulo: 'Título da tela', campo: 'titulo' }];
+  const atualizarSincroniaMc = ligarCampoAudioTela(el, mc, camposTextoMc);
+  el.querySelector('#mcTitulo').value = mc.titulo || '';
+  el.querySelector('#mcTitulo').addEventListener('input', e => { mc.titulo = e.target.value; renderPreviewAtual(); });
+  ligarBotoesEstiloTexto(el, mc);
+  const renderDestaquesMcTitulo = montarDestaqueFrases(el.querySelector('#mcDestaqueTitulo'), mc, camposTextoMc);
+  el.querySelector('#mcTitulo').addEventListener('blur', () => { podarDestaque(mc, 'titulo'); renderDestaquesMcTitulo(); podarSincronia(mc, 'titulo'); atualizarSincroniaMc(); });
+
+  ligarCampoIconeExterno(el, nos[0]);
+  ligarTipoIconePicker(el, nos[0], '#5724D6', renderPreviewAtual);
+  el.querySelector('#mcNoRaizTexto').value = nos[0].texto || '';
+  el.querySelector('#mcNoRaizTexto').addEventListener('input', e => { nos[0].texto = e.target.value; renderPreviewAtual(); });
+
+  const wrapRaizCartao = el.querySelector('#mcNoRaizCartaoWrap');
+  el.querySelector('#mcNoRaizCartao').value = nos[0].cartaoTexto || '';
+  el.querySelector('#mcNoRaizCartao').addEventListener('input', e => { nos[0].cartaoTexto = e.target.value; renderPreviewAtual(); });
+  ligarBotoesEstiloTexto(wrapRaizCartao, nos[0]);
+  const renderDestaquesNoRaizCartao = montarDestaqueFrases(el.querySelector('#mcDestaqueNoRaizCartao'), nos[0], [{ rotulo: 'Texto do cartão explicativo', campo: 'cartaoTexto' }]);
+  el.querySelector('#mcNoRaizCartao').addEventListener('blur', () => { podarDestaque(nos[0], 'cartaoTexto'); renderDestaquesNoRaizCartao(); });
+  montarMarcacaoTempoTopico(el.querySelector('#mcTempoNoRaiz'), nos[0], () => el.querySelector('.campo-audio-tela-preview audio'));
+
+  function proximoIdNo() {
+    let maxN = 0;
+    nos.forEach(n => { const m = /^n(\d+)$/.exec(n.id); if (m) maxN = Math.max(maxN, parseInt(m[1], 10)); });
+    return `n${maxN + 1}`;
+  }
+
+  const listaNos = el.querySelector('#listaMcNos');
+  function renderNos() {
+    listaNos.innerHTML = '';
+    nos.forEach((no, i) => {
+      if (i === 0) return; // raiz já editada acima, separadamente
+      const card = document.createElement('div');
+      card.className = 'item-card';
+      const naoPermitidos = descendentesDeNo(nos, no.id);
+      const opcoesPai = nos.filter(n => n.id !== no.id && !naoPermitidos.has(n.id));
+      card.innerHTML = `
+        <div class="item-card-topo"><strong>Nó ${i}</strong><button class="btn-remover-item" type="button">Remover</button></div>
+        <div class="campo">${htmlTipoIconePicker(no, '#5724D6')}</div>
+        ${htmlCampoIconeExterno(no)}
+        <div class="campo">
+          <label>Cor</label>
+          <div class="mm-paleta">
+            ${PALETA_MAPA_MENTAL.map(cor => `<button type="button" class="mm-paleta-cor${no.cor === cor ? ' ativa' : ''}" data-cor="${cor}" style="background:${cor}" title="${cor}"></button>`).join('')}
+            <input type="color" data-nf="cor" title="Cor personalizada">
+          </div>
+        </div>
+        <div class="campo">${htmlLabelComEstilo('Texto (dentro do nó)', 'texto')}<input type="text" data-nf="texto" placeholder="Ex: Servidores"></div>
+        <div class="campo"><label>Nó pai</label>
+          <select data-nf="paiId">
+            ${opcoesPai.map(p => `<option value="${p.id}"${no.paiId === p.id ? ' selected' : ''}>${escaparHtml(p.texto || (p.id === 'n1' ? 'Conceito central' : '(sem texto)'))}</option>`).join('')}
+          </select>
+        </div>
+        <div class="secao-titulo-editor" style="margin-top:12px">Destaque nas frases (palavras em azul)</div>
+        <div id="mcDestaqueNo${i}"></div>
+        <div class="campo" style="margin-top:12px">${htmlLabelComEstilo('Texto do cartão explicativo', 'cartaoTexto')}<textarea data-nf="cartaoTexto" rows="2" placeholder="Ex: Agora vamos acrescentar os servidores como outro grupo."></textarea></div>
+        <div class="secao-titulo-editor" style="margin-top:12px">Destaque nas frases (palavras em azul)</div>
+        <div id="mcDestaqueNoCartao${i}"></div>
+        <div class="secao-titulo-editor" style="margin-top:12px">Destaque sincronizado com o áudio (opcional)</div>
+        <div id="mcTempoNo${i}"></div>`;
+      card.querySelector('[data-nf="cor"]').value = no.cor || PALETA_MAPA_MENTAL[0];
+      card.querySelector('[data-nf="texto"]').value = no.texto || '';
+      card.querySelector('[data-nf="texto"]').addEventListener('input', e => { no.texto = e.target.value; renderPreviewAtual(); });
+      card.querySelector('[data-nf="cartaoTexto"]').value = no.cartaoTexto || '';
+      card.querySelector('[data-nf="cartaoTexto"]').addEventListener('input', e => { no.cartaoTexto = e.target.value; renderPreviewAtual(); });
+      card.querySelector('[data-nf="paiId"]').addEventListener('change', e => { no.paiId = e.target.value; renderPreviewAtual(); });
+      card.querySelectorAll('.mm-paleta-cor').forEach(btn => {
+        btn.addEventListener('click', () => {
+          no.cor = btn.dataset.cor;
+          card.querySelector('[data-nf="cor"]').value = no.cor;
+          card.querySelectorAll('.mm-paleta-cor').forEach(b => b.classList.toggle('ativa', b === btn));
+          renderPreviewAtual();
+        });
+      });
+      card.querySelector('[data-nf="cor"]').addEventListener('input', e => {
+        no.cor = e.target.value;
+        card.querySelectorAll('.mm-paleta-cor').forEach(b => b.classList.toggle('ativa', b.dataset.cor === no.cor));
+        renderPreviewAtual();
+      });
+      ligarBotoesEstiloTexto(card, no);
+      const renderDestaquesNo = montarDestaqueFrases(card.querySelector(`#mcDestaqueNo${i}`), no, [{ rotulo: 'Texto', campo: 'texto' }]);
+      card.querySelector('[data-nf="texto"]').addEventListener('blur', () => { podarDestaque(no, 'texto'); renderDestaquesNo(); });
+      const renderDestaquesNoCartao = montarDestaqueFrases(card.querySelector(`#mcDestaqueNoCartao${i}`), no, [{ rotulo: 'Texto do cartão explicativo', campo: 'cartaoTexto' }]);
+      card.querySelector('[data-nf="cartaoTexto"]').addEventListener('blur', () => { podarDestaque(no, 'cartaoTexto'); renderDestaquesNoCartao(); });
+      montarMarcacaoTempoTopico(card.querySelector(`#mcTempoNo${i}`), no, () => el.querySelector('.campo-audio-tela-preview audio'));
+      ligarCampoIconeExterno(card, no);
+      ligarTipoIconePicker(card, no, '#5724D6', renderPreviewAtual);
+      card.querySelector('.btn-remover-item').addEventListener('click', () => {
+        // Remove o nó E seus descendentes junto — evita ficar com paiId órfão apontando
+        // pra um nó que não existe mais.
+        const remover = new Set([no.id, ...descendentesDeNo(nos, no.id)]);
+        mc.nos = nos.filter(n => !remover.has(n.id));
+        renderFormMapaConceitual(el, conteudo, passo);
+        renderPreviewAtual();
+      });
+      listaNos.appendChild(card);
+    });
+  }
+  renderNos();
+  el.querySelector('#btnAddMcNo').addEventListener('click', () => {
+    nos.push({ id: proximoIdNo(), texto: '', tipo: 'acao', cor: PALETA_MAPA_MENTAL[nos.length % PALETA_MAPA_MENTAL.length], paiId: nos[0].id, cartaoTexto: '' });
+    renderFormMapaConceitual(el, conteudo, passo);
+    renderPreviewAtual();
+  });
+}
+
 function renderFormLicao(el, conteudo) {
   const l = conteudo.licao;
   el.innerHTML = `
@@ -3272,6 +3465,7 @@ function corpoDoPasso(aula, passo, resp) {
   if (passo.tipo === 'distribuicao') return { html: previewDistribuicao(aula.conteudo.distribuicao[passo.idx]), temToggle: false };
   if (passo.tipo === 'mapaMental') return { html: previewMapaMental(aula.conteudo.mapaMental[passo.idx]), temToggle: false };
   if (passo.tipo === 'tabelaAnimada') return { html: previewTabelaAnimada(aula.conteudo.tabelaAnimada[passo.idx]), temToggle: false };
+  if (passo.tipo === 'mapaConceitual') return { html: previewMapaConceitual(aula.conteudo.mapaConceitual[passo.idx]), temToggle: false };
   return { html: '', temToggle: false };
 }
 
@@ -3290,6 +3484,7 @@ function preencherCaixaPreview(prefixo, aula, passos, indice, resp) {
   ligarAudioTelaPreview(bodyEl);
   ligarMapaMentalPreview(bodyEl);
   ligarTabelaAnimadaPreview(bodyEl);
+  ligarMapaConceitualPreview(bodyEl);
 
   const feedbackEl = document.getElementById(`${prefixo}Feedback`);
   feedbackEl.className = 'pp-feedback';
@@ -4110,6 +4305,107 @@ function ligarTabelaAnimadaPreview(container) {
     });
   }
   requestAnimationFrame(() => requestAnimationFrame(lancar));
+}
+
+/** Prévia do Mapa Conceitual — mostra a árvore COMPLETA (todos os nós já revelados), só pra
+ * conferir rapidamente a estrutura/textos/cores; a revelação progressiva de verdade (nó por
+ * nó, a cada "Próximo") só existe no player exportado — ver mostrarMapaConceitual em
+ * vendor/estudo/js/estudo.mjs. O posicionamento (ver ligarMapaConceitualPreview) usa o mesmo
+ * algoritmo de árvore do player. */
+function previewMapaConceitual(mc) {
+  const nos = mc.nos || [];
+  if (!nos.length || (nos.length === 1 && !nos[0].texto && !mc.audioUrl)) return '<p class="pp-vazio">Preencha o conceito central e adicione nós para ver a prévia.</p>';
+  return `
+    ${montarAudioTelaHtml(mc.audioUrl)}
+    ${mc.titulo ? `<p class="pp-titulo"${estiloTextoInline(mc, 'titulo')}>${renderFraseComDestaque(mc.titulo, mc.tituloDestaque, mc.tituloDestaqueNegrito)}</p>` : ''}
+    <div class="mc-mapa-scroll">
+      <div class="mc-mapa">
+        <svg class="mc-linhas"></svg>
+        ${nos.map((no, i) => `
+          <div class="mc-no mc-revelado${i === 0 ? ' mc-no-raiz' : ''}" data-id="${no.id}" data-pai="${no.paiId || ''}" style="--mc-cor:${no.cor || '#F1EBFF'}">
+            <div class="mc-no-icone">${iconeTipo(no.tipo, i === 0 ? '#fff' : '#5724D6', no.iconeUrl)}</div>
+            <span class="mc-no-texto">${escaparHtml(no.texto || '')}</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+/** Posiciona os nós da prévia (mesmo algoritmo de árvore de layoutArvoreMapaConceitual em
+ * vendor/estudo/js/estudo.mjs, duplicado aqui porque a caixinha de prévia do Construtor é um
+ * DOM separado da tela de verdade) e desenha as linhas de conexão. Chamada sempre que o HTML
+ * da prévia é trocado. Sem `.mc-mapa` dentro, não faz nada. */
+function ligarMapaConceitualPreview(container) {
+  const mapaEl = container && container.querySelector('.mc-mapa');
+  if (!mapaEl) return;
+  const nosEls = [...mapaEl.querySelectorAll('.mc-no')];
+  if (!nosEls.length) return;
+  const nos = nosEls.map(el => ({ id: el.dataset.id, paiId: el.dataset.pai || null }));
+
+  function layoutArvore() {
+    const filhosDe = new Map();
+    nos.forEach(n => {
+      if (n.paiId) {
+        if (!filhosDe.has(n.paiId)) filhosDe.set(n.paiId, []);
+        filhosDe.get(n.paiId).push(n.id);
+      }
+    });
+    const raizes = nos.filter(n => !n.paiId).map(n => n.id);
+    let proximaFolha = 0;
+    const posX = new Map();
+    const profundidade = new Map();
+    function visitar(id, prof) {
+      profundidade.set(id, prof);
+      const filhos = filhosDe.get(id) || [];
+      if (!filhos.length) { posX.set(id, proximaFolha); proximaFolha++; return; }
+      filhos.forEach(f => visitar(f, prof + 1));
+      const xs = filhos.map(f => posX.get(f));
+      posX.set(id, (Math.min(...xs) + Math.max(...xs)) / 2);
+    }
+    raizes.forEach(r => visitar(r, 0));
+    return { posX, profundidade };
+  }
+
+  function desenharLinhas() {
+    const svg = mapaEl.querySelector('.mc-linhas');
+    if (!svg) return;
+    const rectMapa = mapaEl.getBoundingClientRect();
+    if (!rectMapa.width || !rectMapa.height) return;
+    svg.setAttribute('width', rectMapa.width);
+    svg.setAttribute('height', rectMapa.height);
+    svg.setAttribute('viewBox', `0 0 ${rectMapa.width} ${rectMapa.height}`);
+    let defs = '<defs><marker id="ppMcSetaPonta" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#5724D6"/></marker></defs>';
+    let paths = '';
+    nosEls.forEach(el => {
+      const paiId = el.dataset.pai;
+      if (!paiId) return;
+      const paiEl = mapaEl.querySelector(`.mc-no[data-id="${paiId}"]`);
+      if (!paiEl) return;
+      const r1 = paiEl.getBoundingClientRect(), r2 = el.getBoundingClientRect();
+      const p0 = { x: r1.left + r1.width / 2 - rectMapa.left, y: r1.bottom - rectMapa.top };
+      const p1 = { x: r2.left + r2.width / 2 - rectMapa.left, y: r2.top - rectMapa.top };
+      const my = (p0.y + p1.y) / 2;
+      paths += `<path class="mc-linha mc-linha-revelada" d="M${p0.x},${p0.y} C${p0.x},${my} ${p1.x},${my} ${p1.x},${p1.y}" stroke="#5724D6" marker-end="url(#ppMcSetaPonta)"/>`;
+    });
+    svg.innerHTML = defs + paths;
+  }
+
+  function posicionar() {
+    const { posX, profundidade } = layoutArvore();
+    const ESPACO_X = 108, ESPACO_Y = 90, MARGEM = 70;
+    let maxX = 0, maxY = 0;
+    nosEls.forEach(el => {
+      const x = posX.get(el.dataset.id) * ESPACO_X + MARGEM;
+      const y = profundidade.get(el.dataset.id) * ESPACO_Y + MARGEM;
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    });
+    mapaEl.style.width = `${maxX + MARGEM + 70}px`;
+    mapaEl.style.height = `${maxY + MARGEM + 50}px`;
+    desenharLinhas();
+  }
+  requestAnimationFrame(() => requestAnimationFrame(posicionar));
 }
 
 function previewLicao(l) {

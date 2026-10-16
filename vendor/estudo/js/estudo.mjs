@@ -2604,6 +2604,235 @@ function mostrarTabelaAnimada(aula, introIdx, i) {
   }
 }
 
+/** Calcula a posição de cada nó do Mapa Conceitual a partir da árvore (nós[0] é sempre a
+ * raiz) — algoritmo "árvore organizada": cada folha recebe a próxima posição horizontal
+ * livre, e cada nó com filhos fica centralizado sobre eles. As posições dependem só da
+ * árvore completa (quem-é-pai-de-quem), nunca de quantas etapas já foram reveladas — por
+ * isso um nó nunca muda de lugar ao navegar entre etapas (regra do spec). Devolve dois Maps
+ * (id → posição X "lógica" em unidades de folha, id → profundidade); quem chama converte
+ * pra pixels (ver posicionarNosMapaConceitual). */
+function layoutArvoreMapaConceitual(nos) {
+  const filhosDe = new Map();
+  nos.forEach(n => {
+    if (n.paiId) {
+      if (!filhosDe.has(n.paiId)) filhosDe.set(n.paiId, []);
+      filhosDe.get(n.paiId).push(n.id);
+    }
+  });
+  const raizes = nos.filter(n => !n.paiId).map(n => n.id);
+  let proximaFolha = 0;
+  const posX = new Map();
+  const profundidade = new Map();
+  function visitar(id, prof) {
+    profundidade.set(id, prof);
+    const filhos = filhosDe.get(id) || [];
+    if (!filhos.length) {
+      posX.set(id, proximaFolha);
+      proximaFolha++;
+      return;
+    }
+    filhos.forEach(f => visitar(f, prof + 1));
+    const xs = filhos.map(f => posX.get(f));
+    posX.set(id, (Math.min(...xs) + Math.max(...xs)) / 2);
+  }
+  raizes.forEach(r => visitar(r, 0));
+  return { posX, profundidade };
+}
+
+/** Ícone de um nó do Mapa Conceitual — mesmo <svg> embrulhado já usado pelos ícones de
+ * Resumo/Lista/Mapa Mental/Tabela Animada (RESUMO_ICONES/iconeExternoOuNulo). */
+function iconeMapaConceitualSvg(no, cor) {
+  return `<svg viewBox="0 0 24 24" width="18" height="18">${iconeExternoOuNulo(no) || (RESUMO_ICONES[no.tipo] ? RESUMO_ICONES[no.tipo](cor) : '')}</svg>`;
+}
+
+/** Posiciona (via left/top em pixels) cada nó do mapa a partir do layout de árvore, e ajusta
+ * o tamanho do container pra caber tudo (com rolagem — ver .mc-mapa-scroll em estudo.css).
+ * Chamada uma única vez ao montar a tela — as posições nunca mudam depois, só a aparência de
+ * cada nó (revelado ou "fantasma") conforme a etapa atual (ver atualizarRevelacao, dentro de
+ * mostrarMapaConceitual). */
+function posicionarNosMapaConceitual(mapaEl, nos) {
+  const { posX, profundidade } = layoutArvoreMapaConceitual(nos);
+  const ESPACO_X = 150, ESPACO_Y = 112, MARGEM = 90;
+  let maxX = 0, maxY = 0;
+  nos.forEach(no => {
+    const el = mapaEl.querySelector(`.mc-no[data-id="${no.id}"]`);
+    if (!el) return;
+    const x = posX.get(no.id) * ESPACO_X + MARGEM;
+    const y = profundidade.get(no.id) * ESPACO_Y + MARGEM;
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
+  });
+  mapaEl.style.width = `${maxX + MARGEM + 90}px`;
+  mapaEl.style.height = `${maxY + MARGEM + 60}px`;
+}
+
+/** Desenha (ou redesenha) as linhas de conexão entre cada nó e seu "nó pai" — sólida e roxa
+ * quando os dois lados já foram revelados (com uma breve animação de "desenhar" só na
+ * primeira vez que aparece), tracejada e cinza quando ainda aponta pra um nó "fantasma"
+ * (ainda não revelado) — mostra o esqueleto da árvore completa sem entregar o conteúdo, igual
+ * às caixinhas "Próximo item" do mock de referência. */
+function desenharLinhasMapaConceitual(mapaEl, nos, noIdxAtual, { animarNovas = false } = {}) {
+  const svg = mapaEl.querySelector('.mc-linhas');
+  if (!svg) return;
+  const rectMapa = mapaEl.getBoundingClientRect();
+  if (!rectMapa.width || !rectMapa.height) return;
+  svg.setAttribute('width', rectMapa.width);
+  svg.setAttribute('height', rectMapa.height);
+  svg.setAttribute('viewBox', `0 0 ${rectMapa.width} ${rectMapa.height}`);
+
+  let defs = '<defs>';
+  let paths = '';
+  nos.forEach((no, ni) => {
+    if (!no.paiId) return;
+    const paiEl = mapaEl.querySelector(`.mc-no[data-id="${no.paiId}"]`);
+    const noEl = mapaEl.querySelector(`.mc-no[data-id="${no.id}"]`);
+    if (!paiEl || !noEl) return;
+    const r1 = paiEl.getBoundingClientRect(), r2 = noEl.getBoundingClientRect();
+    const p0 = { x: r1.left + r1.width / 2 - rectMapa.left, y: r1.bottom - rectMapa.top };
+    const p1 = { x: r2.left + r2.width / 2 - rectMapa.left, y: r2.top - rectMapa.top };
+    const my = (p0.y + p1.y) / 2;
+    const d = `M${p0.x},${p0.y} C${p0.x},${my} ${p1.x},${my} ${p1.x},${p1.y}`;
+    const revelada = ni <= noIdxAtual;
+    const cor = revelada ? '#5724D6' : '#c9bdf0';
+    const markerId = `mcSetaPonta_${no.id}`;
+    const ehNova = animarNovas && revelada && !noEl.dataset.linhaDesenhada;
+    defs += `<marker id="${markerId}" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="${cor}"/></marker>`;
+    paths += `<path class="mc-linha ${revelada ? 'mc-linha-revelada' : 'mc-linha-fantasma'}${ehNova ? ' mc-linha-nova' : ''}" d="${d}" stroke="${cor}" marker-end="url(#${markerId})"/>`;
+    if (revelada) noEl.dataset.linhaDesenhada = '1';
+  });
+  svg.innerHTML = defs + '</defs>' + paths;
+
+  if (animarNovas) {
+    svg.querySelectorAll('.mc-linha-nova').forEach(path => {
+      const comprimento = path.getTotalLength();
+      path.style.strokeDasharray = `${comprimento}`;
+      path.style.strokeDashoffset = `${comprimento}`;
+      path.getBoundingClientRect();
+      path.style.transition = 'stroke-dashoffset 0.55s ease-out';
+      requestAnimationFrame(() => { path.style.strokeDashoffset = '0'; });
+    });
+  }
+}
+
+/** "Mapa Conceitual Progressivo": árvore de conceitos que cresce um nó por vez. Todos os nós já
+ * estão no DOM desde o início, nas posições finais calculadas pela árvore completa (ver
+ * posicionarNosMapaConceitual) — só a aparência de cada um muda: "revelado" (texto de verdade,
+ * cartão explicativo próprio, destaque de entrada) ou "fantasma" (contorno tracejado, "Próximo
+ * item" no lugar do texto — mesma ideia do mock de referência). Isso garante que um nó já
+ * revelado nunca suma nem mude de posição ao navegar (regra do spec). Próximo/Anterior revelam
+ * um nó por vez, na ordem da lista `nos` (ver navInterceptorProximo/Anterior) — igual à Tabela
+ * Animada, um item por clique — só trocando de tela de verdade no fim/início da sequência. Com
+ * áudio e tempo marcado por nó, a revelação também acontece sozinha ao cruzar o tempo — sem
+ * travar a navegação manual. */
+function mostrarMapaConceitual(aula, introIdx, i) {
+  const mc = (aula.mapaConceitual || [])[i] || {};
+  const nos = (mc.nos && mc.nos.length) ? mc.nos : [{ id: 'n1', texto: '' }];
+  let noIdx = 0; // índice (em `nos`) do nó mais recente revelado — avança 1 por "Próximo"
+
+  questaoInfo.textContent      = aula.titulo;
+  feedbackBar.style.display    = 'none';
+  btnAnterior.style.display    = '';
+  renderIntroSegs(introIdx - 1);
+  questaoTitulo.innerHTML      = '';
+  questaoSubtitulo.textContent = '';
+
+  opcoesEl.innerHTML = `
+    <div class="resumo-card">
+      ${montarAudioTelaHtml(mc.audioUrl)}
+      ${mc.titulo ? `<p class="resumo-titulo"${estiloTextoInline(mc, 'titulo')}>${renderFraseComDestaque(mc.titulo || '', mc.tituloDestaque, mc.tituloDestaqueNegrito, sincroniaDoCampo(mc, 'titulo'))}</p>` : ''}
+      <div class="mc-cartao" id="mcCartao${i}">
+        <span class="mc-cartao-contagem" id="mcContagem${i}"></span>
+        <div class="mc-cartao-cabecalho">
+          <div class="mc-cartao-icone" id="mcIcone${i}"></div>
+          <span class="mc-cartao-titulo" id="mcCartaoTitulo${i}"></span>
+        </div>
+        <p class="mc-cartao-texto" id="mcCartaoTexto${i}"></p>
+      </div>
+      <div class="mc-mapa-scroll" id="mcMapaScroll${i}">
+        <div class="mc-mapa" id="mcMapa${i}">
+          <svg class="mc-linhas"></svg>
+          ${nos.map((no, ni) => `
+            <div class="mc-no${ni === 0 ? ' mc-no-raiz' : ''}" data-id="${no.id}" style="--mc-cor:${no.cor || '#F1EBFF'}">
+              <div class="mc-no-icone">${iconeMapaConceitualSvg(no, ni === 0 ? '#fff' : '#5724D6')}</div>
+              <span class="mc-no-texto"></span>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+
+  atualizarBotaoMarcar(`mapaConceitual${i}`);
+  trocarAudioDaTela(mc);
+  btnProxima.innerHTML = 'Próximo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+  btnProxima.disabled  = false;
+  questaoArea.scrollTop = 0;
+  atualizarScrollFade();
+
+  const mapaEl       = document.getElementById(`mcMapa${i}`);
+  const contagemEl   = document.getElementById(`mcContagem${i}`);
+  const iconeEl      = document.getElementById(`mcIcone${i}`);
+  const cartaoTitulo = document.getElementById(`mcCartaoTitulo${i}`);
+  const cartaoTexto  = document.getElementById(`mcCartaoTexto${i}`);
+
+  posicionarNosMapaConceitual(mapaEl, nos);
+
+  function atualizarRevelacao({ animar = false } = {}) {
+    nos.forEach((no, ni) => {
+      const el = mapaEl.querySelector(`.mc-no[data-id="${no.id}"]`);
+      if (!el) return;
+      const revelado = ni <= noIdx;
+      const jaRevelado = el.classList.contains('mc-revelado');
+      el.classList.toggle('mc-revelado', revelado);
+      el.classList.toggle('mc-fantasma', !revelado);
+      el.querySelector('.mc-no-texto').textContent = revelado ? (no.texto || '') : 'Próximo item';
+      if (revelado && !jaRevelado && animar) {
+        el.classList.remove('mc-entrando');
+        void el.offsetWidth; // força reflow pra reiniciar a animação CSS
+        el.classList.add('mc-entrando');
+      }
+    });
+    desenharLinhasMapaConceitual(mapaEl, nos, noIdx, { animarNovas: animar });
+  }
+
+  function mostrarNo(idx, { comRolagem = true, animar = true } = {}) {
+    noIdx = Math.max(0, Math.min(nos.length - 1, idx));
+    const no = nos[noIdx];
+    contagemEl.textContent = `${noIdx + 1} de ${nos.length}`;
+    iconeEl.innerHTML = iconeMapaConceitualSvg(no, '#5724D6');
+    cartaoTitulo.innerHTML = renderFraseComDestaque(no.texto || '', no.textoDestaque, no.textoDestaqueNegrito);
+    cartaoTexto.innerHTML = renderFraseComDestaque(no.cartaoTexto || '', no.cartaoTextoDestaque, no.cartaoTextoDestaqueNegrito);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      atualizarRevelacao({ animar });
+      if (comRolagem) {
+        const elNovo = mapaEl.querySelector(`.mc-no[data-id="${no.id}"]`);
+        if (elNovo) elNovo.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      }
+    }));
+  }
+
+  mostrarNo(0, { comRolagem: false, animar: false });
+
+  navInterceptorProximo = () => {
+    if (noIdx < nos.length - 1) { mostrarNo(noIdx + 1); return true; }
+    return false;
+  };
+  navInterceptorAnterior = () => {
+    if (noIdx > 0) { mostrarNo(noIdx - 1, { animar: false }); return true; }
+    return false;
+  };
+
+  if (audioTelaAtual && nos.some(n => n.audioInicio != null)) {
+    const atualizarPorAudio = () => {
+      const t = audioTelaAtual.currentTime;
+      let alvo = -1;
+      nos.forEach((n, idx) => { if (n.audioInicio != null && t >= n.audioInicio) alvo = idx; });
+      if (alvo !== -1 && alvo !== noIdx) mostrarNo(alvo);
+    };
+    audioTelaAtual.addEventListener('timeupdate', atualizarPorAudio);
+  }
+}
+
 function mostrarLicao(aula, introIdx) {
   const lic = aula.licao || {};
   questaoInfo.textContent      = aula.titulo;
@@ -3927,6 +4156,10 @@ carregarDadosIniciais().then((carregado) => {
         const chave = `tabelaAnimada${i}`;
         if (cartaoMarcadoSet.has(chave)) { introScreens.push(chave); introFns[chave] = (a, idx) => mostrarTabelaAnimada(a, idx, i); }
       });
+      (aula.mapaConceitual || []).forEach((_, i) => {
+        const chave = `mapaConceitual${i}`;
+        if (cartaoMarcadoSet.has(chave)) { introScreens.push(chave); introFns[chave] = (a, idx) => mostrarMapaConceitual(a, idx, i); }
+      });
     }
     if (mostrarPerguntas) {
       (aula.checagem || []).forEach((dados, i) => {
@@ -3960,6 +4193,7 @@ carregarDadosIniciais().then((carregado) => {
     (aula.distribuicao || []).forEach((_, i) => { introFns[`distribuicao${i}`] = (a, idx) => mostrarDistribuicao(a, idx, i); });
     (aula.mapaMental || []).forEach((_, i) => { introFns[`mapaMental${i}`] = (a, idx) => mostrarMapaMental(a, idx, i); });
     (aula.tabelaAnimada || []).forEach((_, i) => { introFns[`tabelaAnimada${i}`] = (a, idx) => mostrarTabelaAnimada(a, idx, i); });
+    (aula.mapaConceitual || []).forEach((_, i) => { introFns[`mapaConceitual${i}`] = (a, idx) => mostrarMapaConceitual(a, idx, i); });
     aula.ordem.forEach(token => {
       const chave = token === 'antesComecar' ? 'justificativa' : token;
       if (introFns[chave]) introScreens.push(chave);

@@ -642,6 +642,35 @@
   white-space: pre-line; box-shadow: 0 4px 10px rgba(87,36,214,0.25);
 }
 
+/* Mapa Conceitual Progressivo — prévia: árvore completa (todos os nós já revelados, pra
+   conferir estrutura/textos/cores rapidamente) — a revelação progressiva de verdade só
+   existe no player exportado, ver ligarMapaConceitualPreview/previewMapaConceitual aqui e o
+   equivalente mostrarMapaConceitual/posicionarNosMapaConceitual em
+   vendor/estudo/js/estudo.mjs (precisa bater visualmente com o que a aluna vai ver). */
+.player-preview .mc-mapa-scroll { overflow: auto; border-radius: 10px; border: 1px solid #e9dffb; margin-top: 10px; max-height: 320px; }
+.player-preview .mc-mapa { position: relative; min-width: 100%; min-height: 160px; }
+.player-preview .mc-linhas { position: absolute; inset: 0; pointer-events: none; z-index: 1; overflow: visible; }
+.player-preview .mc-linha { fill: none; stroke-width: 2; stroke-linecap: round; }
+.player-preview .mc-no {
+  position: absolute; transform: translate(-50%, 0); width: 96px; box-sizing: border-box;
+  border-radius: 10px; padding: 7px 8px; text-align: center; display: flex; flex-direction: column;
+  align-items: center; gap: 4px; background: var(--mc-cor, #F1EBFF); z-index: 2;
+}
+.player-preview .mc-no-raiz { width: 130px; background: #5724D6 !important; }
+.player-preview .mc-no-raiz .mc-no-texto { color: #fff; font-weight: 800; text-transform: uppercase; font-size: 10px; }
+.player-preview .mc-no-icone {
+  width: 20px; height: 20px; border-radius: 50%; background: rgba(255,255,255,0.7); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.player-preview .mc-no-raiz .mc-no-icone { background: rgba(255,255,255,0.22); }
+.player-preview .mc-no-icone svg * { stroke: #5724D6 !important; }
+.player-preview .mc-no-raiz .mc-no-icone svg * { stroke: #fff !important; }
+.player-preview .mc-no-texto { font-size: 10px; font-weight: 700; color: #202033; line-height: 1.2; }
+
+/* Mapa Conceitual Progressivo — EDITOR (nós + etapas, ver renderFormMapaConceitual). Reusa
+   .mm-paleta/.mm-paleta-cor (paleta de cores) e .mm-topico-tempo (marcar tempo de áudio),
+   já definidos pro Mapa Mental/Tabela Animada. */
+
 /* Tabela Guiada por Animação — EDITOR da tabela (grid de campos de texto pra cabeçalhos e
    células, com botão de remover por linha/coluna — ver renderFormTabelaAnimada). */
 .ta-tabela-wrap { overflow-x: auto; margin-top: 8px; }

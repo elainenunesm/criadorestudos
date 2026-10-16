@@ -147,7 +147,7 @@ ${trilhasTexto}
 /** Ordem final de exibição das telas, como tokens simples ('antesComecar', 'exemplo0', 'checagem1', 'lista0', 'timeline0', 'jogoSinais0', 'agrupamento0', 'distribuicao0', 'resumo', 'licao')
  * — reaproveita montarPassos() (js/conteudo.js) pra garantir que os índices batem exatamente com os arrays exportados abaixo. */
 function serializarOrdem(conteudo) {
-  return montarPassos(conteudo).map(p => (p.tipo === 'exemplo' || p.tipo === 'checagem' || p.tipo === 'lista' || p.tipo === 'timeline' || p.tipo === 'jogoSinais' || p.tipo === 'agrupamento' || p.tipo === 'distribuicao' || p.tipo === 'mapaMental' || p.tipo === 'tabelaAnimada') ? `${p.tipo}${p.idx}` : p.tipo);
+  return montarPassos(conteudo).map(p => (p.tipo === 'exemplo' || p.tipo === 'checagem' || p.tipo === 'lista' || p.tipo === 'timeline' || p.tipo === 'jogoSinais' || p.tipo === 'agrupamento' || p.tipo === 'distribuicao' || p.tipo === 'mapaMental' || p.tipo === 'tabelaAnimada' || p.tipo === 'mapaConceitual') ? `${p.tipo}${p.idx}` : p.tipo);
 }
 
 function gerarAulaJs(aula, tituloEtapa) {
@@ -189,6 +189,8 @@ window.AULA_DATA = {
   mapaMental: ${paraJs(c.mapaMental)},
 
   tabelaAnimada: ${paraJs(c.tabelaAnimada)},
+
+  mapaConceitual: ${paraJs(c.mapaConceitual)},
 
   questoes: [],
 };
@@ -559,6 +561,20 @@ function pdfRenderAula(aula) {
       `<li><strong>${renderFraseComDestaque(it.titulo || '', it.tituloDestaque, it.tituloDestaqueNegrito)}</strong>${it.texto ? ' — ' + renderFraseComDestaque(it.texto, it.textoDestaque, it.textoDestaqueNegrito) : ''}</li>`
     ).join('') + '</ul>';
     secoes += pdfSecao(`Tabela${tabelasAnimadas.length > 1 ? ` ${i + 1}` : ''}`, '#0D6EFD', corpo);
+  });
+
+  const mapasConceituais = (c.mapaConceitual || []).filter(mc => (mc.nos || []).length);
+  mapasConceituais.forEach((mc, i) => {
+    let corpo = '';
+    if (mc.titulo) corpo += `<p class="pdf-destaque">${renderFraseComDestaque(mc.titulo, mc.tituloDestaque, mc.tituloDestaqueNegrito)}</p>`;
+    const nos = mc.nos || [];
+    if (nos.length) {
+      corpo += `<p><strong>${escaparHtml(nos[0].texto || '')}</strong>${nos[0].cartaoTexto ? ' — ' + renderFraseComDestaque(nos[0].cartaoTexto, nos[0].cartaoTextoDestaque, nos[0].cartaoTextoDestaqueNegrito) : ''}</p>`;
+      corpo += '<ul>' + nos.slice(1).map(no =>
+        `<li><strong>${renderFraseComDestaque(no.texto || '', no.textoDestaque, no.textoDestaqueNegrito)}</strong>${no.cartaoTexto ? ' — ' + renderFraseComDestaque(no.cartaoTexto, no.cartaoTextoDestaque, no.cartaoTextoDestaqueNegrito) : ''}</li>`
+      ).join('') + '</ul>';
+    }
+    secoes += pdfSecao(`Mapa Conceitual${mapasConceituais.length > 1 ? ` ${i + 1}` : ''}`, '#7C3AED', corpo);
   });
 
   const res = c.resumo || {};

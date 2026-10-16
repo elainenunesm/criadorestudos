@@ -1344,6 +1344,66 @@ body {
   white-space: pre-line; box-shadow: 0 6px 16px rgba(87,36,214,0.25);
 }
 
+/* MAPA CONCEITUAL PROGRESSIVO — cartão explicativo fixo no topo + árvore de nós que cresce a
+   cada "Próximo" (ver mostrarMapaConceitual/posicionarNosMapaConceitual em estudo.mjs). Os
+   nós de TODAS as etapas já existem no DOM desde o início, nas posições finais calculadas
+   pela árvore completa — por isso nunca mudam de lugar; só a aparência muda entre "revelado"
+   e "fantasma" (contorno tracejado, sem o texto de verdade — mesma ideia do mock de
+   referência). O mapa rola nos dois eixos quando não cabe (overflow: auto). */
+.mc-cartao { background: #F1EBFF; border-radius: 18px; padding: 16px 18px; margin-bottom: 18px; }
+.mc-cartao-contagem { font-size: 11.5px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; color: #5724D6; }
+.mc-cartao-cabecalho { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.mc-cartao-icone {
+  width: 34px; height: 34px; border-radius: 50%; background: #5724D6; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.mc-cartao-icone svg * { stroke: #fff !important; fill: #fff !important; }
+.mc-cartao-titulo { font-size: 16px; font-weight: 700; color: #202033; }
+.mc-cartao-texto { font-size: 13.5px; color: #4b4b5a; line-height: 1.5; margin: 8px 0 0; }
+.mc-cartao-texto strong { font-weight: 800; }
+
+.mc-mapa-scroll { overflow: auto; border-radius: 14px; border: 1px solid var(--cor-borda-clara, #e9dffb); -webkit-overflow-scrolling: touch; max-height: 56vh; }
+.mc-mapa { position: relative; min-width: 100%; min-height: 240px; }
+.mc-linhas { position: absolute; inset: 0; pointer-events: none; z-index: 1; overflow: visible; }
+.mc-linha { fill: none; stroke-width: 2.2; stroke-linecap: round; }
+.mc-linha-fantasma { stroke-dasharray: 5 5; opacity: 0.6; }
+
+.mc-no {
+  position: absolute; z-index: 2; transform: translate(-50%, 0); width: 128px;
+  box-sizing: border-box; border-radius: 14px; padding: 10px 12px; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  background: var(--mc-cor, #F1EBFF); border: 1.5px solid transparent;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  transition: opacity .3s ease, transform .3s ease, border-color .3s ease, box-shadow .3s ease;
+  opacity: 0; transform: translate(-50%, 6px) scale(0.92);
+}
+.mc-no.mc-revelado, .mc-no.mc-fantasma { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.mc-no.mc-fantasma {
+  background: transparent; border: 1.5px dashed #d8cff2; opacity: 0.6; box-shadow: none;
+}
+.mc-no.mc-fantasma .mc-no-icone { visibility: hidden; }
+.mc-no.mc-fantasma .mc-no-texto { color: #9a8ec9; font-weight: 500; font-style: italic; }
+.mc-no-raiz {
+  width: 180px; background: #5724D6 !important; border-color: #5724D6 !important;
+  box-shadow: 0 6px 16px rgba(87,36,214,0.3);
+}
+.mc-no-raiz .mc-no-texto { color: #fff; font-weight: 800; letter-spacing: .02em; text-transform: uppercase; font-size: 13px; }
+.mc-no-icone {
+  width: 26px; height: 26px; border-radius: 50%; background: rgba(255,255,255,0.7); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.mc-no-raiz .mc-no-icone { background: rgba(255,255,255,0.22); }
+.mc-no-icone svg * { stroke: #5724D6 !important; }
+.mc-no-raiz .mc-no-icone svg * { stroke: #fff !important; }
+.mc-no-texto { font-size: 12.5px; font-weight: 700; color: #202033; line-height: 1.3; }
+
+@keyframes mc-destaque-entrada {
+  0%   { box-shadow: 0 0 0 0 rgba(87,36,214,0.55); }
+  70%  { box-shadow: 0 0 0 10px rgba(87,36,214,0); }
+  100% { box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+}
+.mc-no.mc-entrando { animation: mc-destaque-entrada 1.1s ease-out; border-color: #5724D6; }
+
 /* TELA DE IDENTIFICAÇÃO */
 .idf-card {
   display: flex;
