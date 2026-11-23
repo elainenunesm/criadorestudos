@@ -2407,3 +2407,11 @@ body {
 /* Mapa Conceitual: ícone opcional (tipo 'nenhum') — sem ícone, o espaço dele some. */
 .mc-no-icone:empty, .mc-cartao-icone:empty { display: none; }
 .mc-no.mc-fantasma .mc-no-icone:empty { display: none; }
+
+/* Card de link ou download (Exemplo → cardLink) */
+.card-link { margin-top: 16px; padding: 18px; border-radius: 18px; border: 1px solid var(--cor-borda-clara, #e9dffb); background: var(--cor-clara, #f0eaff); }
+.card-link-titulo { font-size: 17px; font-weight: 700; color: #202033; line-height: 1.35; margin: 0; }
+.card-link-subtitulo { font-size: 14px; color: #6b7280; margin: 2px 0 0; }
+.card-link-texto { font-size: 15px; color: #202033; line-height: 1.5; margin: 8px 0 0; }
+.card-link-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin-top: 14px; padding: 12px 20px; border-radius: 12px; background: var(--cor-primaria, #5B2BCB); color: #fff; font-weight: 700; font-size: 14.5px; text-decoration: none; cursor: pointer; transition: background .2s; }
+.card-link-btn:hover { background: var(--cor-primaria-escura, #4a22a8); }

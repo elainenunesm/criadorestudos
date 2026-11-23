@@ -413,6 +413,14 @@ function pdfRenderExemplo(item) {
     if (ci.subtitulo) html += `<p>${escaparHtml(ci.subtitulo)}</p>`;
     if (ci.texto) html += `<p>${escaparHtml(ci.texto)}</p>`;
   }
+  if (item.cardLink) {
+    const cl = item.cardLink;
+    if (cl.titulo) html += `<p><strong>${escaparHtml(cl.titulo)}</strong></p>`;
+    if (cl.subtitulo) html += `<p>${escaparHtml(cl.subtitulo)}</p>`;
+    if (cl.texto) html += `<p>${escaparHtml(cl.texto)}</p>`;
+    if (cl.modo !== 'download' && cl.url) html += `<p>${escaparHtml(cl.url)}</p>`;
+    else if (cl.modo === 'download' && cl.arquivoNome) html += `<p>Arquivo: ${escaparHtml(cl.arquivoNome)}</p>`;
+  }
   if (item.flashcard) {
     html += `<p><strong>Frente:</strong> ${escaparHtml(item.flashcard.frente || '')}<br><strong>Verso:</strong> ${escaparHtml(item.flashcard.verso || '')}</p>`;
   }

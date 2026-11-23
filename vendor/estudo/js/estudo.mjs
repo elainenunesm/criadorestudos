@@ -996,14 +996,14 @@ function mostrarExemplo(aula, introIdx, i) {
   opcoesEl.innerHTML = `
     <div class="exemplo-card">
       ${(!ex.audio && !ex.gravacao) ? montarAudioTelaHtml(ex.audioUrl) : ''}
-      <div class="exemplo-icone-wrap">
+      ${ex.tipo === 'nenhum' ? '' : `<div class="exemplo-icone-wrap">
         <svg viewBox="-6 0 30 24" fill="none" width="60" height="48">
           <line x1="-5" y1="8"  x2="0" y2="8"  stroke="#b8ccf4" stroke-width="2.2" stroke-linecap="round"/>
           <line x1="-5" y1="12" x2="1" y2="12" stroke="#b8ccf4" stroke-width="2.2" stroke-linecap="round"/>
           <line x1="-5" y1="16" x2="0" y2="16" stroke="#b8ccf4" stroke-width="2.2" stroke-linecap="round"/>
           ${icone}
         </svg>
-      </div>
+      </div>`}
       ${ex.texto ? `<p class="exemplo-texto"${estiloTextoInline(ex, 'texto')}>${renderFraseComDestaque(ex.texto, ex.textoDestaque, ex.textoDestaqueNegrito, sincroniaDoCampo(ex, 'texto'))}</p>` : ''}
       ${ex.conclusao ? `<p class="exemplo-conclusao"${estiloTextoInline(ex, 'conclusao')}>${renderFraseComDestaque(ex.conclusao, ex.conclusaoDestaque, ex.conclusaoDestaqueNegrito, sincroniaDoCampo(ex, 'conclusao'))}</p>` : ''}
       ${ex.obs ? `
@@ -1072,6 +1072,13 @@ function mostrarExemplo(aula, introIdx, i) {
           ${ex.cardImagem.subtitulo ? `<p class="card-imagem-subtitulo"${estiloTextoInline(ex.cardImagem, 'subtitulo')}>${renderFraseComDestaque(ex.cardImagem.subtitulo, ex.cardImagem.subtituloDestaque, ex.cardImagem.subtituloDestaqueNegrito)}</p>` : ''}
           ${ex.cardImagem.texto ? `<p class="card-imagem-texto"${estiloTextoInline(ex.cardImagem, 'texto')}>${renderFraseComDestaque(ex.cardImagem.texto, ex.cardImagem.textoDestaque, ex.cardImagem.textoDestaqueNegrito)}</p>` : ''}
         </div>` : ''}
+      </div>` : ''}
+      ${ex.cardLink ? `
+      <div class="card-link">
+        ${ex.cardLink.titulo ? `<p class="card-link-titulo"${estiloTextoInline(ex.cardLink, 'titulo')}>${renderFraseComDestaque(ex.cardLink.titulo, ex.cardLink.tituloDestaque, ex.cardLink.tituloDestaqueNegrito)}</p>` : ''}
+        ${ex.cardLink.subtitulo ? `<p class="card-link-subtitulo"${estiloTextoInline(ex.cardLink, 'subtitulo')}>${renderFraseComDestaque(ex.cardLink.subtitulo, ex.cardLink.subtituloDestaque, ex.cardLink.subtituloDestaqueNegrito)}</p>` : ''}
+        ${ex.cardLink.texto ? `<p class="card-link-texto"${estiloTextoInline(ex.cardLink, 'texto')}>${renderFraseComDestaque(ex.cardLink.texto, ex.cardLink.textoDestaque, ex.cardLink.textoDestaqueNegrito)}</p>` : ''}
+        <a class="card-link-btn" id="cardLinkBtn" style="display:none"></a>
       </div>` : ''}
       ${htmlCardAudio(ex.audio)}
       ${htmlCardAudio(ex.gravacao)}
@@ -1275,6 +1282,27 @@ function mostrarExemplo(aula, introIdx, i) {
     btnProxima.disabled = false;
   }
 
+  if (ex.cardLink) {
+    // Botão do "Card de link ou download": atributos definidos por JS (nunca interpolados no HTML)
+    // e só http(s) — qualquer outro esquema (javascript:, data:...) é descartado.
+    const cl = ex.cardLink;
+    const btn = document.getElementById('cardLinkBtn');
+    const download = cl.modo === 'download';
+    let href = '';
+    if (download) href = cl.arquivoUrl || '';
+    else {
+      const u = (cl.url || '').trim();
+      href = /^https?:\/\//i.test(u) ? u : (u && !/^[a-z][a-z0-9+.-]*:/i.test(u) ? `https://${u}` : '');
+    }
+    if (btn && href) {
+      btn.href = href;
+      if (download) btn.setAttribute('download', cl.arquivoNome || 'arquivo');
+      else { btn.target = '_blank'; btn.rel = 'noopener noreferrer'; }
+      btn.textContent = cl.rotuloBotao || (download ? '⬇ Baixar arquivo' : '🔗 Abrir link');
+      btn.style.display = '';
+    }
+  }
+
   marcarOverflowNasFrasesAnotadas();
   questaoArea.scrollTop = 0;
   atualizarScrollFade();
@@ -1313,6 +1341,12 @@ const RESUMO_ICONES = {
   livro: cor => `<path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>`,
   certo: cor => `<path fill="none" stroke="${cor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>`,
   errado: cor => `<path fill="none" stroke="${cor}" stroke-width="2.5" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/>`,
+  servidor: cor => `<circle cx="12" cy="7" r="3.5" fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M5 21v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 15v6"/>`,
+  servidorTi: cor => `<rect x="3" y="3" width="18" height="7" rx="1.8" fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><rect x="3" y="14" width="18" height="7" rx="1.8" fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7" cy="6.5" r="1" fill="${cor}"/><circle cx="7" cy="17.5" r="1" fill="${cor}"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 6.5h5M12 17.5h5"/>`,
+  escola: cor => `<path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M3 21h18M5 21V10l7-5 7 5v11M9 21v-5h6v5"/><circle cx="12" cy="10.5" r="1.5" fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`,
+  dinheiro: cor => `<rect x="2" y="6" width="20" height="12" rx="2" fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.8" fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6 9.5v.01M18 14.5v.01"/>`,
+  casa: cor => `<path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M3 11l9-8 9 8M5 9.5V20h14V9.5M10 20v-6h4v6"/>`,
+  estudo: cor => `<path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M22 10L12 5 2 10l10 5 10-5z"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6 12v5c3 2.5 9 2.5 12 0v-5M22 10v6"/>`,
 };
 
 function mostrarInfinitivo(aula, introIdx) {

@@ -278,6 +278,10 @@ const DADOS_FICTICIOS_TELA = {
       texto: 'Assim vai aparecer o texto embaixo da imagem.',
     },
   },
+  exemploCardLink: {
+    tipo: 'acao', texto: '',
+    cardLink: { modo: 'link', titulo: 'Assim vai aparecer o título.', subtitulo: 'E aqui o subtítulo.', texto: 'Assim vai aparecer o texto do card.', url: 'https://exemplo.com', rotuloBotao: '' },
+  },
   exemploFlashcard: {
     tipo: 'acao', texto: '',
     flashcard: { frente: 'Assim vai aparecer a frente do card.', verso: 'E aqui o verso, ao virar.' },
@@ -386,6 +390,7 @@ const NOME_TELA_ADICIONAR = {
   'exemplo:palavraPointLabelExemplo': 'Palavra(s) com Point Label - Exemplo',
   'exemplo:palavraMultiplosRotulos': 'Palavra(s) com Múltiplos Rótulos',
   'exemplo:cardImagem': 'Card com imagem',
+  'exemplo:cardLink': 'Card de link ou download',
   'exemplo:flashcard': 'Flashcard',
   'exemplo:audio': 'Card de áudio',
   'exemplo:gravacao': 'Card de gravação',
@@ -434,6 +439,7 @@ function mostrarPreviewNovaTela(tipo, modo) {
     palavraPointLabelExemplo: DADOS_FICTICIOS_TELA.exemploPalavraPointLabelExemplo,
     palavraMultiplosRotulos: DADOS_FICTICIOS_TELA.exemploPalavraMultiplosRotulos,
     cardImagem: DADOS_FICTICIOS_TELA.exemploCardImagem,
+    cardLink: DADOS_FICTICIOS_TELA.exemploCardLink,
     flashcard: DADOS_FICTICIOS_TELA.exemploFlashcard,
     audio: DADOS_FICTICIOS_TELA.exemploAudio,
     gravacao: DADOS_FICTICIOS_TELA.exemploGravacao,
@@ -523,6 +529,7 @@ function renderEstruturaTelas() {
     const ICONE_PALAVRA = '<svg width="15" height="15" viewBox="0 0 24 24" fill="#fff" stroke="none"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>';
     const ICONE_CERTO_ERRADO = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12 9 17 20 6"/></svg>';
     const ICONE_ROTULO = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8 8a2 2 0 0 0 2.828 0l7.172-7.172a2 2 0 0 0 0-2.828z"/><circle cx="7.5" cy="7.5" r="1.5" fill="#fff" stroke="none"/></svg>';
+    const ICONE_LINK = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.7-1.7"/></svg>';
     const ICONE_IMAGEM = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>';
     const ICONE_FLASHCARD = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="15" height="12" rx="2"/><path d="M7 2h13a2 2 0 0 1 2 2v12"/></svg>';
     const ICONE_AUDIO = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="#fff" stroke="none"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
@@ -559,6 +566,11 @@ function renderEstruturaTelas() {
           label: 'Card com imagem', sublabel: 'Mostra uma imagem grande e um texto embaixo, só ilustrativo', grupo: 'Exemplo',
           iconeHtml: badgeIcone(ICONE_IMAGEM, '#F59E0B'),
           onClick: () => mostrarPreviewNovaTela('exemplo', 'cardImagem'),
+        },
+        {
+          label: 'Card de link ou download', sublabel: 'Card com um botão que abre um link externo ou baixa um arquivo que você importar', grupo: 'Exemplo',
+          iconeHtml: badgeIcone(ICONE_LINK, '#10B981'),
+          onClick: () => mostrarPreviewNovaTela('exemplo', 'cardLink'),
         },
         {
           label: 'Flashcard', sublabel: 'Card com frente e verso — a aluna toca pra virar e ver a resposta', grupo: 'Exemplo',
@@ -795,6 +807,8 @@ function adicionarItemPasso(tipoLista, variante) {
       novoExemplo.palavraMultiplosRotulos = { instrucao: '', sentenca: [], rotulos: [] };
     } else if (variante === 'cardImagem') {
       novoExemplo.cardImagem = { imagemUrl: '', titulo: '', subtitulo: '', texto: '' };
+    } else if (variante === 'cardLink') {
+      novoExemplo.cardLink = { modo: 'link', titulo: '', subtitulo: '', texto: '', url: '', arquivoUrl: '', arquivoNome: '', rotuloBotao: '' };
     } else if (variante === 'flashcard') {
       novoExemplo.flashcard = { frente: '', verso: '' };
     } else if (variante === 'audio') {
@@ -1101,6 +1115,7 @@ const NOME_TIPO_ICONE = {
   fala: 'Fala', busca: 'Busca', tarefa: 'Tarefa', pergunta: 'Pergunta', dica: 'Dica',
   predVerbal: 'Predicado verbal', predNominal: 'Predicado nominal', predVerboNominal: 'Predicado verbo-nominal',
   semSujeito: 'Oração sem sujeito', livro: 'Livro', certo: 'Certo (✓)', errado: 'Errado (✗)',
+  servidor: 'Servidor público', servidorTi: 'Servidor (computador)', escola: 'Escola', dinheiro: 'Dinheiro', casa: 'Casa', estudo: 'Estudo',
   externo: 'Ícone externo (link)',
   nenhum: 'Sem ícone',
 };
@@ -1113,6 +1128,8 @@ const DESC_TIPO_ICONE = {
   predVerbal: 'Predicado verbal', predNominal: 'Predicado nominal', predVerboNominal: 'Predicado verbo-nominal',
   semSujeito: 'Oração sem sujeito', livro: 'Ícone de livro/leitura',
   certo: 'Marca de certo/correto', errado: 'Marca de errado/incorreto',
+  servidor: 'Pessoa com crachá — servidor/agente público', servidorTi: 'Servidor de dados/computador', escola: 'Prédio de escola/instituição',
+  dinheiro: 'Cédula — dinheiro, orçamento, remuneração', casa: 'Casa/moradia', estudo: 'Capelo de formatura — estudo/formação',
   externo: 'Envie o link de uma imagem em vez de escolher um ícone pronto',
   nenhum: 'O nó aparece só com o texto',
 };
@@ -1297,6 +1314,7 @@ function renderFormAntesComecar(el, conteudo) {
  * próprio formulário focado (renderFormExemplo), sem misturar campos das outras variantes. */
 function varianteDoExemplo(item) {
   if (item.cardImagem) return 'cardImagem';
+  if (item.cardLink) return 'cardLink';
   if (item.flashcard) return 'flashcard';
   if (item.audio) return 'audio';
   if (item.gravacao) return 'gravacao';
@@ -1314,6 +1332,7 @@ const RENDER_BLOCO_VARIANTE = {
   palavraPointLabelExemplo: renderBlocoPalavraPointLabelExemplo,
   palavraMultiplosRotulos: renderBlocoPalavraMultiplosRotulos,
   cardImagem: renderBlocoCardImagem,
+  cardLink: renderBlocoCardLink,
   flashcard: renderBlocoFlashcard,
   audio: renderBlocoAudio,
   gravacao: renderBlocoGravacao,
@@ -1337,7 +1356,7 @@ function renderFormExemplo(el, conteudo, passo) {
         <div id="blocoVarianteExemplo"></div>
       </div>`;
     ligarCampoIconeExterno(el, item);
-    ligarTipoIconePicker(el, item, '#4A80F0', renderPreviewAtual);
+    ligarTipoIconePicker(el, item, '#4A80F0', renderPreviewAtual, { permiteNenhum: true });
     if (!temAudioProprio) ligarCampoAudioTela(el, item);
     RENDER_BLOCO_VARIANTE[variante](el.querySelector('#blocoVarianteExemplo'), item);
     return;
@@ -1362,7 +1381,7 @@ function renderFormExemplo(el, conteudo, passo) {
     input.addEventListener('input', () => { item[input.dataset.f] = input.value; renderPreviewAtual(); });
   });
   ligarCampoIconeExterno(el, item);
-  ligarTipoIconePicker(el, item, '#4A80F0', renderPreviewAtual);
+  ligarTipoIconePicker(el, item, '#4A80F0', renderPreviewAtual, { permiteNenhum: true });
   const camposTextoExemplo = [
     { rotulo: 'Texto', campo: 'texto' },
     { rotulo: 'Conclusão', campo: 'conclusao' },
@@ -1696,6 +1715,73 @@ function renderBlocoCardImagem(bloco, item) {
   ]);
   bloco.querySelectorAll('[data-cif="titulo"], [data-cif="subtitulo"], [data-cif="texto"]').forEach(input => {
     input.addEventListener('blur', () => { podarDestaque(ci, input.dataset.cif); renderDestaquesCI(); });
+  });
+}
+
+/** "Card de link ou download" — card com título/subtítulo/texto e um botão que, no player, abre
+ * um link externo (nova aba) OU baixa um arquivo importado aqui (vira base64, embutido no export
+ * — mesmo padrão do Card com imagem). `modo` escolhe qual dos dois vale. */
+function renderBlocoCardLink(bloco, item) {
+  const cl = item.cardLink;
+  if (!cl.modo) cl.modo = 'link';
+  bloco.innerHTML = `
+    <div class="item-card">
+      <div class="item-card-topo"><strong>Card de link ou download</strong></div>
+      <div class="campo">${htmlLabelComEstilo('Título (opcional)', 'titulo')}<input type="text" data-clf="titulo" placeholder="Ex: Material complementar"></div>
+      <div class="campo">${htmlLabelComEstilo('Subtítulo (opcional)', 'subtitulo')}<input type="text" data-clf="subtitulo"></div>
+      <div class="campo">${htmlLabelComEstilo('Texto (opcional)', 'texto')}<textarea data-clf="texto"></textarea></div>
+      <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
+      <div id="listaDestaqueCardLink"></div>
+      <div class="campo"><label>O botão do card vai…</label>
+        <select data-clf="modo">
+          <option value="link">Abrir um link externo</option>
+          <option value="download">Baixar um arquivo</option>
+        </select>
+      </div>
+      <div class="campo" data-modo="link"><label>Endereço do link</label><input type="text" data-clf="url" placeholder="https://exemplo.com/material"></div>
+      <div class="campo" data-modo="download"><label>Arquivo para download</label>
+        <div class="campo-linha-imagem">
+          <span class="campo-ajuda" data-nome-arquivo style="flex:1;margin:0"></span>
+          <button type="button" class="btn-add-item btn-importar-arquivo-card">Importar arquivo</button>
+          <button type="button" class="btn-remover-item btn-remover-arquivo-card">Remover</button>
+        </div>
+        <input type="file" class="input-arquivo-card" hidden>
+      </div>
+      <div class="campo"><label>Texto do botão (opcional)</label><input type="text" data-clf="rotuloBotao" placeholder="Padrão: Abrir link / Baixar arquivo"></div>
+    </div>`;
+  bloco.querySelectorAll('[data-clf]').forEach(input => {
+    input.value = cl[input.dataset.clf] || '';
+    input.addEventListener('input', () => { cl[input.dataset.clf] = input.value; renderPreviewAtual(); });
+  });
+  const nomeEl = bloco.querySelector('[data-nome-arquivo]');
+  function atualizarModo() {
+    bloco.querySelectorAll('[data-modo]').forEach(c => { c.style.display = c.dataset.modo === cl.modo ? '' : 'none'; });
+    nomeEl.textContent = cl.arquivoUrl ? `📎 ${cl.arquivoNome || 'arquivo'}` : 'Nenhum arquivo importado';
+    bloco.querySelector('.btn-remover-arquivo-card').style.display = cl.arquivoUrl ? '' : 'none';
+  }
+  bloco.querySelector('[data-clf="modo"]').addEventListener('change', atualizarModo);
+  const inputArquivo = bloco.querySelector('.input-arquivo-card');
+  bloco.querySelector('.btn-importar-arquivo-card').addEventListener('click', () => inputArquivo.click());
+  inputArquivo.addEventListener('change', () => {
+    const arquivo = inputArquivo.files[0];
+    if (!arquivo) return;
+    const leitor = new FileReader();
+    leitor.onload = () => { cl.arquivoUrl = leitor.result; cl.arquivoNome = arquivo.name; atualizarModo(); renderPreviewAtual(); };
+    leitor.readAsDataURL(arquivo);
+  });
+  bloco.querySelector('.btn-remover-arquivo-card').addEventListener('click', () => {
+    cl.arquivoUrl = ''; cl.arquivoNome = ''; atualizarModo(); renderPreviewAtual();
+  });
+  atualizarModo();
+
+  ligarBotoesEstiloTexto(bloco, cl);
+  const renderDestaquesCL = montarDestaqueFrases(bloco.querySelector('#listaDestaqueCardLink'), cl, [
+    { rotulo: 'Título', campo: 'titulo' },
+    { rotulo: 'Subtítulo', campo: 'subtitulo' },
+    { rotulo: 'Texto', campo: 'texto' },
+  ]);
+  bloco.querySelectorAll('[data-clf="titulo"], [data-clf="subtitulo"], [data-clf="texto"]').forEach(input => {
+    input.addEventListener('blur', () => { podarDestaque(cl, input.dataset.clf); renderDestaquesCL(); });
   });
 }
 
@@ -3649,11 +3735,18 @@ const ICONES_TIPO = {
   livro: cor => `<path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>`,
   certo: cor => `<path fill="none" stroke="${cor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>`,
   errado: cor => `<path fill="none" stroke="${cor}" stroke-width="2.5" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/>`,
+  servidor: cor => `<circle cx="12" cy="7" r="3.5" fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M5 21v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 15v6"/>`,
+  servidorTi: cor => `<rect x="3" y="3" width="18" height="7" rx="1.8" fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><rect x="3" y="14" width="18" height="7" rx="1.8" fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7" cy="6.5" r="1" fill="${cor}"/><circle cx="7" cy="17.5" r="1" fill="${cor}"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 6.5h5M12 17.5h5"/>`,
+  escola: cor => `<path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M3 21h18M5 21V10l7-5 7 5v11M9 21v-5h6v5"/><circle cx="12" cy="10.5" r="1.5" fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`,
+  dinheiro: cor => `<rect x="2" y="6" width="20" height="12" rx="2" fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.8" fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6 9.5v.01M18 14.5v.01"/>`,
+  casa: cor => `<path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M3 11l9-8 9 8M5 9.5V20h14V9.5M10 20v-6h4v6"/>`,
+  estudo: cor => `<path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M22 10L12 5 2 10l10 5 10-5z"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6 12v5c3 2.5 9 2.5 12 0v-5M22 10v6"/>`,
 };
 
 /** Ícone de um "tipo" (TIPOS_ICONE), na cor pedida — pronto pra colar num pp-*-icone. Se
  * tipo for "externo" com iconeUrl definido, mostra a imagem enviada em vez do ícone padrão. */
 function iconeTipo(tipo, cor, iconeUrl) {
+  if (tipo === 'nenhum') return ''; // "Sem ícone" (só oferecido onde o ícone é opcional)
   if (tipo === 'externo' && iconeUrl) {
     return `<img src="${escaparHtml(iconeUrl)}" alt="" style="width:60%;height:60%;object-fit:contain">`;
   }
@@ -3785,14 +3878,15 @@ function previewExemplo(item) {
   const temPalavraPointLabelExemplo = item.palavraPointLabelExemplo && item.palavraPointLabelExemplo.sentenca && item.palavraPointLabelExemplo.sentenca.length;
   const temPalavraMultiplosRotulos = item.palavraMultiplosRotulos && item.palavraMultiplosRotulos.sentenca && item.palavraMultiplosRotulos.sentenca.length;
   const temCardImagem = item.cardImagem && (item.cardImagem.imagemUrl || item.cardImagem.titulo || item.cardImagem.subtitulo || item.cardImagem.texto);
+  const temCardLink = item.cardLink && (item.cardLink.titulo || item.cardLink.subtitulo || item.cardLink.texto || item.cardLink.url || item.cardLink.arquivoUrl);
   const temFlashcard = item.flashcard && (item.flashcard.frente || item.flashcard.verso);
   const temAudio = item.audio && (item.audio.audioUrl || item.audio.titulo || item.audio.subtitulo || item.audio.texto);
   const temGravacao = item.gravacao && (item.gravacao.audioUrl || item.gravacao.titulo || item.gravacao.subtitulo || item.gravacao.texto);
   const temGravacaoAluno = !!item.gravacaoAluno; // sem audioUrl (quem grava é a aluna, no player) — o card sempre existe uma vez criado
-  if (!item.texto && !temPalavraSelecionavel && !temPalavraSelecionavelMultipla && !temPalavraPointLabelExemplo && !temPalavraMultiplosRotulos && !temCardImagem && !temFlashcard && !temAudio && !temGravacao && !temGravacaoAluno && !item.audioUrl) return '<p class="pp-vazio">Preencha o texto para ver a prévia.</p>';
+  if (!item.texto && !temPalavraSelecionavel && !temPalavraSelecionavelMultipla && !temPalavraPointLabelExemplo && !temPalavraMultiplosRotulos && !temCardImagem && !temCardLink && !temFlashcard && !temAudio && !temGravacao && !temGravacaoAluno && !item.audioUrl) return '<p class="pp-vazio">Preencha o texto para ver a prévia.</p>';
   return `
     ${(!temAudio && !temGravacao) ? montarAudioTelaHtml(item.audioUrl) : ''}
-    <div class="pp-exemplo-icone">${iconeTipo(item.tipo, '#4A80F0', item.iconeUrl)}</div>
+    ${item.tipo === 'nenhum' ? '' : `<div class="pp-exemplo-icone">${iconeTipo(item.tipo, '#4A80F0', item.iconeUrl)}</div>`}
     ${item.texto ? `<p class="pp-exemplo-texto"${estiloTextoInline(item, 'texto')}>${renderFraseComDestaque(item.texto, item.textoDestaque, item.textoDestaqueNegrito)}</p>` : ''}
     ${item.conclusao ? `<p class="pp-exemplo-conclusao"${estiloTextoInline(item, 'conclusao')}>${renderFraseComDestaque(item.conclusao, item.conclusaoDestaque, item.conclusaoDestaqueNegrito)}</p>` : ''}
     ${item.obs ? `
@@ -3807,6 +3901,7 @@ function previewExemplo(item) {
     ${item.palavraPointLabelExemplo ? previewPalavraSelecionavelMultipla(item.palavraPointLabelExemplo, 'Exemplo:') : ''}
     ${item.palavraMultiplosRotulos ? previewPalavraMultiplosRotulos(item.palavraMultiplosRotulos) : ''}
     ${item.cardImagem ? previewCardImagem(item.cardImagem) : ''}
+    ${item.cardLink ? previewCardLink(item.cardLink) : ''}
     ${item.flashcard ? previewFlashcard(item.flashcard) : ''}
     ${item.audio ? previewAudioCard(item.audio) : ''}
     ${item.gravacao ? previewAudioCard(item.gravacao) : ''}
@@ -3831,6 +3926,20 @@ function previewCardImagem(ci) {
         ${ci.subtitulo ? `<p class="pp-card-imagem-subtitulo"${estiloTextoInline(ci, 'subtitulo')}>${renderFraseComDestaque(ci.subtitulo, ci.subtituloDestaque, ci.subtituloDestaqueNegrito)}</p>` : ''}
         ${ci.texto ? `<p class="pp-card-imagem-texto"${estiloTextoInline(ci, 'texto')}>${renderFraseComDestaque(ci.texto, ci.textoDestaque, ci.textoDestaqueNegrito)}</p>` : ''}
       </div>` : ''}
+    </div>`;
+}
+
+/** Prévia do "Card de link ou download" — o botão aqui é só ilustrativo (não navega). */
+function previewCardLink(cl) {
+  const modoDownload = cl.modo === 'download';
+  const padrao = modoDownload ? '⬇ Baixar arquivo' : '🔗 Abrir link';
+  return `
+    <div class="pp-card-link">
+      ${cl.titulo ? `<p class="pp-card-link-titulo"${estiloTextoInline(cl, 'titulo')}>${renderFraseComDestaque(cl.titulo, cl.tituloDestaque, cl.tituloDestaqueNegrito)}</p>` : ''}
+      ${cl.subtitulo ? `<p class="pp-card-link-subtitulo"${estiloTextoInline(cl, 'subtitulo')}>${renderFraseComDestaque(cl.subtitulo, cl.subtituloDestaque, cl.subtituloDestaqueNegrito)}</p>` : ''}
+      ${cl.texto ? `<p class="pp-card-link-texto"${estiloTextoInline(cl, 'texto')}>${renderFraseComDestaque(cl.texto, cl.textoDestaque, cl.textoDestaqueNegrito)}</p>` : ''}
+      <span class="pp-card-link-btn">${escaparHtml(cl.rotuloBotao || padrao)}</span>
+      ${modoDownload && cl.arquivoNome ? `<span class="pp-card-link-arquivo">📎 ${escaparHtml(cl.arquivoNome)}</span>` : ''}
     </div>`;
 }
 
