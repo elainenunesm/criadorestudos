@@ -24,7 +24,7 @@ function conteudoAulaAtual() {
 
 /** Próximo _id livre pra um novo item de exemplo/checagem/lista/timeline/jogoSinais/agrupamento/distribuicao (referenciado em conteudo.ordem). */
 function proximoIdItem(conteudo) {
-  const ids = [...conteudo.exemplo, ...conteudo.checagem, ...conteudo.lista, ...conteudo.timeline, ...conteudo.jogoSinais, ...conteudo.agrupamento, ...conteudo.distribuicao, ...conteudo.mapaMental, ...conteudo.tabelaAnimada, ...conteudo.mapaConceitual].map(i => i._id || 0);
+  const ids = [...conteudo.exemplo, ...conteudo.checagem, ...conteudo.lista, ...conteudo.timeline, ...conteudo.jogoSinais, ...conteudo.agrupamento, ...conteudo.distribuicao, ...conteudo.mapaMental, ...conteudo.tabelaAnimada, ...conteudo.mapaConceitual, ...conteudo.mapaInterativo].map(i => i._id || 0);
   return Math.max(0, ...ids) + 1;
 }
 
@@ -46,6 +46,7 @@ function garantirOrdem(conteudo) {
   if (!Array.isArray(conteudo.mapaMental)) conteudo.mapaMental = [];
   if (!Array.isArray(conteudo.tabelaAnimada)) conteudo.tabelaAnimada = [];
   if (!Array.isArray(conteudo.mapaConceitual)) conteudo.mapaConceitual = [];
+  if (!Array.isArray(conteudo.mapaInterativo)) conteudo.mapaInterativo = [];
 
   conteudo.exemplo.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
   conteudo.checagem.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
@@ -57,6 +58,7 @@ function garantirOrdem(conteudo) {
   conteudo.mapaMental.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
   conteudo.tabelaAnimada.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
   conteudo.mapaConceitual.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
+  conteudo.mapaInterativo.forEach(item => { if (!item._id) item._id = proximoIdItem(conteudo); });
 
   // Remove entradas de itens que não existem mais.
   conteudo.ordem = conteudo.ordem.filter(t => {
@@ -70,6 +72,7 @@ function garantirOrdem(conteudo) {
     if (t.tipo === 'mapaMental') return conteudo.mapaMental.some(i => i._id === t.id);
     if (t.tipo === 'tabelaAnimada') return conteudo.tabelaAnimada.some(i => i._id === t.id);
     if (t.tipo === 'mapaConceitual') return conteudo.mapaConceitual.some(i => i._id === t.id);
+    if (t.tipo === 'mapaInterativo') return conteudo.mapaInterativo.some(i => i._id === t.id);
     return true;
   });
 
@@ -105,6 +108,9 @@ function garantirOrdem(conteudo) {
   conteudo.mapaConceitual.forEach(item => {
     if (!presentes.has(`mapaConceitual:${item._id}`)) conteudo.ordem.push({ tipo: 'mapaConceitual', id: item._id });
   });
+  conteudo.mapaInterativo.forEach(item => {
+    if (!presentes.has(`mapaInterativo:${item._id}`)) conteudo.ordem.push({ tipo: 'mapaInterativo', id: item._id });
+  });
   // Resumo/Lição nascem junto com a aula, mas podem ser excluídos (ver removerPassoAtual) — nesse
   // caso NÃO voltam sozinhos aqui, só se a professora clicar em "Tipo (Telas)" pra adicionar de novo.
   if (!presentes.has('resumo:') && !conteudo.resumoRemovido) conteudo.ordem.push({ tipo: 'resumo' });
@@ -127,6 +133,7 @@ function montarPassos(conteudo) {
   let numMapaMental = 0;
   let numTabelaAnimada = 0;
   let numMapaConceitual = 0;
+  let numMapaInterativo = 0;
   return conteudo.ordem.map(token => {
     if (token.tipo === 'exemplo') {
       numExemplo++;
@@ -171,6 +178,10 @@ function montarPassos(conteudo) {
     if (token.tipo === 'mapaConceitual') {
       numMapaConceitual++;
       return { tipo: 'mapaConceitual', idx: conteudo.mapaConceitual.findIndex(i => i._id === token.id), id: token.id, titulo: `Mapa Conceitual ${numMapaConceitual}` };
+    }
+    if (token.tipo === 'mapaInterativo') {
+      numMapaInterativo++;
+      return { tipo: 'mapaInterativo', idx: conteudo.mapaInterativo.findIndex(i => i._id === token.id), id: token.id, titulo: `Mapa Interativo ${numMapaInterativo}` };
     }
     return { tipo: token.tipo, titulo: TITULO_TELA_FIXO[token.tipo] };
   });
@@ -227,6 +238,7 @@ const ICONE_TELA = {
   mapaMental: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="2.6" fill="#fff" stroke="none"/><circle cx="4" cy="5" r="2" fill="#fff" stroke="none"/><circle cx="20" cy="5" r="2" fill="#fff" stroke="none"/><circle cx="4" cy="19" r="2" fill="#fff" stroke="none"/><circle cx="20" cy="19" r="2" fill="#fff" stroke="none"/><line x1="12" y1="12" x2="4" y2="5"/><line x1="12" y1="12" x2="20" y2="5"/><line x1="12" y1="12" x2="4" y2="19"/><line x1="12" y1="12" x2="20" y2="19"/></svg>',
   tabelaAnimada: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="10" x2="9" y2="20"/><line x1="15" y1="10" x2="15" y2="20"/></svg>',
   mapaConceitual: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="4" r="2" fill="#fff" stroke="none"/><circle cx="5" cy="13" r="2" fill="#fff" stroke="none"/><circle cx="19" cy="13" r="2" fill="#fff" stroke="none"/><circle cx="5" cy="20" r="1.6" fill="#fff" stroke="none"/><circle cx="19" cy="20" r="1.6" fill="#fff" stroke="none"/><line x1="12" y1="4" x2="5" y2="13"/><line x1="12" y1="4" x2="19" y2="13"/><line x1="5" y1="13" x2="5" y2="20"/><line x1="19" y1="13" x2="19" y2="20"/></svg>',
+  mapaInterativo: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="9" width="7" height="6" rx="1.5" fill="#fff" stroke="none"/><path d="M9 12h3M12 6v12M12 6h3M12 18h3"/><rect x="15" y="3.5" width="7" height="5" rx="1.2" stroke-dasharray="2 2"/><rect x="15" y="15.5" width="7" height="5" rx="1.2" stroke-dasharray="2 2"/></svg>',
 };
 
 /** Dados de mentira só pra prévia de "que tipo de tela é essa" — nunca chegam a entrar
@@ -355,6 +367,18 @@ const DADOS_FICTICIOS_TELA = {
   },
 };
 
+/** Exemplo só pra prévia do popup "Tipo (Telas)" — mesma convenção dos outros tipos acima. */
+DADOS_FICTICIOS_TELA.mapaInterativo = {
+  titulo: 'Assim vai aparecer o título (opcional).',
+  instrucao: 'Complete as ramificações do mapa com as alternativas corretas.',
+  nos: [
+    { id: 'n1', texto: 'Conceito central', paiId: null },
+    { id: 'n2', texto: 'composição', paiId: 'n1' },
+    { id: 'n3', texto: 'Resposta A', paiId: 'n2', lacuna: true, alternativas: ['Resposta A', 'Opção errada'], correta: 0, dica: 'Assim vai aparecer a dica.' },
+    { id: 'n4', texto: 'Resposta B', paiId: 'n2', lacuna: true, alternativas: ['Outra opção', 'Resposta B'], correta: 1, dica: '' },
+  ],
+};
+
 const NOME_TELA_ADICIONAR = {
   exemplo: 'Adicionar exemplo',
   'exemplo:palavraSelecionavel': 'Palavra selecionável',
@@ -380,6 +404,7 @@ const NOME_TELA_ADICIONAR = {
   mapaMental: 'Adicionar mapa mental',
   tabelaAnimada: 'Adicionar tabela animada',
   mapaConceitual: 'Adicionar mapa conceitual',
+  mapaInterativo: 'Adicionar mapa mental interativo',
 };
 
 /** Tipo (e, se aplicável, a variante) escolhidos no popup "Tipo (Telas)" — ainda não
@@ -439,6 +464,8 @@ function mostrarPreviewNovaTela(tipo, modo) {
     body.innerHTML = previewTabelaAnimada(DADOS_FICTICIOS_TELA.tabelaAnimada);
   } else if (tipo === 'mapaConceitual') {
     body.innerHTML = previewMapaConceitual(DADOS_FICTICIOS_TELA.mapaConceitual);
+  } else if (tipo === 'mapaInterativo') {
+    body.innerHTML = previewMapaInterativo(DADOS_FICTICIOS_TELA.mapaInterativo);
   } else {
     const DADOS_CHECAGEM_POR_MODO = {
       palavra: DADOS_FICTICIOS_TELA.checagemPalavra,
@@ -452,6 +479,7 @@ function mostrarPreviewNovaTela(tipo, modo) {
   ligarMapaMentalPreview(body);
   ligarTabelaAnimadaPreview(body);
   ligarMapaConceitualPreview(body);
+  ligarMapaInterativoPreview(body);
 
   // Cabeçalho com a mesma cor de marca das outras prévias — só pra mostrar como vai ficar,
   // por isso o "passo" é fictício (essa tela ainda nem foi adicionada de verdade).
@@ -612,6 +640,11 @@ function renderEstruturaTelas() {
           iconeHtml: badgeIcone(ICONE_TELA.mapaConceitual, '#7C3AED'),
           onClick: () => mostrarPreviewNovaTela('mapaConceitual'),
         },
+        {
+          label: 'Adicionar mapa mental interativo', sublabel: 'Mapa com lacunas: a aluna escolhe a alternativa certa pra preencher cada ramificação', grupo: 'Mapa Interativo',
+          iconeHtml: badgeIcone(ICONE_TELA.mapaInterativo, '#6D28D9'),
+          onClick: () => mostrarPreviewNovaTela('mapaInterativo'),
+        },
       ];
       // "Resumo" e "Lição" são fixos por padrão (toda aula nasce com os dois) — só aparecem aqui
       // pra adicionar de volta se a professora tiver excluído antes (ver abrirMenuTela/removerPassoAtual).
@@ -667,7 +700,7 @@ function abrirMenuTela(event, idx) {
   if (podeMoverTela(passos, idx, 1)) itens.push({ acao: 'descer', label: '⬇️ Mover para baixo', onClick: () => moverTela(idx, 1) });
   // Resumo e Lição são opcionais (podem ser excluídos e depois adicionados de volta pelo "Tipo
   // (Telas)"), diferente de "Antes de começar", que é sempre obrigatório.
-  if (passo.tipo === 'exemplo' || passo.tipo === 'checagem' || passo.tipo === 'resumo' || passo.tipo === 'licao' || passo.tipo === 'lista' || passo.tipo === 'timeline' || passo.tipo === 'jogoSinais' || passo.tipo === 'agrupamento' || passo.tipo === 'distribuicao' || passo.tipo === 'mapaMental' || passo.tipo === 'tabelaAnimada' || passo.tipo === 'mapaConceitual') {
+  if (passo.tipo === 'exemplo' || passo.tipo === 'checagem' || passo.tipo === 'resumo' || passo.tipo === 'licao' || passo.tipo === 'lista' || passo.tipo === 'timeline' || passo.tipo === 'jogoSinais' || passo.tipo === 'agrupamento' || passo.tipo === 'distribuicao' || passo.tipo === 'mapaMental' || passo.tipo === 'tabelaAnimada' || passo.tipo === 'mapaConceitual' || passo.tipo === 'mapaInterativo') {
     itens.push({
       acao: 'excluir', label: '🗑 Excluir esta tela', onClick: () => {
         conteudoEstado.passoIndex = idx;
@@ -805,9 +838,15 @@ function adicionarItemPasso(tipoLista, variante) {
   } else if (tipoLista === 'mapaConceitual') {
     conteudo.mapaConceitual.push({
       _id: id, titulo: '',
-      nos: [{ id: 'n1', texto: '', tipo: 'acao', paiId: null, cartaoTexto: '' }],
+      nos: [{ id: 'n1', texto: '', tipo: 'nenhum', paiId: null, cartaoTexto: '' }],
     });
     inserirNaOrdemAntesDoResumo(conteudo, { tipo: 'mapaConceitual', id });
+  } else if (tipoLista === 'mapaInterativo') {
+    conteudo.mapaInterativo.push({
+      _id: id, titulo: '', instrucao: '',
+      nos: [{ id: 'n1', texto: '', paiId: null }],
+    });
+    inserirNaOrdemAntesDoResumo(conteudo, { tipo: 'mapaInterativo', id });
   } else if (tipoLista === 'resumo' || tipoLista === 'licao') {
     // Só existe uma de cada — o conteúdo (texto já preenchido antes de excluir) não se perde,
     // então "adicionar de volta" é só religar a tela na ordem, via garantirOrdem().
@@ -839,6 +878,7 @@ function removerPassoAtual() {
   else if (passo.tipo === 'mapaMental') conteudo.mapaMental.splice(passo.idx, 1);
   else if (passo.tipo === 'tabelaAnimada') conteudo.tabelaAnimada.splice(passo.idx, 1);
   else if (passo.tipo === 'mapaConceitual') conteudo.mapaConceitual.splice(passo.idx, 1);
+  else if (passo.tipo === 'mapaInterativo') conteudo.mapaInterativo.splice(passo.idx, 1);
   else if (passo.tipo === 'resumo') conteudo.resumoRemovido = true;
   else if (passo.tipo === 'licao') conteudo.licaoRemovido = true;
   else return;
@@ -1062,6 +1102,7 @@ const NOME_TIPO_ICONE = {
   predVerbal: 'Predicado verbal', predNominal: 'Predicado nominal', predVerboNominal: 'Predicado verbo-nominal',
   semSujeito: 'Oração sem sujeito', livro: 'Livro', certo: 'Certo (✓)', errado: 'Errado (✗)',
   externo: 'Ícone externo (link)',
+  nenhum: 'Sem ícone',
 };
 const DESC_TIPO_ICONE = {
   acao: 'Verbo que indica uma ação', estado: 'Verbo de ligação/estado', mudanca: 'Indica mudança ou transformação',
@@ -1073,6 +1114,7 @@ const DESC_TIPO_ICONE = {
   semSujeito: 'Oração sem sujeito', livro: 'Ícone de livro/leitura',
   certo: 'Marca de certo/correto', errado: 'Marca de errado/incorreto',
   externo: 'Envie o link de uma imagem em vez de escolher um ícone pronto',
+  nenhum: 'O nó aparece só com o texto',
 };
 
 /** Selo/badge quadrado arredondado com um ícone dentro — usado nas linhas dos popups de escolha
@@ -1086,7 +1128,7 @@ function badgeIcone(svgHtml, corFundo) {
 function htmlTipoIconePicker(item, cor) {
   return `<div class="linha-tipo-icone">
     <button type="button" class="campo-tipo-icone-trigger">
-      <span class="campo-tipo-icone-preview">${iconeTipo(item.tipo, cor, item.iconeUrl)}</span>
+      <span class="campo-tipo-icone-preview">${item.tipo === 'nenhum' ? '<span style="font-size:20px;font-weight:700;color:#9ca3af">∅</span>' : iconeTipo(item.tipo, cor, item.iconeUrl)}</span>
       <span class="campo-tipo-icone-nome">${escaparHtml(NOME_TIPO_ICONE[item.tipo] || item.tipo)}</span>
       <svg class="campo-tipo-icone-seta" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
     </button>
@@ -1096,13 +1138,15 @@ function htmlTipoIconePicker(item, cor) {
 
 /** Liga o gatilho de htmlTipoIconePicker(): clicar nele abre a lista de tipos (com ícone+descrição,
  * igual a estrutura já usada em "Nova etapa"); clicar no "🔗" ao lado vai direto pro ícone externo. */
-function ligarTipoIconePicker(container, item, cor, aoMudar) {
+/** `permiteNenhum`: acrescenta a opção "Sem ícone" (tipo 'nenhum') no topo da lista — só nas telas em que o ícone é opcional (Mapa Conceitual). */
+function ligarTipoIconePicker(container, item, cor, aoMudar, { permiteNenhum = false } = {}) {
+  const miniatura = (t, c) => t === 'nenhum' ? '<span style="font-size:20px;font-weight:700;color:#9ca3af">∅</span>' : iconeTipo(t, c, item.iconeUrl);
   const trigger = container.querySelector('.campo-tipo-icone-trigger');
   const botaoExterno = container.querySelector('.btn-icone-externo');
 
   function selecionar(tipo) {
     item.tipo = tipo;
-    trigger.querySelector('.campo-tipo-icone-preview').innerHTML = iconeTipo(item.tipo, cor, item.iconeUrl);
+    trigger.querySelector('.campo-tipo-icone-preview').innerHTML = miniatura(item.tipo, cor);
     trigger.querySelector('.campo-tipo-icone-nome').textContent = NOME_TIPO_ICONE[tipo] || tipo;
     botaoExterno.classList.toggle('ativo', tipo === 'externo');
     const campoUrl = container.querySelector('.campo-icone-externo');
@@ -1111,10 +1155,10 @@ function ligarTipoIconePicker(container, item, cor, aoMudar) {
   }
 
   trigger.addEventListener('click', () => {
-    const itens = [...TIPOS_ICONE, 'externo'].map(t => ({
+    const itens = [...(permiteNenhum ? ['nenhum'] : []), ...TIPOS_ICONE, 'externo'].map(t => ({
       label: NOME_TIPO_ICONE[t] || t,
       sublabel: DESC_TIPO_ICONE[t] || '',
-      iconeHtml: badgeIcone(iconeTipo(t, cor), '#f5f5fa'),
+      iconeHtml: badgeIcone(t === 'nenhum' ? miniatura(t, cor) : iconeTipo(t, cor), '#f5f5fa'),
       onClick: () => selecionar(t),
     }));
     abrirEscolha('Escolha o tipo de ícone', itens);
@@ -1204,6 +1248,7 @@ function renderizarConteudo() {
     mapaMental: renderFormMapaMental,
     tabelaAnimada: renderFormTabelaAnimada,
     mapaConceitual: renderFormMapaConceitual,
+    mapaInterativo: renderFormMapaInterativo,
   };
   renderers[passo.tipo](formEl, aula.conteudo, passo);
 
@@ -3222,6 +3267,23 @@ function renderFormTabelaAnimada(el, conteudo, passo) {
   });
 }
 
+/** Campo "Cor do texto" de um nó do Mapa Conceitual (guarda em `no.corTexto`; vazio = cor padrão
+ * do nó — branca no nó principal, escura nos demais). "Padrão" volta ao automático. */
+function htmlCampoCorTextoNo() {
+  return `<div class="campo campo-cor-texto-no"><label>Cor do texto</label>
+    <div class="mm-paleta"><input type="color" data-cor-texto title="Cor do texto"><button type="button" class="btn-add-item" data-cor-texto-padrao>Padrão</button></div></div>`;
+}
+function ligarCampoCorTextoNo(container, no, corPadrao) {
+  const input = container.querySelector('[data-cor-texto]');
+  input.value = no.corTexto || corPadrao;
+  input.addEventListener('input', () => { no.corTexto = input.value; renderPreviewAtual(); });
+  container.querySelector('[data-cor-texto-padrao]').addEventListener('click', () => {
+    delete no.corTexto;
+    input.value = corPadrao;
+    renderPreviewAtual();
+  });
+}
+
 /** Devolve o conjunto de ids descendentes de um nó (recursivo) — usado pra impedir que um nó
  * vire "nó pai" dele mesmo ou de um dos seus próprios descendentes (ciclo na árvore). */
 function descendentesDeNo(nos, id) {
@@ -3257,6 +3319,7 @@ function renderFormMapaConceitual(el, conteudo, passo) {
       <div class="campo">${htmlTipoIconePicker(nos[0], '#5724D6')}</div>
       ${htmlCampoIconeExterno(nos[0])}
       <div class="campo"><label>Texto (dentro do nó)</label><input type="text" id="mcNoRaizTexto" placeholder="Ex: Administração Pública"></div>
+      ${htmlCampoCorTextoNo()}
       <div id="mcNoRaizCartaoWrap">
         <div class="campo">${htmlLabelComEstilo('Texto do cartão explicativo', 'cartaoTexto')}<textarea id="mcNoRaizCartao" rows="2" placeholder="Ex: Vamos entender como funciona a Administração Pública."></textarea></div>
         <div class="secao-titulo-editor" style="margin-top:12px">Destaque nas frases (palavras em azul)</div>
@@ -3280,7 +3343,8 @@ function renderFormMapaConceitual(el, conteudo, passo) {
   el.querySelector('#mcTitulo').addEventListener('blur', () => { podarDestaque(mc, 'titulo'); renderDestaquesMcTitulo(); podarSincronia(mc, 'titulo'); atualizarSincroniaMc(); });
 
   ligarCampoIconeExterno(el, nos[0]);
-  ligarTipoIconePicker(el, nos[0], '#5724D6', renderPreviewAtual);
+  ligarTipoIconePicker(el, nos[0], '#5724D6', renderPreviewAtual, { permiteNenhum: true });
+  ligarCampoCorTextoNo(el.querySelector('.campo-cor-texto-no'), nos[0], '#ffffff');
   el.querySelector('#mcNoRaizTexto').value = nos[0].texto || '';
   el.querySelector('#mcNoRaizTexto').addEventListener('input', e => { nos[0].texto = e.target.value; renderPreviewAtual(); });
 
@@ -3319,6 +3383,7 @@ function renderFormMapaConceitual(el, conteudo, passo) {
           </div>
         </div>
         <div class="campo">${htmlLabelComEstilo('Texto (dentro do nó)', 'texto')}<input type="text" data-nf="texto" placeholder="Ex: Servidores"></div>
+        ${htmlCampoCorTextoNo()}
         <div class="campo"><label>Nó pai</label>
           <select data-nf="paiId">
             ${opcoesPai.map(p => `<option value="${p.id}"${no.paiId === p.id ? ' selected' : ''}>${escaparHtml(p.texto || (p.id === 'n1' ? 'Conceito central' : '(sem texto)'))}</option>`).join('')}
@@ -3331,6 +3396,7 @@ function renderFormMapaConceitual(el, conteudo, passo) {
         <div id="mcDestaqueNoCartao${i}"></div>
         <div class="secao-titulo-editor" style="margin-top:12px">Destaque sincronizado com o áudio (opcional)</div>
         <div id="mcTempoNo${i}"></div>`;
+      ligarCampoCorTextoNo(card.querySelector('.campo-cor-texto-no'), no, '#202033');
       card.querySelector('[data-nf="cor"]').value = no.cor || PALETA_MAPA_MENTAL[0];
       card.querySelector('[data-nf="texto"]').value = no.texto || '';
       card.querySelector('[data-nf="texto"]').addEventListener('input', e => { no.texto = e.target.value; renderPreviewAtual(); });
@@ -3357,7 +3423,7 @@ function renderFormMapaConceitual(el, conteudo, passo) {
       card.querySelector('[data-nf="cartaoTexto"]').addEventListener('blur', () => { podarDestaque(no, 'cartaoTexto'); renderDestaquesNoCartao(); });
       montarMarcacaoTempoTopico(card.querySelector(`#mcTempoNo${i}`), no, () => el.querySelector('.campo-audio-tela-preview audio'));
       ligarCampoIconeExterno(card, no);
-      ligarTipoIconePicker(card, no, '#5724D6', renderPreviewAtual);
+      ligarTipoIconePicker(card, no, '#5724D6', renderPreviewAtual, { permiteNenhum: true });
       card.querySelector('.btn-remover-item').addEventListener('click', () => {
         // Remove o nó E seus descendentes junto — evita ficar com paiId órfão apontando
         // pra um nó que não existe mais.
@@ -3371,9 +3437,153 @@ function renderFormMapaConceitual(el, conteudo, passo) {
   }
   renderNos();
   el.querySelector('#btnAddMcNo').addEventListener('click', () => {
-    nos.push({ id: proximoIdNo(), texto: '', tipo: 'acao', cor: PALETA_MAPA_MENTAL[nos.length % PALETA_MAPA_MENTAL.length], paiId: nos[0].id, cartaoTexto: '' });
+    nos.push({ id: proximoIdNo(), texto: '', tipo: 'nenhum', cor: PALETA_MAPA_MENTAL[nos.length % PALETA_MAPA_MENTAL.length], paiId: nos[0].id, cartaoTexto: '' });
     renderFormMapaConceitual(el, conteudo, passo);
     renderPreviewAtual();
+  });
+}
+
+/** Mapa Mental Interativo: árvore (nó[0] = nó principal, sem pai) em que alguns nós são
+ * "lacunas" — a aluna escolhe, entre as alternativas daquela lacuna, a que completa a
+ * ramificação (ver mostrarMapaInterativo em vendor/estudo/js/estudo.mjs). Cada nó aponta pro
+ * seu "nó pai". A ordem desta lista é a ordem de progressão: as lacunas são liberadas uma
+ * por vez, de cima pra baixo. O texto de uma lacuna é sempre a própria alternativa correta
+ * (nunca digitado duas vezes) — ver textoDoNoMapaInterativo. */
+function textoDoNoMapaInterativo(no) {
+  if (!no) return '';
+  return no.lacuna ? ((no.alternativas || [])[no.correta] || '') : (no.texto || '');
+}
+
+function renderFormMapaInterativo(el, conteudo, passo) {
+  const mi = conteudo.mapaInterativo[passo.idx];
+  if (!Array.isArray(mi.nos) || !mi.nos.length) mi.nos = [{ id: 'n1', texto: '', paiId: null }];
+  const nos = mi.nos;
+  nos[0].paiId = null;
+  delete nos[0].lacuna;
+
+  el.innerHTML = `
+    <div class="form-secao">
+      ${htmlCampoAudioTela()}
+      <div class="campo" style="margin-top:16px">${htmlLabelComEstilo('Título da tela (opcional)', 'titulo')}<input type="text" id="miTitulo"></div>
+      <div class="secao-titulo-editor">Destaque nas frases (palavras em azul)</div>
+      <div id="miDestaqueTitulo"></div>
+      <div class="campo" style="margin-top:12px"><label>Instrução (aparece acima do mapa)</label><input type="text" id="miInstrucao" placeholder="Ex: Complete as ramificações do mapa com as alternativas corretas."></div>
+
+      <div class="secao-titulo-editor" style="margin-top:16px">Nó principal</div>
+      <div class="campo"><label>Texto</label><input type="text" id="miNoRaizTexto" placeholder="Ex: Conselho Técnico"></div>
+
+      <div class="secao-titulo-editor" style="margin-top:16px">Demais nós (ordem de progressão)</div>
+      <p class="campo-ajuda">Cada nó se liga a um "nó pai". Nós <strong>intermediários</strong> têm texto fixo; nós <strong>lacuna</strong> são preenchidos pela aluna, um por vez, na ordem desta lista (use ↑ ↓ pra mudar). Ao preencher todas as lacunas, o "Próximo" é liberado.</p>
+      <div class="lista-itens" id="listaMiNos"></div>
+      <button class="btn-add-item" type="button" id="btnAddMiNo">+ Adicionar nó</button>
+    </div>`;
+
+  const camposTextoMi = [{ rotulo: 'Título da tela', campo: 'titulo' }];
+  const atualizarSincroniaMi = ligarCampoAudioTela(el, mi, camposTextoMi);
+  el.querySelector('#miTitulo').value = mi.titulo || '';
+  el.querySelector('#miTitulo').addEventListener('input', e => { mi.titulo = e.target.value; renderPreviewAtual(); });
+  ligarBotoesEstiloTexto(el, mi);
+  const renderDestaquesMiTitulo = montarDestaqueFrases(el.querySelector('#miDestaqueTitulo'), mi, camposTextoMi);
+  el.querySelector('#miTitulo').addEventListener('blur', () => { podarDestaque(mi, 'titulo'); renderDestaquesMiTitulo(); podarSincronia(mi, 'titulo'); atualizarSincroniaMi(); });
+  el.querySelector('#miInstrucao').value = mi.instrucao || '';
+  el.querySelector('#miInstrucao').addEventListener('input', e => { mi.instrucao = e.target.value; renderPreviewAtual(); });
+  el.querySelector('#miNoRaizTexto').value = nos[0].texto || '';
+  el.querySelector('#miNoRaizTexto').addEventListener('input', e => { nos[0].texto = e.target.value; renderPreviewAtual(); });
+
+  function proximoIdNo() {
+    let maxN = 0;
+    nos.forEach(n => { const m = /^n(\d+)$/.exec(n.id); if (m) maxN = Math.max(maxN, parseInt(m[1], 10)); });
+    return `n${maxN + 1}`;
+  }
+  function recarregar() { renderFormMapaInterativo(el, conteudo, passo); renderPreviewAtual(); }
+
+  const listaNos = el.querySelector('#listaMiNos');
+  nos.forEach((no, i) => {
+    if (i === 0) return;
+    if (!Array.isArray(no.alternativas)) no.alternativas = [];
+    const card = document.createElement('div');
+    card.className = 'item-card';
+    const naoPermitidos = descendentesDeNo(nos, no.id);
+    const opcoesPai = nos.filter(n => n.id !== no.id && !naoPermitidos.has(n.id));
+    card.innerHTML = `
+      <div class="item-card-topo">
+        <strong>Nó ${i}${no.lacuna ? ' — lacuna' : ''}</strong>
+        <span>
+          <button class="btn-remover-item" type="button" data-acao="subir" title="Mover para cima"${i <= 1 ? ' disabled' : ''}>↑</button>
+          <button class="btn-remover-item" type="button" data-acao="descer" title="Mover para baixo"${i >= nos.length - 1 ? ' disabled' : ''}>↓</button>
+          <button class="btn-remover-item" type="button" data-acao="remover">Remover</button>
+        </span>
+      </div>
+      <div class="campo"><label>Tipo do nó</label>
+        <select data-nf="lacuna">
+          <option value="0"${no.lacuna ? '' : ' selected'}>Intermediário (texto fixo)</option>
+          <option value="1"${no.lacuna ? ' selected' : ''}>Lacuna (a aluna preenche)</option>
+        </select>
+      </div>
+      <div class="campo"><label>Nó pai</label>
+        <select data-nf="paiId">
+          ${opcoesPai.map(p => `<option value="${p.id}"${no.paiId === p.id ? ' selected' : ''}>${escaparHtml(textoDoNoMapaInterativo(p) || (p.id === 'n1' ? 'Nó principal' : '(sem texto)'))}</option>`).join('')}
+        </select>
+      </div>
+      ${no.lacuna ? `
+        <div class="campo"><label>Alternativas (marque a correta)</label>
+          <div class="mi-alternativas" data-alts></div>
+          <button class="btn-add-item" type="button" data-acao="addAlt">+ Adicionar alternativa</button>
+        </div>
+        <div class="campo"><label>Dica ou explicação (aparece depois de um erro e ao acertar)</label><textarea data-nf="dica" rows="2" placeholder="Ex: A composição do Conselho Técnico é formada pelo Presidente e por 12 Conselheiros."></textarea></div>`
+      : `<div class="campo"><label>Texto (dentro do nó)</label><input type="text" data-nf="texto" placeholder="Ex: composição"></div>`}`;
+
+    card.querySelector('[data-nf="lacuna"]').addEventListener('change', e => {
+      no.lacuna = e.target.value === '1';
+      if (no.lacuna) {
+        if (no.alternativas.length < 2) no.alternativas = [no.texto || '', ''];
+        if (!(no.correta >= 0 && no.correta < no.alternativas.length)) no.correta = 0;
+      }
+      recarregar();
+    });
+    card.querySelector('[data-nf="paiId"]').addEventListener('change', e => { no.paiId = e.target.value; renderPreviewAtual(); });
+    if (no.lacuna) {
+      const altsWrap = card.querySelector('[data-alts]');
+      no.alternativas.forEach((alt, ai) => {
+        const linha = document.createElement('div');
+        linha.className = 'mi-alt-linha';
+        linha.innerHTML = `
+          <input type="radio" name="miCorreta${passo.idx}_${i}" title="Marcar como correta"${no.correta === ai ? ' checked' : ''}>
+          <input type="text" placeholder="Alternativa ${ai + 1}">
+          <button class="btn-remover-item" type="button"${no.alternativas.length <= 2 ? ' disabled' : ''}>×</button>`;
+        const [radio, input, btnRem] = linha.children;
+        input.value = alt;
+        input.addEventListener('input', e => { no.alternativas[ai] = e.target.value; renderPreviewAtual(); });
+        radio.addEventListener('change', () => { no.correta = ai; renderPreviewAtual(); });
+        btnRem.addEventListener('click', () => {
+          no.alternativas.splice(ai, 1);
+          if (no.correta === ai) no.correta = 0;
+          else if (no.correta > ai) no.correta--;
+          recarregar();
+        });
+        altsWrap.appendChild(linha);
+      });
+      card.querySelector('[data-acao="addAlt"]').addEventListener('click', () => { no.alternativas.push(''); recarregar(); });
+      card.querySelector('[data-nf="dica"]').value = no.dica || '';
+      card.querySelector('[data-nf="dica"]').addEventListener('input', e => { no.dica = e.target.value; renderPreviewAtual(); });
+    } else {
+      card.querySelector('[data-nf="texto"]').value = no.texto || '';
+      card.querySelector('[data-nf="texto"]').addEventListener('input', e => { no.texto = e.target.value; renderPreviewAtual(); });
+    }
+    card.querySelector('[data-acao="subir"]').addEventListener('click', () => { [nos[i - 1], nos[i]] = [nos[i], nos[i - 1]]; recarregar(); });
+    card.querySelector('[data-acao="descer"]').addEventListener('click', () => { [nos[i + 1], nos[i]] = [nos[i], nos[i + 1]]; recarregar(); });
+    card.querySelector('[data-acao="remover"]').addEventListener('click', () => {
+      // Remove o nó E seus descendentes — evita paiId órfão (mesmo cuidado do Mapa Conceitual).
+      const remover = new Set([no.id, ...descendentesDeNo(nos, no.id)]);
+      mi.nos = nos.filter(n => !remover.has(n.id));
+      recarregar();
+    });
+    listaNos.appendChild(card);
+  });
+
+  el.querySelector('#btnAddMiNo').addEventListener('click', () => {
+    nos.push({ id: proximoIdNo(), texto: '', paiId: nos[0].id });
+    recarregar();
   });
 }
 
@@ -3466,6 +3676,7 @@ function corpoDoPasso(aula, passo, resp) {
   if (passo.tipo === 'mapaMental') return { html: previewMapaMental(aula.conteudo.mapaMental[passo.idx]), temToggle: false };
   if (passo.tipo === 'tabelaAnimada') return { html: previewTabelaAnimada(aula.conteudo.tabelaAnimada[passo.idx]), temToggle: false };
   if (passo.tipo === 'mapaConceitual') return { html: previewMapaConceitual(aula.conteudo.mapaConceitual[passo.idx]), temToggle: false };
+  if (passo.tipo === 'mapaInterativo') return { html: previewMapaInterativo(aula.conteudo.mapaInterativo[passo.idx]), temToggle: false };
   return { html: '', temToggle: false };
 }
 
@@ -3485,6 +3696,7 @@ function preencherCaixaPreview(prefixo, aula, passos, indice, resp) {
   ligarMapaMentalPreview(bodyEl);
   ligarTabelaAnimadaPreview(bodyEl);
   ligarMapaConceitualPreview(bodyEl);
+  ligarMapaInterativoPreview(bodyEl);
 
   const feedbackEl = document.getElementById(`${prefixo}Feedback`);
   feedbackEl.className = 'pp-feedback';
@@ -4323,8 +4535,8 @@ function previewMapaConceitual(mc) {
         <svg class="mc-linhas"></svg>
         ${nos.map((no, i) => `
           <div class="mc-no mc-revelado${i === 0 ? ' mc-no-raiz' : ''}" data-id="${no.id}" data-pai="${no.paiId || ''}" style="--mc-cor:${no.cor || '#F1EBFF'}">
-            <div class="mc-no-icone">${iconeTipo(no.tipo, i === 0 ? '#fff' : '#5724D6', no.iconeUrl)}</div>
-            <span class="mc-no-texto">${escaparHtml(no.texto || '')}</span>
+            ${no.tipo === 'nenhum' ? '' : `<div class="mc-no-icone">${iconeTipo(no.tipo, i === 0 ? '#fff' : '#5724D6', no.iconeUrl)}</div>`}
+            <span class="mc-no-texto"${no.corTexto ? ` style="color:${escaparHtml(no.corTexto)}"` : ''}>${escaparHtml(no.texto || '')}</span>
           </div>`).join('')}
       </div>
     </div>`;
@@ -4391,19 +4603,114 @@ function ligarMapaConceitualPreview(container) {
 
   function posicionar() {
     const { posX, profundidade } = layoutArvore();
-    const ESPACO_X = 108, ESPACO_Y = 90, MARGEM = 70;
+    const ESPACO_X = 108, ESPACO_Y = 90, MARGEM = 70, MARGEM_Y = 16;
     let maxX = 0, maxY = 0;
     nosEls.forEach(el => {
       const x = posX.get(el.dataset.id) * ESPACO_X + MARGEM;
-      const y = profundidade.get(el.dataset.id) * ESPACO_Y + MARGEM;
+      const y = profundidade.get(el.dataset.id) * ESPACO_Y + MARGEM_Y;
       el.style.left = `${x}px`;
       el.style.top = `${y}px`;
       maxX = Math.max(maxX, x);
       maxY = Math.max(maxY, y);
     });
     mapaEl.style.width = `${maxX + MARGEM + 70}px`;
-    mapaEl.style.height = `${maxY + MARGEM + 50}px`;
+    mapaEl.style.height = `${maxY + MARGEM_Y + 50}px`;
     desenharLinhas();
+  }
+  requestAnimationFrame(() => requestAnimationFrame(posicionar));
+}
+
+/** Prévia do Mapa Mental Interativo — mostra o estado INICIAL da atividade (lacunas vazias
+ * com "?" e as alternativas da primeira lacuna); a interação de verdade (escolher, errar,
+ * preencher, "Limpar") só existe no player exportado — ver mostrarMapaInterativo em
+ * vendor/estudo/js/estudo.mjs. O layout (ver ligarMapaInterativoPreview) é o mesmo: árvore
+ * horizontal, raiz à esquerda. */
+function previewMapaInterativo(mi) {
+  const nos = mi.nos || [];
+  if (!nos.length || (nos.length === 1 && !nos[0].texto && !mi.audioUrl)) return '<p class="pp-vazio">Preencha o nó principal e adicione nós para ver a prévia.</p>';
+  const primeiraLacuna = nos.find(n => n.lacuna);
+  const alternativas = primeiraLacuna ? (primeiraLacuna.alternativas || []).filter(a => a) : [];
+  return `
+    ${montarAudioTelaHtml(mi.audioUrl)}
+    ${mi.titulo ? `<p class="pp-titulo"${estiloTextoInline(mi, 'titulo')}>${renderFraseComDestaque(mi.titulo, mi.tituloDestaque, mi.tituloDestaqueNegrito)}</p>` : ''}
+    ${mi.instrucao ? `<p class="pp-lista-descricao">${escaparHtml(mi.instrucao)}</p>` : ''}
+    <div class="mi-mapa-scroll">
+      <div class="mi-mapa">
+        <svg class="mi-linhas"></svg>
+        ${nos.map((no, i) => `
+          <div class="mi-no${i === 0 ? ' mi-no-raiz' : ''}${no.lacuna ? ' mi-no-lacuna' : ''}" data-id="${no.id}" data-pai="${no.paiId || ''}">
+            <span class="mi-no-texto">${no.lacuna ? '?' : escaparHtml(no.texto || '')}</span>
+          </div>`).join('')}
+      </div>
+    </div>
+    ${alternativas.length ? `<div class="mi-alts-preview">${alternativas.map(a => `<span class="mi-alt-chip">${escaparHtml(a)}</span>`).join('')}</div>` : ''}`;
+}
+
+/** Posiciona os nós da prévia (árvore na horizontal: profundidade → eixo X, folhas → eixo Y)
+ * e desenha as setas pai → filho. Mesmo algoritmo de layoutArvoreMapaConceitual do player,
+ * duplicado aqui pelo mesmo motivo do Mapa Conceitual (a prévia é um DOM separado). */
+function ligarMapaInterativoPreview(container) {
+  const mapaEl = container && container.querySelector('.mi-mapa');
+  if (!mapaEl) return;
+  const nosEls = [...mapaEl.querySelectorAll('.mi-no')];
+  if (!nosEls.length) return;
+  const nos = nosEls.map(el => ({ id: el.dataset.id, paiId: el.dataset.pai || null }));
+
+  function layoutArvore() {
+    const filhosDe = new Map();
+    nos.forEach(n => {
+      if (n.paiId) {
+        if (!filhosDe.has(n.paiId)) filhosDe.set(n.paiId, []);
+        filhosDe.get(n.paiId).push(n.id);
+      }
+    });
+    let proximaFolha = 0;
+    const posY = new Map();
+    const profundidade = new Map();
+    function visitar(id, prof) {
+      profundidade.set(id, prof);
+      const filhos = filhosDe.get(id) || [];
+      if (!filhos.length) { posY.set(id, proximaFolha++); return; }
+      filhos.forEach(f => visitar(f, prof + 1));
+      const ys = filhos.map(f => posY.get(f));
+      posY.set(id, (Math.min(...ys) + Math.max(...ys)) / 2);
+    }
+    nos.filter(n => !n.paiId).forEach(r => visitar(r.id, 0));
+    return { posY, profundidade };
+  }
+
+  function posicionar() {
+    const { posY, profundidade } = layoutArvore();
+    const ESPACO_X = 130, ESPACO_Y = 50, MARGEM_X = 14, MARGEM_Y = 10, LARG = 110, ALT = 34;
+    let maxX = 0, maxY = 0;
+    nosEls.forEach(el => {
+      const x = MARGEM_X + (profundidade.get(el.dataset.id) || 0) * ESPACO_X;
+      const y = MARGEM_Y + (posY.get(el.dataset.id) || 0) * ESPACO_Y;
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      maxX = Math.max(maxX, x + LARG);
+      maxY = Math.max(maxY, y + ALT);
+    });
+    mapaEl.style.width = `${maxX + MARGEM_X}px`;
+    mapaEl.style.height = `${maxY + MARGEM_Y}px`;
+
+    const svg = mapaEl.querySelector('.mi-linhas');
+    const rectMapa = mapaEl.getBoundingClientRect();
+    if (!svg || !rectMapa.width) return;
+    svg.setAttribute('width', rectMapa.width);
+    svg.setAttribute('height', rectMapa.height);
+    svg.setAttribute('viewBox', `0 0 ${rectMapa.width} ${rectMapa.height}`);
+    let paths = '<defs><marker id="ppMiSetaPonta" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#5724D6"/></marker></defs>';
+    nosEls.forEach(el => {
+      const paiEl = el.dataset.pai && mapaEl.querySelector(`.mi-no[data-id="${el.dataset.pai}"]`);
+      if (!paiEl) return;
+      const r1 = paiEl.getBoundingClientRect(), r2 = el.getBoundingClientRect();
+      const p0 = { x: r1.right - rectMapa.left, y: r1.top + r1.height / 2 - rectMapa.top };
+      const p1 = { x: r2.left - rectMapa.left, y: r2.top + r2.height / 2 - rectMapa.top };
+      const mx = (p0.x + p1.x) / 2;
+      paths += `<path class="mi-linha" d="M${p0.x},${p0.y} C${mx},${p0.y} ${mx},${p1.y} ${p1.x},${p1.y}" stroke="#5724D6" marker-end="url(#ppMiSetaPonta)"/>`;
+    });
+    svg.innerHTML = paths;
   }
   requestAnimationFrame(() => requestAnimationFrame(posicionar));
 }

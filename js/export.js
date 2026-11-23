@@ -147,7 +147,7 @@ ${trilhasTexto}
 /** Ordem final de exibição das telas, como tokens simples ('antesComecar', 'exemplo0', 'checagem1', 'lista0', 'timeline0', 'jogoSinais0', 'agrupamento0', 'distribuicao0', 'resumo', 'licao')
  * — reaproveita montarPassos() (js/conteudo.js) pra garantir que os índices batem exatamente com os arrays exportados abaixo. */
 function serializarOrdem(conteudo) {
-  return montarPassos(conteudo).map(p => (p.tipo === 'exemplo' || p.tipo === 'checagem' || p.tipo === 'lista' || p.tipo === 'timeline' || p.tipo === 'jogoSinais' || p.tipo === 'agrupamento' || p.tipo === 'distribuicao' || p.tipo === 'mapaMental' || p.tipo === 'tabelaAnimada' || p.tipo === 'mapaConceitual') ? `${p.tipo}${p.idx}` : p.tipo);
+  return montarPassos(conteudo).map(p => (p.tipo === 'exemplo' || p.tipo === 'checagem' || p.tipo === 'lista' || p.tipo === 'timeline' || p.tipo === 'jogoSinais' || p.tipo === 'agrupamento' || p.tipo === 'distribuicao' || p.tipo === 'mapaMental' || p.tipo === 'tabelaAnimada' || p.tipo === 'mapaConceitual' || p.tipo === 'mapaInterativo') ? `${p.tipo}${p.idx}` : p.tipo);
 }
 
 function gerarAulaJs(aula, tituloEtapa) {
@@ -191,6 +191,8 @@ window.AULA_DATA = {
   tabelaAnimada: ${paraJs(c.tabelaAnimada)},
 
   mapaConceitual: ${paraJs(c.mapaConceitual)},
+
+  mapaInterativo: ${paraJs(c.mapaInterativo)},
 
   questoes: [],
 };
@@ -575,6 +577,17 @@ function pdfRenderAula(aula) {
       ).join('') + '</ul>';
     }
     secoes += pdfSecao(`Mapa Conceitual${mapasConceituais.length > 1 ? ` ${i + 1}` : ''}`, '#7C3AED', corpo);
+  });
+
+  const mapasInterativos = (c.mapaInterativo || []).filter(mi => (mi.nos || []).length);
+  mapasInterativos.forEach((mi, i) => {
+    let corpo = '';
+    if (mi.titulo) corpo += `<p class="pdf-destaque">${renderFraseComDestaque(mi.titulo, mi.tituloDestaque, mi.tituloDestaqueNegrito)}</p>`;
+    corpo += '<ul>' + (mi.nos || []).map(no => {
+      const resposta = no.lacuna ? (no.alternativas || [])[no.correta] : '';
+      return `<li><strong>${escaparHtml(no.lacuna ? (resposta || '(lacuna)') : (no.texto || ''))}</strong>${no.lacuna && no.dica ? ' — ' + escaparHtml(no.dica) : ''}</li>`;
+    }).join('') + '</ul>';
+    secoes += pdfSecao(`Mapa Mental Interativo${mapasInterativos.length > 1 ? ` ${i + 1}` : ''}`, '#6D28D9', corpo);
   });
 
   const res = c.resumo || {};

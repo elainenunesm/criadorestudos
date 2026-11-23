@@ -58,6 +58,9 @@ function novoConteudo() {
     // revelados nunca somem nem mudam de posição) — também repetível, mesmo esquema das
     // demais telas de mapa/tabela.
     mapaConceitual: [],
+    // "Mapa Mental Interativo" (mapa com lacunas que a aluna preenche escolhendo a alternativa
+    // certa, uma por vez, na ordem dos nós) — também repetível, mesmo esquema dos demais mapas.
+    mapaInterativo: [],
   };
 }
 

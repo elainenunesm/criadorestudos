@@ -769,3 +769,27 @@
 .pg-aula-status { font-size: 11.5px; color: #6b7280; margin: 2px 0 6px; }
 .pg-aula-botao { padding: 6px; text-align: center; border-radius: 8px; font-size: 12px; font-weight: 700; background: var(--cor-primaria, #5B2BCB); color: #fff; }
 .pg-aula-botao.bloqueada { background: #e5e7eb; color: #9ca3af; }
+
+/* Mapa Mental Interativo — prévia (estado inicial: lacunas com "?") e editor (alternativas).
+   Equivalente do player: mostrarMapaInterativo em vendor/estudo/js/estudo.mjs. */
+.player-preview .mi-mapa-scroll { overflow: auto; border-radius: 10px; border: 1px solid #e9dffb; margin-top: 10px; max-height: 320px; }
+.player-preview .mi-mapa { position: relative; min-width: 100%; min-height: 60px; }
+.player-preview .mi-linhas { position: absolute; inset: 0; pointer-events: none; z-index: 1; overflow: visible; }
+.player-preview .mi-linha { fill: none; stroke-width: 1.8; stroke-linecap: round; }
+.player-preview .mi-no {
+  position: absolute; z-index: 2; width: 110px; min-height: 34px; box-sizing: border-box;
+  display: flex; align-items: center; justify-content: center; text-align: center; padding: 5px 8px;
+  border-radius: 9px; background: #F1EBFF; border: 1.5px solid #5724D6; font-size: 11px; font-weight: 700; color: #202033;
+}
+.player-preview .mi-no-raiz { background: #5724D6; color: #fff; }
+.player-preview .mi-no-lacuna { background: #fff; border-style: dashed; color: #5724D6; font-size: 15px; }
+.player-preview .mi-alts-preview { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.player-preview .mi-alt-chip { padding: 5px 10px; border-radius: 9px; border: 1.5px solid #d4c4f0; background: #fff; font-size: 11.5px; font-weight: 600; color: #202033; }
+.mi-alt-linha { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.mi-alt-linha input[type="text"] { flex: 1; }
+.mi-alt-linha input[type="radio"] { accent-color: #5724D6; flex-shrink: 0; }
+.btn-remover-item[disabled] { opacity: .35; cursor: default; }
+
+/* Mapa Conceitual: ícone opcional (tipo 'nenhum') — sem ícone, o espaço dele some. */
+.mc-no-icone:empty, .mc-cartao-icone:empty { display: none; }
+.mc-no.mc-fantasma .mc-no-icone:empty { display: none; }

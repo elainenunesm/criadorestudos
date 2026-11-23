@@ -2642,6 +2642,7 @@ function layoutArvoreMapaConceitual(nos) {
 /** Ícone de um nó do Mapa Conceitual — mesmo <svg> embrulhado já usado pelos ícones de
  * Resumo/Lista/Mapa Mental/Tabela Animada (RESUMO_ICONES/iconeExternoOuNulo). */
 function iconeMapaConceitualSvg(no, cor) {
+  if (no.tipo === 'nenhum') return ''; // ícone opcional: nó/cartão aparecem só com o texto
   return `<svg viewBox="0 0 24 24" width="18" height="18">${iconeExternoOuNulo(no) || (RESUMO_ICONES[no.tipo] ? RESUMO_ICONES[no.tipo](cor) : '')}</svg>`;
 }
 
@@ -2652,20 +2653,20 @@ function iconeMapaConceitualSvg(no, cor) {
  * mostrarMapaConceitual). */
 function posicionarNosMapaConceitual(mapaEl, nos) {
   const { posX, profundidade } = layoutArvoreMapaConceitual(nos);
-  const ESPACO_X = 150, ESPACO_Y = 112, MARGEM = 90;
+  const ESPACO_X = 150, ESPACO_Y = 112, MARGEM = 90, MARGEM_Y = 24;
   let maxX = 0, maxY = 0;
   nos.forEach(no => {
     const el = mapaEl.querySelector(`.mc-no[data-id="${no.id}"]`);
     if (!el) return;
     const x = posX.get(no.id) * ESPACO_X + MARGEM;
-    const y = profundidade.get(no.id) * ESPACO_Y + MARGEM;
+    const y = profundidade.get(no.id) * ESPACO_Y + MARGEM_Y;
     el.style.left = `${x}px`;
     el.style.top = `${y}px`;
     maxX = Math.max(maxX, x);
     maxY = Math.max(maxY, y);
   });
   mapaEl.style.width = `${maxX + MARGEM + 90}px`;
-  mapaEl.style.height = `${maxY + MARGEM + 60}px`;
+  mapaEl.style.height = `${maxY + MARGEM_Y + 60}px`;
 }
 
 /** Desenha (ou redesenha) as linhas de conexão entre cada nó e seu "nó pai" — sólida e roxa
@@ -2829,6 +2830,7 @@ function mostrarMapaConceitual(aula, introIdx, i) {
       el.classList.toggle('mc-revelado', revelado);
       el.classList.toggle('mc-fantasma', !revelado);
       el.querySelector('.mc-no-texto').textContent = revelado ? (no.texto || '') : 'Próximo item';
+      el.querySelector('.mc-no-texto').style.color = (revelado && no.corTexto) ? no.corTexto : ''; // cor do texto definida no Construtor (vazio = padrão do CSS)
       if (revelado && !jaRevelado && animar) {
         el.classList.remove('mc-entrando');
         void el.offsetWidth; // força reflow pra reiniciar a animação CSS
@@ -2874,6 +2876,214 @@ function mostrarMapaConceitual(aula, introIdx, i) {
     };
     audioTelaAtual.addEventListener('timeupdate', atualizarPorAudio);
   }
+}
+
+/** "Mapa Mental Interativo": árvore horizontal (nó principal à esquerda) em que alguns nós são
+ * lacunas, preenchidas pela aluna escolhendo a alternativa certa (as alternativas mostradas
+ * são sempre as da lacuna atual). As lacunas são liberadas uma por vez, na ordem da lista
+ * `nos`. Errar mostra o feedback no próprio nó e permite tentar de novo; acertar preenche a
+ * ramificação com animação e libera a próxima lacuna. Com todas preenchidas, libera o
+ * "Próximo" do fluxo normal de estudo. "Limpar" reinicia o mapa. Reaproveita o layout de
+ * árvore do Mapa Conceitual (layoutArvoreMapaConceitual) — só troca os eixos. */
+function mostrarMapaInterativo(aula, introIdx, i) {
+  const mi = (aula.mapaInterativo || [])[i] || {};
+  const nos = (mi.nos && mi.nos.length) ? mi.nos : [{ id: 'n1', texto: '' }];
+  const lacunas = nos.filter((n, ni) => ni > 0 && n.lacuna && (n.alternativas || []).length && (n.alternativas || [])[n.correta]);
+  // Cada lacuna sorteia a ordem das alternativas uma única vez ao montar a tela (não a cada clique).
+  const altsDaLacuna = new Map(lacunas.map(n => [n.id, embaralhar((n.alternativas || []).map((texto, idx) => ({ texto, idx })).filter(a => a.texto))]));
+  let atual = 0;                // índice (em `lacunas`) da lacuna aguardando resposta
+  const preenchidas = new Set(); // ids das lacunas já preenchidas
+
+  questaoInfo.textContent      = aula.titulo;
+  feedbackBar.style.display    = 'none';
+  btnAnterior.style.display    = '';
+  renderIntroSegs(introIdx - 1);
+  questaoTitulo.innerHTML      = '';
+  questaoSubtitulo.textContent = '';
+
+  opcoesEl.innerHTML = `
+    <div class="resumo-card">
+      ${montarAudioTelaHtml(mi.audioUrl)}
+      ${mi.titulo ? `<p class="resumo-titulo"${estiloTextoInline(mi, 'titulo')}>${renderFraseComDestaque(mi.titulo || '', mi.tituloDestaque, mi.tituloDestaqueNegrito, sincroniaDoCampo(mi, 'titulo'))}</p>` : ''}
+      ${mi.instrucao ? `<p class="lista-descricao"${estiloTextoInline(mi, 'instrucao')}>${renderFraseComDestaque(mi.instrucao, mi.instrucaoDestaque, mi.instrucaoDestaqueNegrito, sincroniaDoCampo(mi, 'instrucao'))}</p>` : ''}
+      <div class="mi-corpo">
+        <div class="mi-area">
+          <div class="mi-mapa-scroll" id="miMapaScroll${i}">
+            <div class="mi-mapa" id="miMapa${i}">
+              <svg class="mi-linhas"></svg>
+              ${nos.map((no, ni) => `
+                <div class="mi-no${ni === 0 ? ' mi-no-raiz' : ''}${lacunas.includes(no) ? ' mi-no-lacuna' : ''}" data-id="${no.id}">
+                  <span class="mi-no-texto"></span>
+                  <span class="mi-no-badge" aria-hidden="true"></span>
+                  <span class="mi-no-msg" role="status"></span>
+                </div>`).join('')}
+            </div>
+          </div>
+          <div class="mi-dica" id="miDica${i}" style="display:none"><span class="mi-dica-icone">💡</span><span class="mi-dica-texto"></span></div>
+        </div>
+        <div class="mi-painel">
+          <div class="mi-painel-titulo">Alternativas</div>
+          <div class="mi-alternativas" id="miAlternativas${i}"></div>
+        </div>
+      </div>
+      <div class="mi-rodape">
+        <span class="mi-rodape-texto" id="miRodapeTexto${i}"></span>
+        <span class="mi-pontos" id="miPontos${i}"></span>
+        <button type="button" class="mi-btn-limpar" id="miBtnLimpar${i}">↻ Limpar</button>
+      </div>
+    </div>`;
+
+  atualizarBotaoMarcar(`mapaInterativo${i}`);
+  trocarAudioDaTela(mi);
+  btnProxima.innerHTML = 'Próximo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+  btnProxima.disabled  = lacunas.length > 0; // sem lacuna nenhuma (professora ainda não montou), não trava a aluna
+  questaoArea.scrollTop = 0;
+  atualizarScrollFade();
+
+  const mapaEl      = document.getElementById(`miMapa${i}`);
+  const altsEl      = document.getElementById(`miAlternativas${i}`);
+  const dicaEl      = document.getElementById(`miDica${i}`);
+  const rodapeTexto = document.getElementById(`miRodapeTexto${i}`);
+  const pontosEl    = document.getElementById(`miPontos${i}`);
+  const noEl = id => mapaEl.querySelector(`.mi-no[data-id="${id}"]`);
+
+  /** Árvore na horizontal: profundidade → X, ordem das folhas → Y (mesmo layout do Mapa Conceitual, eixos trocados). */
+  function posicionar() {
+    const { posX, profundidade } = layoutArvoreMapaConceitual(nos);
+    const LARG = 150, ESPACO_X = 210, ESPACO_Y = 92, MARGEM = 24;
+    let maxX = 0, maxY = 0;
+    nos.forEach(no => {
+      const el = noEl(no.id);
+      if (!el) return;
+      const x = (profundidade.get(no.id) || 0) * ESPACO_X + MARGEM;
+      const y = (posX.get(no.id) || 0) * ESPACO_Y + MARGEM;
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      maxX = Math.max(maxX, x + LARG);
+      maxY = Math.max(maxY, y + 56);
+    });
+    mapaEl.style.width = `${maxX + MARGEM}px`;
+    mapaEl.style.height = `${maxY + MARGEM + 20}px`;
+  }
+
+  function desenharLinhas() {
+    const svg = mapaEl.querySelector('.mi-linhas');
+    const rectMapa = mapaEl.getBoundingClientRect();
+    if (!svg || !rectMapa.width || !rectMapa.height) return;
+    svg.setAttribute('width', rectMapa.width);
+    svg.setAttribute('height', rectMapa.height);
+    svg.setAttribute('viewBox', `0 0 ${rectMapa.width} ${rectMapa.height}`);
+    let html = '<defs><marker id="miSetaPonta' + i + '" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#5724D6"/></marker></defs>';
+    nos.forEach(no => {
+      if (!no.paiId) return;
+      const paiEl = noEl(no.paiId), filhoEl = noEl(no.id);
+      if (!paiEl || !filhoEl) return;
+      const r1 = paiEl.getBoundingClientRect(), r2 = filhoEl.getBoundingClientRect();
+      const p0 = { x: r1.right - rectMapa.left, y: r1.top + r1.height / 2 - rectMapa.top };
+      const p1 = { x: r2.left - rectMapa.left, y: r2.top + r2.height / 2 - rectMapa.top };
+      const mx = (p0.x + p1.x) / 2;
+      html += `<path class="mi-linha" d="M${p0.x},${p0.y} C${mx},${p0.y} ${mx},${p1.y} ${p1.x},${p1.y}" stroke="#5724D6" marker-end="url(#miSetaPonta${i})"/>`;
+    });
+    svg.innerHTML = html;
+  }
+
+  function mostrarDica(texto) {
+    const t = (texto || '').trim();
+    dicaEl.style.display = t ? '' : 'none';
+    if (!t) return;
+    const alvo = dicaEl.querySelector('.mi-dica-texto');
+    alvo.innerHTML = '<strong>Dica:</strong> ';
+    alvo.appendChild(document.createTextNode(t)); // textContent: a dica é texto puro, nunca HTML
+  }
+
+  function limparEstadoErro(no) {
+    const el = noEl(no.id);
+    if (!el) return;
+    el.classList.remove('mi-no-erro');
+    el.querySelector('.mi-no-badge').textContent = '';
+    el.querySelector('.mi-no-msg').textContent = '';
+  }
+
+  function atualizarNos() {
+    nos.forEach((no, ni) => {
+      const el = noEl(no.id);
+      if (!el) return;
+      const texto = el.querySelector('.mi-no-texto');
+      if (ni === 0) { texto.textContent = no.texto || ''; return; }
+      if (!lacunas.includes(no)) { texto.textContent = no.texto || ''; return; }
+      const feita = preenchidas.has(no.id);
+      const ehAtual = lacunas[atual] === no && !feita;
+      el.classList.toggle('mi-no-preenchida', feita);
+      el.classList.toggle('mi-no-ativa', ehAtual);
+      if (feita) texto.textContent = (no.alternativas || [])[no.correta] || '';
+      else if (!el.classList.contains('mi-no-erro')) texto.textContent = '?';
+    });
+  }
+
+  function atualizarRodape() {
+    const restantes = lacunas.length - preenchidas.size;
+    rodapeTexto.textContent = restantes === 0
+      ? (lacunas.length ? 'Mapa completo! Toque em Próximo.' : 'Mapa sem lacunas.')
+      : `Preencha ${restantes} ramificaç${restantes === 1 ? 'ão' : 'ões'}`;
+    pontosEl.innerHTML = lacunas.map(n => `<span class="mi-ponto${preenchidas.has(n.id) ? ' feito' : ''}">${preenchidas.has(n.id) ? '✓' : ''}</span>`).join('');
+  }
+
+  function renderAlternativas() {
+    altsEl.innerHTML = '';
+    const lacuna = lacunas[atual];
+    if (!lacuna || preenchidas.has(lacuna.id)) {
+      altsEl.innerHTML = lacunas.length ? '<p class="mi-alt-concluido">✓ Todas as ramificações preenchidas.</p>' : '';
+      return;
+    }
+    altsDaLacuna.get(lacuna.id).forEach(alt => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'mi-alt';
+      btn.textContent = alt.texto;
+      btn.addEventListener('click', () => escolher(lacuna, alt, btn));
+      altsEl.appendChild(btn);
+    });
+  }
+
+  function escolher(lacuna, alt, btn) {
+    if (preenchidas.has(lacuna.id)) return;
+    const el = noEl(lacuna.id);
+    if (alt.idx !== lacuna.correta) {
+      // Errou: mostra a tentativa no próprio nó, marca a alternativa e deixa tentar de novo.
+      btn.classList.add('errada');
+      btn.disabled = true;
+      el.classList.add('mi-no-erro');
+      el.querySelector('.mi-no-texto').textContent = alt.texto;
+      el.querySelector('.mi-no-badge').textContent = '✕';
+      el.querySelector('.mi-no-msg').textContent = 'Incorreto! Tente outra opção.';
+      el.classList.remove('mi-tremer'); void el.offsetWidth; el.classList.add('mi-tremer');
+      mostrarDica(lacuna.dica);
+      return;
+    }
+    // Acertou: preenche com animação e libera a próxima lacuna (ou o "Próximo", se for a última).
+    limparEstadoErro(lacuna);
+    preenchidas.add(lacuna.id);
+    el.classList.remove('mi-pop'); void el.offsetWidth; el.classList.add('mi-pop');
+    mostrarDica(lacuna.dica);
+    while (atual < lacunas.length && preenchidas.has(lacunas[atual].id)) atual++;
+    atualizarNos(); atualizarRodape(); renderAlternativas();
+    if (preenchidas.size === lacunas.length) btnProxima.disabled = false;
+    else rolarAteElemento(noEl(lacunas[atual].id));
+  }
+
+  document.getElementById(`miBtnLimpar${i}`).addEventListener('click', () => {
+    lacunas.forEach(limparEstadoErro);
+    preenchidas.clear();
+    atual = 0;
+    nos.forEach(no => { const el = noEl(no.id); if (el) el.classList.remove('mi-no-preenchida', 'mi-no-ativa', 'mi-pop', 'mi-tremer'); });
+    mostrarDica('');
+    btnProxima.disabled = lacunas.length > 0;
+    atualizarNos(); atualizarRodape(); renderAlternativas();
+  });
+
+  posicionar();
+  atualizarNos(); atualizarRodape(); renderAlternativas();
+  requestAnimationFrame(() => requestAnimationFrame(desenharLinhas));
 }
 
 function mostrarLicao(aula, introIdx) {
@@ -4203,6 +4413,10 @@ carregarDadosIniciais().then((carregado) => {
         const chave = `mapaConceitual${i}`;
         if (cartaoMarcadoSet.has(chave)) { introScreens.push(chave); introFns[chave] = (a, idx) => mostrarMapaConceitual(a, idx, i); }
       });
+      (aula.mapaInterativo || []).forEach((_, i) => {
+        const chave = `mapaInterativo${i}`;
+        if (cartaoMarcadoSet.has(chave)) { introScreens.push(chave); introFns[chave] = (a, idx) => mostrarMapaInterativo(a, idx, i); }
+      });
     }
     if (mostrarPerguntas) {
       (aula.checagem || []).forEach((dados, i) => {
@@ -4237,6 +4451,7 @@ carregarDadosIniciais().then((carregado) => {
     (aula.mapaMental || []).forEach((_, i) => { introFns[`mapaMental${i}`] = (a, idx) => mostrarMapaMental(a, idx, i); });
     (aula.tabelaAnimada || []).forEach((_, i) => { introFns[`tabelaAnimada${i}`] = (a, idx) => mostrarTabelaAnimada(a, idx, i); });
     (aula.mapaConceitual || []).forEach((_, i) => { introFns[`mapaConceitual${i}`] = (a, idx) => mostrarMapaConceitual(a, idx, i); });
+    (aula.mapaInterativo || []).forEach((_, i) => { introFns[`mapaInterativo${i}`] = (a, idx) => mostrarMapaInterativo(a, idx, i); });
     aula.ordem.forEach(token => {
       const chave = token === 'antesComecar' ? 'justificativa' : token;
       if (introFns[chave]) introScreens.push(chave);
