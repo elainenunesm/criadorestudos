@@ -4505,6 +4505,14 @@ carregarDadosIniciais().then((carregado) => {
         }
       });
     }
+    // Telas excluídas no Construtor deixam de constar em aula.ordem — mesmo que continuem marcadas
+    // (ou que o conteúdo ainda venha no AULA_DATA), não devem aparecer na Revisão.
+    if (Array.isArray(aula.ordem) && aula.ordem.length > 0) {
+      const naOrdem = new Set(aula.ordem.map(t => (t === 'justificativa' ? 'antesComecar' : t)));
+      for (let k = introScreens.length - 1; k >= 0; k--) {
+        if (!naOrdem.has(introScreens[k])) introScreens.splice(k, 1);
+      }
+    }
     if (introScreens.length === 0) {
       window.location.href = 'index.html?view=erros';
       return;
