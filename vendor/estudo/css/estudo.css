@@ -2423,6 +2423,6 @@ body {
 .mi-tela-cheia .mi-completo-titulo { display: block; }
 .mi-tela-cheia .mi-painel, .mi-tela-cheia .mi-rodape, .mi-tela-cheia .mi-dica { display: none; }
 .mi-tela-cheia .mi-corpo { display: block; }
-.mi-tela-cheia .mi-mapa-scroll { overflow: auto; max-width: 100%; max-height: none; border: none; margin: 0 auto; }
+.mi-tela-cheia .mi-mapa-scroll { overflow: hidden; max-width: 100%; max-height: none; border: none; margin: 0 auto; }
 .mi-tela-cheia .mi-mapa { min-height: 0; min-width: 0; }
 .mi-tela-cheia .mi-no-ativa { animation: none; }
