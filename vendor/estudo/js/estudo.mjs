@@ -96,6 +96,38 @@ function atualizarScrollFade() {
 }
 questaoArea.addEventListener('scroll', atualizarScrollFade);
 
+// ── CARD DE IMAGEM: toque na imagem abre em tela cheia (zoom) ─
+// Delegação no questaoArea: a tela é re-renderizada a cada passo, então não dá pra ligar direto na <img>.
+function fecharImagemAmpliada() {
+  const ov = document.getElementById('imgAmpliadaOverlay');
+  if (ov) ov.remove();
+  document.removeEventListener('keydown', teclaImagemAmpliada);
+}
+function teclaImagemAmpliada(e) { if (e.key === 'Escape') fecharImagemAmpliada(); }
+questaoArea.addEventListener('click', e => {
+  const img = e.target.closest && e.target.closest('.card-imagem-img');
+  if (!img || !img.src) return;
+  fecharImagemAmpliada();
+  const ov = document.createElement('div');
+  ov.id = 'imgAmpliadaOverlay';
+  ov.className = 'img-ampliada-overlay';
+  ov.setAttribute('role', 'dialog');
+  ov.setAttribute('aria-label', 'Imagem ampliada');
+  const grande = document.createElement('img');
+  grande.className = 'img-ampliada';
+  grande.src = img.src; // atribuído por propriedade: a URL nunca é interpolada em HTML
+  grande.alt = '';
+  const fechar = document.createElement('button');
+  fechar.type = 'button';
+  fechar.className = 'img-ampliada-fechar';
+  fechar.setAttribute('aria-label', 'Fechar');
+  fechar.textContent = '✕';
+  ov.append(grande, fechar);
+  ov.addEventListener('click', ev => { if (ev.target !== grande) fecharImagemAmpliada(); });
+  document.body.appendChild(ov);
+  document.addEventListener('keydown', teclaImagemAmpliada);
+});
+
 // Frases longas (ex: "Aconteceram fatos estranhos naquela noite.") podem não
 // caber na largura da tela — o .frase-anotada-wrap já deixa arrastar pro
 // lado (overflow-x:auto), mas sem nenhuma pista visual isso parecia palavra
