@@ -3005,17 +3005,20 @@ function mostrarMapaInterativo(aula, introIdx, i) {
     const svg = mapaEl.querySelector('.mi-linhas');
     const rectMapa = mapaEl.getBoundingClientRect();
     if (!svg || !rectMapa.width || !rectMapa.height) return;
-    svg.setAttribute('width', rectMapa.width);
-    svg.setAttribute('height', rectMapa.height);
-    svg.setAttribute('viewBox', `0 0 ${rectMapa.width} ${rectMapa.height}`);
+    // Na tela cheia o mapa está ampliado/reduzido por transform: converte de volta para o espaço natural.
+    const esc = (mapaEl.offsetWidth ? rectMapa.width / mapaEl.offsetWidth : 1) || 1;
+    const larg = rectMapa.width / esc, alt = rectMapa.height / esc;
+    svg.setAttribute('width', larg);
+    svg.setAttribute('height', alt);
+    svg.setAttribute('viewBox', `0 0 ${larg} ${alt}`);
     let html = '<defs><marker id="miSetaPonta' + i + '" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#5724D6"/></marker></defs>';
     nos.forEach(no => {
       if (!no.paiId) return;
       const paiEl = noEl(no.paiId), filhoEl = noEl(no.id);
       if (!paiEl || !filhoEl) return;
       const r1 = paiEl.getBoundingClientRect(), r2 = filhoEl.getBoundingClientRect();
-      const p0 = { x: r1.right - rectMapa.left, y: r1.top + r1.height / 2 - rectMapa.top };
-      const p1 = { x: r2.left - rectMapa.left, y: r2.top + r2.height / 2 - rectMapa.top };
+      const p0 = { x: (r1.right - rectMapa.left) / esc, y: (r1.top + r1.height / 2 - rectMapa.top) / esc };
+      const p1 = { x: (r2.left - rectMapa.left) / esc, y: (r2.top + r2.height / 2 - rectMapa.top) / esc };
       const mx = (p0.x + p1.x) / 2;
       html += `<path class="mi-linha" d="M${p0.x},${p0.y} C${mx},${p0.y} ${mx},${p1.y} ${p1.x},${p1.y}" stroke="#5724D6" marker-end="url(#miSetaPonta${i})"/>`;
     });
@@ -3133,6 +3136,8 @@ function mostrarMapaInterativo(aula, introIdx, i) {
     mapaEl.style.transform = `scale(${escala})`;
     scrollEl.style.width = `${larguraNatural * escala}px`;
     scrollEl.style.height = `${alturaNatural * escala}px`;
+    scrollEl.scrollLeft = 0; scrollEl.scrollTop = 0; // rolagem herdada da atividade deslocaria o mapa
+    desenharLinhas();
   }
   function entrarTelaCheia() {
     telaCheia = true;
