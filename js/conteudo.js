@@ -1115,7 +1115,7 @@ const NOME_TIPO_ICONE = {
   fala: 'Fala', busca: 'Busca', tarefa: 'Tarefa', pergunta: 'Pergunta', dica: 'Dica',
   predVerbal: 'Predicado verbal', predNominal: 'Predicado nominal', predVerboNominal: 'Predicado verbo-nominal',
   semSujeito: 'Oração sem sujeito', livro: 'Livro', certo: 'Certo (✓)', errado: 'Errado (✗)',
-  servidor: 'Servidor público', servidorTi: 'Servidor (computador)', escola: 'Escola', dinheiro: 'Dinheiro', casa: 'Casa', estudo: 'Estudo',
+  servidor: 'Servidor público', servidorTi: 'Servidor (computador)', escola: 'Escola', dinheiro: 'Dinheiro', casa: 'Casa', estudo: 'Estudo', objetivo: 'Objetivo', lei: 'Lei',
   externo: 'Ícone externo (link)',
   nenhum: 'Sem ícone',
 };
@@ -1129,7 +1129,7 @@ const DESC_TIPO_ICONE = {
   semSujeito: 'Oração sem sujeito', livro: 'Ícone de livro/leitura',
   certo: 'Marca de certo/correto', errado: 'Marca de errado/incorreto',
   servidor: 'Pessoa com crachá — servidor/agente público', servidorTi: 'Servidor de dados/computador', escola: 'Prédio de escola/instituição',
-  dinheiro: 'Cédula — dinheiro, orçamento, remuneração', casa: 'Casa/moradia', estudo: 'Capelo de formatura — estudo/formação',
+  dinheiro: 'Cédula — dinheiro, orçamento, remuneração', casa: 'Casa/moradia', estudo: 'Capelo de formatura — estudo/formação', objetivo: 'Alvo — objetivo, meta, foco', lei: 'Balança da justiça — lei, norma, direito',
   externo: 'Envie o link de uma imagem em vez de escolher um ícone pronto',
   nenhum: 'O nó aparece só com o texto',
 };
@@ -3387,11 +3387,21 @@ function descendentesDeNo(nos, id) {
  * vendor/estudo/js/estudo.mjs). A posição de cada nó no mapa é calculada automaticamente a
  * partir da árvore (algoritmo de árvore organizada), não arrastável — ver
  * layoutArvoreMapaConceitual. */
+/** Atualiza, sem recriar os cards (não tira o foco de quem está digitando), o texto das opções dos
+ * seletores "Nó pai" quando o texto de algum nó muda. `rotulo(no)` devolve o nome mostrado. */
+function atualizarRotulosNoPai(container, nos, rotulo) {
+  container.querySelectorAll('select[data-nf="paiId"] option').forEach(op => {
+    const n = nos.find(x => x.id === op.value);
+    if (n) op.textContent = rotulo(n);
+  });
+}
+
 function renderFormMapaConceitual(el, conteudo, passo) {
   const mc = conteudo.mapaConceitual[passo.idx];
   if (!Array.isArray(mc.nos) || !mc.nos.length) mc.nos = [{ id: 'n1', texto: '', tipo: 'acao', paiId: null, cartaoTexto: '' }];
   const nos = mc.nos;
   nos[0].paiId = null;
+  const rotuloNoMc = n => n.texto || (n.id === 'n1' ? 'Conceito central' : '(sem texto)');
 
   el.innerHTML = `
     <div class="form-secao">
@@ -3432,7 +3442,7 @@ function renderFormMapaConceitual(el, conteudo, passo) {
   ligarTipoIconePicker(el, nos[0], '#5724D6', renderPreviewAtual, { permiteNenhum: true });
   ligarCampoCorTextoNo(el.querySelector('.campo-cor-texto-no'), nos[0], '#ffffff');
   el.querySelector('#mcNoRaizTexto').value = nos[0].texto || '';
-  el.querySelector('#mcNoRaizTexto').addEventListener('input', e => { nos[0].texto = e.target.value; renderPreviewAtual(); });
+  el.querySelector('#mcNoRaizTexto').addEventListener('input', e => { nos[0].texto = e.target.value; atualizarRotulosNoPai(el, nos, rotuloNoMc); renderPreviewAtual(); });
 
   const wrapRaizCartao = el.querySelector('#mcNoRaizCartaoWrap');
   el.querySelector('#mcNoRaizCartao').value = nos[0].cartaoTexto || '';
@@ -3485,7 +3495,7 @@ function renderFormMapaConceitual(el, conteudo, passo) {
       ligarCampoCorTextoNo(card.querySelector('.campo-cor-texto-no'), no, '#202033');
       card.querySelector('[data-nf="cor"]').value = no.cor || PALETA_MAPA_MENTAL[0];
       card.querySelector('[data-nf="texto"]').value = no.texto || '';
-      card.querySelector('[data-nf="texto"]').addEventListener('input', e => { no.texto = e.target.value; renderPreviewAtual(); });
+      card.querySelector('[data-nf="texto"]').addEventListener('input', e => { no.texto = e.target.value; atualizarRotulosNoPai(el, nos, rotuloNoMc); renderPreviewAtual(); });
       card.querySelector('[data-nf="cartaoTexto"]').value = no.cartaoTexto || '';
       card.querySelector('[data-nf="cartaoTexto"]').addEventListener('input', e => { no.cartaoTexto = e.target.value; renderPreviewAtual(); });
       card.querySelector('[data-nf="paiId"]').addEventListener('change', e => { no.paiId = e.target.value; renderPreviewAtual(); });
@@ -3574,7 +3584,7 @@ function renderFormMapaInterativo(el, conteudo, passo) {
   el.querySelector('#miInstrucao').value = mi.instrucao || '';
   el.querySelector('#miInstrucao').addEventListener('input', e => { mi.instrucao = e.target.value; renderPreviewAtual(); });
   el.querySelector('#miNoRaizTexto').value = nos[0].texto || '';
-  el.querySelector('#miNoRaizTexto').addEventListener('input', e => { nos[0].texto = e.target.value; renderPreviewAtual(); });
+  el.querySelector('#miNoRaizTexto').addEventListener('input', e => { nos[0].texto = e.target.value; atualizarPais(); renderPreviewAtual(); });
 
   function proximoIdNo() {
     let maxN = 0;
@@ -3582,6 +3592,8 @@ function renderFormMapaInterativo(el, conteudo, passo) {
     return `n${maxN + 1}`;
   }
   function recarregar() { renderFormMapaInterativo(el, conteudo, passo); renderPreviewAtual(); }
+  const rotuloNoMi = n => textoDoNoMapaInterativo(n) || (n.id === 'n1' ? 'Nó principal' : '(sem texto)');
+  const atualizarPais = () => atualizarRotulosNoPai(el, nos, rotuloNoMi);
 
   const listaNos = el.querySelector('#listaMiNos');
   nos.forEach((no, i) => {
@@ -3639,8 +3651,8 @@ function renderFormMapaInterativo(el, conteudo, passo) {
           <button class="btn-remover-item" type="button"${no.alternativas.length <= 2 ? ' disabled' : ''}>×</button>`;
         const [radio, input, btnRem] = linha.children;
         input.value = alt;
-        input.addEventListener('input', e => { no.alternativas[ai] = e.target.value; renderPreviewAtual(); });
-        radio.addEventListener('change', () => { no.correta = ai; renderPreviewAtual(); });
+        input.addEventListener('input', e => { no.alternativas[ai] = e.target.value; atualizarPais(); renderPreviewAtual(); });
+        radio.addEventListener('change', () => { no.correta = ai; atualizarPais(); renderPreviewAtual(); });
         btnRem.addEventListener('click', () => {
           no.alternativas.splice(ai, 1);
           if (no.correta === ai) no.correta = 0;
@@ -3654,7 +3666,7 @@ function renderFormMapaInterativo(el, conteudo, passo) {
       card.querySelector('[data-nf="dica"]').addEventListener('input', e => { no.dica = e.target.value; renderPreviewAtual(); });
     } else {
       card.querySelector('[data-nf="texto"]').value = no.texto || '';
-      card.querySelector('[data-nf="texto"]').addEventListener('input', e => { no.texto = e.target.value; renderPreviewAtual(); });
+      card.querySelector('[data-nf="texto"]').addEventListener('input', e => { no.texto = e.target.value; atualizarPais(); renderPreviewAtual(); });
     }
     card.querySelector('[data-acao="subir"]').addEventListener('click', () => { [nos[i - 1], nos[i]] = [nos[i], nos[i - 1]]; recarregar(); });
     card.querySelector('[data-acao="descer"]').addEventListener('click', () => { [nos[i + 1], nos[i]] = [nos[i], nos[i + 1]]; recarregar(); });
@@ -3741,6 +3753,8 @@ const ICONES_TIPO = {
   dinheiro: cor => `<rect x="2" y="6" width="20" height="12" rx="2" fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.8" fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6 9.5v.01M18 14.5v.01"/>`,
   casa: cor => `<path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M3 11l9-8 9 8M5 9.5V20h14V9.5M10 20v-6h4v6"/>`,
   estudo: cor => `<path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M22 10L12 5 2 10l10 5 10-5z"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6 12v5c3 2.5 9 2.5 12 0v-5M22 10v6"/>`,
+  objetivo: cor => `<circle cx="12" cy="12" r="9" fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="5" fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="1.2" fill="${cor}" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`,
+  lei: cor => `<path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 4v16M8 20h8M5 7h14"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M5 7l-2.5 7h5L5 7zM19 7l-2.5 7h5L19 7z"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M2.5 14a2.5 2.5 0 0 0 5 0M16.5 14a2.5 2.5 0 0 0 5 0"/>`,
 };
 
 /** Ícone de um "tipo" (TIPOS_ICONE), na cor pedida — pronto pra colar num pp-*-icone. Se

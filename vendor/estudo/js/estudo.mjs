@@ -1379,6 +1379,8 @@ const RESUMO_ICONES = {
   dinheiro: cor => `<rect x="2" y="6" width="20" height="12" rx="2" fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.8" fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6 9.5v.01M18 14.5v.01"/>`,
   casa: cor => `<path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M3 11l9-8 9 8M5 9.5V20h14V9.5M10 20v-6h4v6"/>`,
   estudo: cor => `<path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M22 10L12 5 2 10l10 5 10-5z"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6 12v5c3 2.5 9 2.5 12 0v-5M22 10v6"/>`,
+  objetivo: cor => `<circle cx="12" cy="12" r="9" fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="5" fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="1.2" fill="${cor}" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`,
+  lei: cor => `<path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 4v16M8 20h8M5 7h14"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M5 7l-2.5 7h5L5 7zM19 7l-2.5 7h5L19 7z"/><path fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M2.5 14a2.5 2.5 0 0 0 5 0M16.5 14a2.5 2.5 0 0 0 5 0"/>`,
 };
 
 function mostrarInfinitivo(aula, introIdx) {
@@ -3015,22 +3017,50 @@ function mostrarMapaInterativo(aula, introIdx, i) {
   const noEl = id => mapaEl.querySelector(`.mi-no[data-id="${id}"]`);
 
   /** Árvore na horizontal: profundidade → X, ordem das folhas → Y (mesmo layout do Mapa Conceitual, eixos trocados). */
-  function posicionar() {
+  let vertical = false; // tela cheia pode girar a árvore (profundidade → Y) quando isso aproveita melhor a tela
+  /** `larg` null = layout da atividade (medidas fixas, nós 150px). Na tela cheia, `larg` define a largura dos nós
+   * e espaçamentos saem da altura real de cada nó (todos já preenchidos), pra setas nem coladas nem longas demais. */
+  function posicionar(larg = null) {
     const { posX, profundidade } = layoutArvoreMapaConceitual(nos);
-    const LARG = 150, ESPACO_X = 210, ESPACO_Y = 92, MARGEM = 24;
+    const MARGEM = 24;
+    const LARG = larg || 150;
+    nos.forEach(no => { const el = noEl(no.id); if (el) el.style.width = larg ? `${larg}px` : ''; });
+    // Mede cada nó com o texto FINAL (resposta certa já no lugar), senão nó com texto longo seria cortado/sobreposto.
+    const alturas = new Map();
+    nos.forEach((no, ni) => {
+      const el = noEl(no.id);
+      if (!el) return;
+      const t = el.querySelector('.mi-no-texto'), antes = t.textContent;
+      t.textContent = lacunas.includes(no) && ni !== 0 ? ((no.alternativas || [])[no.correta] || '') : (no.texto || '');
+      alturas.set(no.id, Math.max(48, el.offsetHeight));
+      t.textContent = antes;
+    });
+    const alt = id => alturas.get(id) || 48;
+    const maxH = Math.max(48, ...nos.map(n => alt(n.id)));
+    const ESPACO_X = larg ? larg + 56 : 210, ESPACO_Y = Math.max(92, maxH + 34);
+    const ESP_COL = LARG + 28;
+    // Vertical: cada nível começa abaixo do nó mais alto do nível anterior.
+    const topoNivel = [];
+    if (vertical) {
+      const alturaNivel = [];
+      nos.forEach(no => { const d = profundidade.get(no.id) || 0; alturaNivel[d] = Math.max(alturaNivel[d] || 0, alt(no.id)); });
+      let acc = 0;
+      for (let d = 0; d < alturaNivel.length; d++) { topoNivel[d] = acc; acc += (alturaNivel[d] || 0) + 40; }
+    }
     let maxX = 0, maxY = 0;
     nos.forEach(no => {
       const el = noEl(no.id);
       if (!el) return;
-      const x = (profundidade.get(no.id) || 0) * ESPACO_X + MARGEM;
-      const y = (posX.get(no.id) || 0) * ESPACO_Y + MARGEM;
+      const prof = profundidade.get(no.id) || 0, ordem = posX.get(no.id) || 0;
+      const x = (vertical ? ordem * ESP_COL : prof * ESPACO_X) + MARGEM;
+      const y = (vertical ? topoNivel[prof] : ordem * ESPACO_Y) + MARGEM;
       el.style.left = `${x}px`;
       el.style.top = `${y}px`;
       maxX = Math.max(maxX, x + LARG);
-      maxY = Math.max(maxY, y + 56);
+      maxY = Math.max(maxY, y + alt(no.id));
     });
     mapaEl.style.width = `${maxX + MARGEM}px`;
-    mapaEl.style.height = `${maxY + MARGEM + 20}px`;
+    mapaEl.style.height = `${maxY + MARGEM + (larg ? 0 : 20)}px`;
   }
 
   function desenharLinhas() {
@@ -3049,6 +3079,13 @@ function mostrarMapaInterativo(aula, introIdx, i) {
       const paiEl = noEl(no.paiId), filhoEl = noEl(no.id);
       if (!paiEl || !filhoEl) return;
       const r1 = paiEl.getBoundingClientRect(), r2 = filhoEl.getBoundingClientRect();
+      if (vertical) {
+        const p0 = { x: (r1.left + r1.width / 2 - rectMapa.left) / esc, y: (r1.bottom - rectMapa.top) / esc };
+        const p1 = { x: (r2.left + r2.width / 2 - rectMapa.left) / esc, y: (r2.top - rectMapa.top) / esc };
+        const my = (p0.y + p1.y) / 2;
+        html += `<path class="mi-linha" d="M${p0.x},${p0.y} C${p0.x},${my} ${p1.x},${my} ${p1.x},${p1.y}" stroke="#5724D6" marker-end="url(#miSetaPonta${i})"/>`;
+        return;
+      }
       const p0 = { x: (r1.right - rectMapa.left) / esc, y: (r1.top + r1.height / 2 - rectMapa.top) / esc };
       const p1 = { x: (r2.left - rectMapa.left) / esc, y: (r2.top + r2.height / 2 - rectMapa.top) / esc };
       const mx = (p0.x + p1.x) / 2;
@@ -3160,11 +3197,23 @@ function mostrarMapaInterativo(aula, introIdx, i) {
   function ajustarTelaCheia() {
     if (!telaCheia || !mapaEl.isConnected) return;
     mapaEl.style.transform = 'none';
-    const larguraNatural = mapaEl.offsetWidth, alturaNatural = mapaEl.offsetHeight;
     const larguraDisp = cardEl.clientWidth;
     // Sobra pouco além do título "Mapa completo": o mapa inteiro tem que caber numa tela só, sem rolar.
     const alturaDisp = Math.max(160, questaoArea.clientHeight - 90);
-    const escala = Math.min(1.6, larguraDisp / larguraNatural, alturaDisp / alturaNatural);
+    // Testa árvore deitada/em pé e várias larguras de nó: fica com a que rende o texto mais legível,
+    // sem passar de ESCALA_MAX (nem gigante); em empate de escala, a que ocupa mais da tela.
+    const ESCALA_MAX = 1.3;
+    let melhor = null;
+    [false, true].forEach(v => [150, 190, 230].forEach(larg => {
+      vertical = v; posicionar(larg);
+      const lw = mapaEl.offsetWidth, la = mapaEl.offsetHeight;
+      const e = Math.min(ESCALA_MAX, larguraDisp / lw, alturaDisp / la);
+      const area = lw * e * la * e;
+      const melhorQue = !melhor || e > melhor.e * 1.03 || (e >= melhor.e * 0.97 && area > melhor.area);
+      if (melhorQue) melhor = { v, larg, e, lw, la, area };
+    }));
+    vertical = melhor.v; posicionar(melhor.larg);
+    const larguraNatural = melhor.lw, alturaNatural = melhor.la, escala = melhor.e;
     mapaEl.style.transformOrigin = 'top left';
     mapaEl.style.transform = `scale(${escala})`;
     scrollEl.style.width = `${larguraNatural * escala}px`;
@@ -3181,6 +3230,7 @@ function mostrarMapaInterativo(aula, introIdx, i) {
   function sairTelaCheia() {
     telaCheia = false;
     cardEl.classList.remove('mi-tela-cheia');
+    vertical = false; posicionar();
     mapaEl.style.transform = '';
     scrollEl.style.width = '';
     scrollEl.style.height = '';
