@@ -2940,6 +2940,7 @@ function mostrarMapaInterativo(aula, introIdx, i) {
       ${montarAudioTelaHtml(mi.audioUrl)}
       ${mi.titulo ? `<p class="resumo-titulo"${estiloTextoInline(mi, 'titulo')}>${renderFraseComDestaque(mi.titulo || '', mi.tituloDestaque, mi.tituloDestaqueNegrito, sincroniaDoCampo(mi, 'titulo'))}</p>` : ''}
       ${mi.instrucao ? `<p class="lista-descricao"${estiloTextoInline(mi, 'instrucao')}>${renderFraseComDestaque(mi.instrucao, mi.instrucaoDestaque, mi.instrucaoDestaqueNegrito, sincroniaDoCampo(mi, 'instrucao'))}</p>` : ''}
+      <p class="mi-completo-titulo">✓ Mapa completo</p>
       <div class="mi-corpo">
         <div class="mi-area">
           <div class="mi-mapa-scroll" id="miMapaScroll${i}">
@@ -3114,6 +3115,49 @@ function mostrarMapaInterativo(aula, introIdx, i) {
     btnProxima.disabled = lacunas.length > 0;
     atualizarNos(); atualizarRodape(); renderAlternativas();
   });
+
+  /** Tela cheia do mapa já preenchido — vem depois do "Próximo" da atividade, sem sair desta tela:
+   * esconde painel/rodapé/dica e amplia o mesmo mapa (todos os nós já estão preenchidos) pra caber
+   * na área visível, sem rolagem. "Anterior" volta à atividade, com o estado preservado. */
+  let telaCheia = false;
+  const cardEl = mapaEl.closest('.resumo-card');
+  const scrollEl = document.getElementById(`miMapaScroll${i}`);
+  function ajustarTelaCheia() {
+    if (!telaCheia || !mapaEl.isConnected) return;
+    mapaEl.style.transform = 'none';
+    const larguraNatural = mapaEl.offsetWidth, alturaNatural = mapaEl.offsetHeight;
+    const larguraDisp = cardEl.clientWidth;
+    const alturaDisp = Math.max(260, questaoArea.clientHeight - 150);
+    const escala = Math.min(1.6, larguraDisp / larguraNatural, alturaDisp / alturaNatural);
+    mapaEl.style.transformOrigin = 'top left';
+    mapaEl.style.transform = `scale(${escala})`;
+    scrollEl.style.width = `${larguraNatural * escala}px`;
+    scrollEl.style.height = `${alturaNatural * escala}px`;
+  }
+  function entrarTelaCheia() {
+    telaCheia = true;
+    cardEl.classList.add('mi-tela-cheia');
+    ajustarTelaCheia();
+    questaoArea.scrollTop = 0;
+  }
+  function sairTelaCheia() {
+    telaCheia = false;
+    cardEl.classList.remove('mi-tela-cheia');
+    mapaEl.style.transform = '';
+    scrollEl.style.width = '';
+    scrollEl.style.height = '';
+    desenharLinhas();
+  }
+  window.addEventListener('resize', ajustarTelaCheia);
+
+  navInterceptorProximo = () => {
+    if (!telaCheia && lacunas.length && preenchidas.size === lacunas.length) { entrarTelaCheia(); return true; }
+    return false;
+  };
+  navInterceptorAnterior = () => {
+    if (telaCheia) { sairTelaCheia(); return true; }
+    return false;
+  };
 
   posicionar();
   atualizarNos(); atualizarRodape(); renderAlternativas();

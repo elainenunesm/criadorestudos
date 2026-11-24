@@ -2415,3 +2415,12 @@ body {
 .card-link-texto { font-size: 15px; color: #202033; line-height: 1.5; margin: 8px 0 0; }
 .card-link-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin-top: 14px; padding: 12px 20px; border-radius: 12px; background: var(--cor-primaria, #5B2BCB); color: #fff; font-weight: 700; font-size: 14.5px; text-decoration: none; cursor: pointer; transition: background .2s; }
 .card-link-btn:hover { background: var(--cor-primaria-escura, #4a22a8); }
+
+/* Mapa Mental Interativo — tela cheia do mapa preenchido (depois de concluir e tocar em Próximo) */
+.mi-completo-titulo { display: none; margin: 4px 0 10px; font-size: 15px; font-weight: 800; color: #16a34a; }
+.mi-tela-cheia .mi-completo-titulo { display: block; }
+.mi-tela-cheia .mi-painel, .mi-tela-cheia .mi-rodape, .mi-tela-cheia .mi-dica { display: none; }
+.mi-tela-cheia .mi-corpo { display: block; }
+.mi-tela-cheia .mi-mapa-scroll { overflow: hidden; max-height: none; border: none; margin: 0 auto; }
+.mi-tela-cheia .mi-mapa { min-height: 0; }
+.mi-tela-cheia .mi-no-ativa { animation: none; }
