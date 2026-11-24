@@ -4858,3 +4858,31 @@ function inicializarConteudo() {
   renderizarConteudo();
   renderEstruturaTelas();
 }
+
+// ── Card de imagem: clicar na imagem da prévia abre ampliada em tela cheia ──
+// Delegação no document: a prévia é re-renderizada o tempo todo.
+function fecharImagemAmpliadaPrevia() {
+  const ov = document.getElementById('imgAmpliadaPreviaOverlay');
+  if (ov) ov.remove();
+  document.removeEventListener('keydown', teclaImagemAmpliadaPrevia);
+}
+function teclaImagemAmpliadaPrevia(e) { if (e.key === 'Escape') fecharImagemAmpliadaPrevia(); }
+document.addEventListener('click', e => {
+  const img = e.target.closest && e.target.closest('.pp-card-imagem-img');
+  if (!img || !img.src) return;
+  fecharImagemAmpliadaPrevia();
+  const ov = document.createElement('div');
+  ov.id = 'imgAmpliadaPreviaOverlay';
+  ov.className = 'img-ampliada-previa-overlay';
+  const grande = document.createElement('img');
+  grande.src = img.src; // por propriedade: a URL nunca é interpolada em HTML
+  grande.alt = '';
+  const fechar = document.createElement('button');
+  fechar.type = 'button';
+  fechar.setAttribute('aria-label', 'Fechar');
+  fechar.textContent = '✕';
+  ov.append(grande, fechar);
+  ov.addEventListener('click', ev => { if (ev.target !== grande) fecharImagemAmpliadaPrevia(); });
+  document.body.appendChild(ov);
+  document.addEventListener('keydown', teclaImagemAmpliadaPrevia);
+});
