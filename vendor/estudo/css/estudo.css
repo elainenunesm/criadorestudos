@@ -1407,7 +1407,7 @@ body {
 /* MAPA MENTAL INTERATIVO — árvore horizontal com lacunas + painel de alternativas (ver
    mostrarMapaInterativo em estudo.mjs). Mesma paleta roxa do restante do player; o painel
    fica à direita e empilha embaixo do mapa em telas estreitas. */
-.mi-corpo { display: flex; gap: 14px; align-items: flex-start; margin-top: 8px; }
+.mi-corpo { display: flex; gap: 14px; align-items: flex-start; margin-top: 8px; min-width: 0; max-width: 100%; }
 .mi-area { flex: 1 1 auto; min-width: 0; }
 .mi-mapa-scroll { overflow: auto; border-radius: 14px; border: 1px solid var(--cor-borda-clara, #e9dffb); background: #fff; -webkit-overflow-scrolling: touch; max-height: 56vh; }
 .mi-mapa { position: relative; min-width: 100%; min-height: 150px; }
@@ -1457,7 +1457,9 @@ body {
 .mi-btn-limpar:hover { background: var(--cor-clara, #f0eaff); }
 
 @media (max-width: 640px) {
-  .mi-corpo { flex-direction: column; }
+  .mi-corpo { flex-direction: column; align-items: stretch; }
+  .mi-area { width: 100%; flex: none; min-width: 0; }
+  .mi-corpo { max-width: 100%; }
   .mi-painel { flex: none; width: 100%; box-sizing: border-box; }
   .mi-rodape { flex-wrap: wrap; }
 }
@@ -2421,6 +2423,6 @@ body {
 .mi-tela-cheia .mi-completo-titulo { display: block; }
 .mi-tela-cheia .mi-painel, .mi-tela-cheia .mi-rodape, .mi-tela-cheia .mi-dica { display: none; }
 .mi-tela-cheia .mi-corpo { display: block; }
-.mi-tela-cheia .mi-mapa-scroll { overflow: hidden; max-height: none; border: none; margin: 0 auto; }
+.mi-tela-cheia .mi-mapa-scroll { overflow: auto; max-width: 100%; max-height: none; border: none; margin: 0 auto; }
 .mi-tela-cheia .mi-mapa { min-height: 0; min-width: 0; }
 .mi-tela-cheia .mi-no-ativa { animation: none; }

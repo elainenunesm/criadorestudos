@@ -3131,11 +3131,13 @@ function mostrarMapaInterativo(aula, introIdx, i) {
     const larguraNatural = mapaEl.offsetWidth, alturaNatural = mapaEl.offsetHeight;
     const larguraDisp = cardEl.clientWidth;
     const alturaDisp = Math.max(260, questaoArea.clientHeight - 150);
-    const escala = Math.min(1.6, larguraDisp / larguraNatural, alturaDisp / alturaNatural);
+    // Em telas estreitas o mapa não encolhe além de ESCALA_MIN (texto ilegível): passa a rolar.
+    const ESCALA_MIN = 0.55;
+    const escala = Math.max(ESCALA_MIN, Math.min(1.6, larguraDisp / larguraNatural, alturaDisp / alturaNatural));
     mapaEl.style.transformOrigin = 'top left';
     mapaEl.style.transform = `scale(${escala})`;
-    scrollEl.style.width = `${larguraNatural * escala}px`;
-    scrollEl.style.height = `${alturaNatural * escala}px`;
+    scrollEl.style.width = `${Math.min(larguraNatural * escala, larguraDisp)}px`;
+    scrollEl.style.height = `${Math.min(alturaNatural * escala, Math.max(alturaDisp, 260))}px`;
     scrollEl.scrollLeft = 0; scrollEl.scrollTop = 0; // rolagem herdada da atividade deslocaria o mapa
     desenharLinhas();
   }
