@@ -15,6 +15,9 @@ const CONFIG_APP = {
   cor: '#5B2BCB',
 };
 
+// Cópia de fábrica, tirada antes de qualquer edição — js/pasta.js volta a ela ao trocar de pasta.
+const CONFIG_APP_PADRAO = { ...CONFIG_APP };
+
 const ICONES_APP = {
   capelo:   '<path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path>',
   livro:    '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>',
