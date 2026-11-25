@@ -18,6 +18,21 @@ const modoErrosGeral = modoErros && params.get('geral') === '1';
 // marcadas, 'telas' mostra só definicao/contexto/exemplo* marcadas. Sem o
 // parâmetro (links antigos), mostra tudo que estiver marcado, como antes.
 const tipoRevisao = params.get('tipo');
+// Revisão "Geral": ids das PRÓXIMAS aulas a revisar, em sequência (?seq=3,5,8). Ao terminar uma aula, abre a seguinte.
+const seqRevisao = (params.get('seq') || '').split(',').filter(Boolean);
+/** Destino ao terminar a revisão desta aula: a próxima aula da sequência (se houver) ou a lista de revisão. */
+function destinoFimRevisao() {
+  if (!seqRevisao.length) return 'index.html?view=erros';
+  const [prox, ...resto] = seqRevisao;
+  const [pos, total] = (params.get('ger') || '').split('/').map(Number);
+  const ger = pos && total ? `&ger=${pos + 1}/${total}` : '';
+  return `estudo.html?aula=${encodeURIComponent(prox)}&modo=revisao` + (tipoRevisao ? `&tipo=${tipoRevisao}` : '') + ger + (resto.length ? `&seq=${resto.join(',')}` : '');
+}
+/** "Revisão geral · aula 2 de 3 — " no título quando a revisão percorre várias aulas. */
+function prefixoRevisaoGeral() {
+  const [pos, total] = (params.get('ger') || '').split('/').map(Number);
+  return pos && total ? `Revisão geral (aula ${pos} de ${total}) — ` : 'Revisão — ';
+}
 
 // Questões pontuadas desativadas por enquanto (dado da aula mantido em
 // js/data/questoes/aula-N.mjs para reativar depois — é só voltar para true).
@@ -134,8 +149,129 @@ questaoArea.addEventListener('click', e => {
 // cortada/sumida. Liga .tem-overflow (degradê na borda, ver estudo.css) só
 // quando o conteúdo realmente não cabe inteiro. Chamada depois de popular
 // qualquer grid .frase-anotada, então roda em todas de uma vez.
+
+/* ── QUEBRA DE LINHA DA FRASE ANOTADA ────────────────────────────────────────
+ * A frase é um grid de uma coluna por palavra (colchetes/rótulos ficam nas linhas de baixo, ligados à
+ * coluna da palavra). Frase larga não cabia e saía da caixa. Aqui, quando a soma das colunas passa da
+ * largura disponível, as palavras são distribuídas em várias "linhas": cada uma é um grid próprio
+ * (mesma classe) com as palavras, colchetes e rótulos daquele trecho. Um colchete que cruza a quebra é
+ * repartido (cópia decorativa na linha seguinte). Roda de novo ao redimensionar e quando algo é
+ * acrescentado depois (ex.: colchete aparece após acertar). Sempre parte das posições ORIGINAIS,
+ * guardadas em data-qc / data-qs / data-qr na primeira passada. */
+function ajustarQuebraFrase(caixa, seletorGrid) {
+  const grids = [...caixa.querySelectorAll(seletorGrid)];
+  const base = grids[0];
+  if (!base) return;
+  if (base.dataset.qt === undefined) base.dataset.qt = base.style.gridTemplateColumns || '';
+
+  // Re-render: o grid base foi recriado do zero (nenhum filho com posição guardada) — descarta as linhas velhas.
+  const baseTemAntigos = [...base.children].some(el => el.dataset.qc !== undefined);
+  if (!baseTemAntigos && grids.length > 1) { grids.slice(1).forEach(g => g.remove()); grids.length = 1; }
+
+  // 1) Junta tudo de volta no grid base, na posição original.
+  const filhos = [];
+  grids.forEach(g => [...g.children].forEach(el => {
+    if (el.dataset.qclone) { el.remove(); return; }
+    if (el.dataset.qc === undefined) {
+      const m = (el.style.gridColumn || '').match(/^\s*(\d+)(?:\s*\/\s*span\s*(\d+))?/);
+      if (!m) { filhos.push({ el, livre: true }); return; }
+      el.dataset.qc = m[1]; el.dataset.qs = m[2] || '1'; el.dataset.qr = el.style.gridRow || '1';
+    }
+    filhos.push({ el, c: +el.dataset.qc, s: +el.dataset.qs, r: el.dataset.qr });
+  }));
+  grids.slice(1).forEach(g => g.remove());
+  filhos.forEach(f => {
+    if (!f.livre) {
+      f.el.style.gridColumn = f.s > 1 ? `${f.c}/span ${f.s}` : String(f.c);
+      f.el.style.gridRow = f.r;
+    }
+    base.appendChild(f.el);
+  });
+  base.style.gridTemplateColumns = base.dataset.qt;
+  base.style.marginTop = '';
+
+  // 2) Mede a largura de cada coluna (a palavra, linha 1) e vê se cabe.
+  const pai = base.parentElement;
+  const cs = getComputedStyle(pai);
+  const disp = pai.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+  if (disp <= 0) return; // oculto no momento — roda de novo quando aparecer
+  const gap = parseFloat(getComputedStyle(base).columnGap) || 8;
+  const larguras = [];
+  filhos.forEach(f => { if (!f.livre && f.s === 1 && f.r === '1') larguras[f.c] = f.el.getBoundingClientRect().width; });
+  const n = Math.max(0, ...filhos.filter(f => !f.livre).map(f => f.c + f.s - 1));
+  const total = larguras.reduce((a, w) => a + (w || 0), 0) + gap * Math.max(0, n - 1);
+  if (total <= disp + 1) return;
+
+  // 3) Distribui as palavras em linhas (guloso).
+  const linhas = [];
+  let ini = 1, acc = 0;
+  for (let c = 1; c <= n; c++) {
+    const w = larguras[c] || 0;
+    const novo = acc === 0 ? w : acc + gap + w;
+    if (acc > 0 && novo > disp) { linhas.push([ini, c - 1]); ini = c; acc = w; }
+    else acc = novo;
+  }
+  linhas.push([ini, n]);
+  if (linhas.length < 2) return;
+
+  // 4) Um grid por linha; cada item vai pra linha(s) que cobre (colchete que cruza a quebra é repartido).
+  const gridsLinha = linhas.map((_, k) => {
+    if (k === 0) return base;
+    const g = base.cloneNode(false);
+    g.removeAttribute('id');
+    g.style.marginTop = '12px';
+    g.style.justifyContent = 'start'; // colunas com a largura da palavra, sem esticar até a borda
+    return g;
+  });
+  gridsLinha.forEach((g, k) => {
+    const [a, b] = linhas[k];
+    g.style.gridTemplateColumns = `repeat(${b - a + 1},auto)`;
+    if (k > 0) gridsLinha[k - 1].insertAdjacentElement('afterend', g);
+  });
+  filhos.forEach(f => {
+    if (f.livre) return;
+    let usouOriginal = false;
+    linhas.forEach(([a, b], k) => {
+      const lo = Math.max(f.c, a), hi = Math.min(f.c + f.s - 1, b);
+      if (lo > hi) return;
+      let el = f.el;
+      if (usouOriginal) { el = f.el.cloneNode(true); el.dataset.qclone = '1'; delete el.dataset.qc; }
+      usouOriginal = true;
+      el.style.gridColumn = hi > lo ? `${lo - a + 1}/span ${hi - lo + 1}` : String(lo - a + 1);
+      el.style.gridRow = f.r;
+      gridsLinha[k].appendChild(el);
+    });
+  });
+  // Linha sem colchete/rótulo não reserva espaço pras linhas de baixo (senão fica um vão enorme entre as linhas).
+  gridsLinha.forEach(g => {
+    let maxLinha = 1;
+    [...g.children].forEach(el => { maxLinha = Math.max(maxLinha, parseInt(el.style.gridRow, 10) || 1); });
+    g.style.gridTemplateRows = ['auto', 'minmax(30px, auto)', 'minmax(30px, auto)'].slice(0, Math.min(3, maxLinha)).join(' ');
+  });
+}
+
+/** Liga a quebra numa caixa (e a refaz quando filhos são acrescentados ou a tela é redimensionada). */
+function ligarQuebraFrase(caixa, seletorGrid) {
+  ajustarQuebraFrase(caixa, seletorGrid);
+  if (caixa._quebraObs) return;
+  let agendado = false;
+  const obs = new MutationObserver(() => {
+    if (agendado) return;
+    agendado = true;
+    requestAnimationFrame(() => {
+      agendado = false;
+      obs.disconnect();
+      try { ajustarQuebraFrase(caixa, seletorGrid); } finally { obs.observe(caixa, { childList: true, subtree: true }); }
+    });
+  });
+  obs.observe(caixa, { childList: true, subtree: true });
+  caixa._quebraObs = obs;
+  window.addEventListener('resize', () => { if (caixa.isConnected) ajustarQuebraFrase(caixa, seletorGrid); });
+}
+
 function marcarOverflowNasFrasesAnotadas() {
   document.querySelectorAll('.frase-anotada-wrap').forEach(wrap => {
+    ligarQuebraFrase(wrap, '.frase-anotada'); // frase larga quebra em várias linhas em vez de rolar pro lado
     wrap.classList.toggle('tem-overflow', wrap.scrollWidth > wrap.clientWidth + 2);
   });
 }
@@ -1054,6 +1190,8 @@ function mostrarExemplo(aula, introIdx, i) {
           </div>`).join('')}
       </div>` : ''}
       ${ex.palavraSelecionavel ? `
+      ${ex.palavraSelecionavel.titulo ? `<p class="point-label-titulo"${estiloTextoInline(ex.palavraSelecionavel, 'titulo')}>${renderFraseComDestaque(ex.palavraSelecionavel.titulo, ex.palavraSelecionavel.tituloDestaque, ex.palavraSelecionavel.tituloDestaqueNegrito)}</p>` : ''}
+      ${ex.palavraSelecionavel.subtitulo ? `<p class="point-label-subtitulo"${estiloTextoInline(ex.palavraSelecionavel, 'subtitulo')}>${renderFraseComDestaque(ex.palavraSelecionavel.subtitulo, ex.palavraSelecionavel.subtituloDestaque, ex.palavraSelecionavel.subtituloDestaqueNegrito)}</p>` : ''}
       <div class="passo-caixa">
         <div class="passo-caixa-cabecalho">
           <div class="passo-caixa-icone"><svg viewBox="0 0 24 24" width="22" height="22">${RESUMO_ICONES.tarefa('#4A80F0')}</svg></div>
@@ -3027,7 +3165,7 @@ function mostrarMapaInterativo(aula, introIdx, i) {
     nos.forEach(no => { const el = noEl(no.id); if (el) el.style.width = larg ? `${larg}px` : ''; });
     // Mede cada nó com o texto FINAL (resposta certa já no lugar), senão nó com texto longo seria cortado/sobreposto.
     const alturas = new Map();
-    nos.forEach((no, ni) => {
+    if (larg) nos.forEach((no, ni) => { // só na tela cheia; na atividade o mapa fica compacto pra as alternativas caberem na tela
       const el = noEl(no.id);
       if (!el) return;
       const t = el.querySelector('.mi-no-texto'), antes = t.textContent;
@@ -3035,9 +3173,9 @@ function mostrarMapaInterativo(aula, introIdx, i) {
       alturas.set(no.id, Math.max(48, el.offsetHeight));
       t.textContent = antes;
     });
-    const alt = id => alturas.get(id) || 48;
+    const alt = id => (larg ? alturas.get(id) || 48 : 56);
     const maxH = Math.max(48, ...nos.map(n => alt(n.id)));
-    const ESPACO_X = larg ? larg + 56 : 210, ESPACO_Y = Math.max(92, maxH + 34);
+    const ESPACO_X = larg ? larg + 56 : 210, ESPACO_Y = larg ? maxH + 34 : 92;
     const ESP_COL = LARG + 28;
     // Vertical: cada nível começa abaixo do nó mais alto do nível anterior.
     const topoNivel = [];
@@ -3103,6 +3241,11 @@ function mostrarMapaInterativo(aula, introIdx, i) {
     alvo.appendChild(document.createTextNode(t)); // textContent: a dica é texto puro, nunca HTML
   }
 
+  /** A dica aparece ANTES de responder: assim que a lacuna fica ativa. Sem lacuna ativa (tudo preenchido), some. */
+  function mostrarDicaDaAtual() {
+    mostrarDica(atual < lacunas.length ? lacunas[atual].dica : '');
+  }
+
   function limparEstadoErro(no) {
     const el = noEl(no.id);
     if (!el) return;
@@ -3164,15 +3307,14 @@ function mostrarMapaInterativo(aula, introIdx, i) {
       el.querySelector('.mi-no-badge').textContent = '✕';
       el.querySelector('.mi-no-msg').textContent = 'Incorreto! Tente outra opção.';
       el.classList.remove('mi-tremer'); void el.offsetWidth; el.classList.add('mi-tremer');
-      mostrarDica(lacuna.dica);
-      return;
+      return; // a dica já está na tela desde que a lacuna ficou ativa
     }
     // Acertou: preenche com animação e libera a próxima lacuna (ou o "Próximo", se for a última).
     limparEstadoErro(lacuna);
     preenchidas.add(lacuna.id);
     el.classList.remove('mi-pop'); void el.offsetWidth; el.classList.add('mi-pop');
-    mostrarDica(lacuna.dica);
     while (atual < lacunas.length && preenchidas.has(lacunas[atual].id)) atual++;
+    mostrarDicaDaAtual();
     atualizarNos(); atualizarRodape(); renderAlternativas();
     if (preenchidas.size === lacunas.length) btnProxima.disabled = false;
     else rolarAteElemento(noEl(lacunas[atual].id));
@@ -3183,8 +3325,8 @@ function mostrarMapaInterativo(aula, introIdx, i) {
     preenchidas.clear();
     atual = 0;
     nos.forEach(no => { const el = noEl(no.id); if (el) el.classList.remove('mi-no-preenchida', 'mi-no-ativa', 'mi-pop', 'mi-tremer'); });
-    mostrarDica('');
     btnProxima.disabled = lacunas.length > 0;
+    mostrarDicaDaAtual();
     atualizarNos(); atualizarRodape(); renderAlternativas();
   });
 
@@ -3248,6 +3390,7 @@ function mostrarMapaInterativo(aula, introIdx, i) {
   };
 
   posicionar();
+  mostrarDicaDaAtual();
   atualizarNos(); atualizarRodape(); renderAlternativas();
   requestAnimationFrame(() => requestAnimationFrame(desenharLinhas));
 }
@@ -4493,7 +4636,7 @@ carregarDadosIniciais().then((carregado) => {
       estado.origIdx = errIdxs;
     }
   } else if (modoRevisao) {
-    aula = { ...aulaOriginal, titulo: `Revisão — ${aulaOriginal.titulo}`, questoes: [] };
+    aula = { ...aulaOriginal, titulo: `${prefixoRevisaoGeral()}${aulaOriginal.titulo}`, questoes: [] };
   } else {
     if (!QUESTOES_ATIVAS) aula = { ...aula, questoes: [] };
     estado.origIdx = aula.questoes.map((_, i) => i);
@@ -4601,8 +4744,14 @@ carregarDadosIniciais().then((carregado) => {
         if (!naOrdem.has(introScreens[k])) introScreens.splice(k, 1);
       }
     }
+    // Mesma ordem em que as telas aparecem na aula (telas e perguntas misturadas, como no Construtor).
+    if (Array.isArray(aula.ordem) && aula.ordem.length > 0) {
+      const pos = new Map(aula.ordem.map((t, k) => [t === 'justificativa' ? 'antesComecar' : t, k]));
+      const posDe = c => (pos.has(c) ? pos.get(c) : 1e6);
+      introScreens.sort((a, b) => posDe(a) - posDe(b));
+    }
     if (introScreens.length === 0) {
-      window.location.href = 'index.html?view=erros';
+      window.location.href = destinoFimRevisao(); // nada a revisar aqui (ex.: tela excluída): segue pra próxima aula
       return;
     }
   } else if (Array.isArray(aula.ordem) && aula.ordem.length > 0) {
@@ -4760,7 +4909,7 @@ carregarDadosIniciais().then((carregado) => {
       if (introIdx < introScreens.length) {
         introFns[introScreens[introIdx]](aula, introIdx);
       } else if (modoRevisao) {
-        window.location.href = 'index.html?view=erros';
+        window.location.href = destinoFimRevisao();
       } else {
         finalizarChecagens();
       }

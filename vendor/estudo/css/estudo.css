@@ -2433,3 +2433,6 @@ body {
 .img-ampliada { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; cursor: default; }
 .img-ampliada-fechar { position: absolute; top: 14px; right: 14px; width: 42px; height: 42px; border-radius: 50%; border: none; background: rgba(255, 255, 255, .18); color: #fff; font-size: 20px; cursor: pointer; }
 .img-ampliada-fechar:hover { background: rgba(255, 255, 255, .3); }
+
+/* Frase anotada quebrada em várias linhas (ver ajustarQuebraFrase) */
+.frase-anotada-wrap .frase-anotada + .frase-anotada { display: grid; margin-top: 12px; }

@@ -41,6 +41,14 @@
 .tela-row-icone.tipo-resumo { background: #F08A2A; }
 .tela-row-icone.tipo-licao { background: #1FAA6B; }
 .tela-row-icone.tipo-lista { background: #0D9488; }
+.tela-row-icone.tipo-timeline { background: #DB2777; }
+.tela-row-icone.tipo-jogoSinais { background: #2563EB; }
+.tela-row-icone.tipo-agrupamento { background: #EA580C; }
+.tela-row-icone.tipo-distribuicao { background: #0891B2; }
+.tela-row-icone.tipo-mapaMental { background: #5724D6; }
+.tela-row-icone.tipo-tabelaAnimada { background: #0D6EFD; }
+.tela-row-icone.tipo-mapaConceitual { background: #7C3AED; }
+.tela-row-icone.tipo-mapaInterativo { background: #6D28D9; }
 .tela-row-label { flex: 1; font-size: 13.5px; font-weight: 600; color: var(--text-main); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tela-row-seta { color: var(--text-sec); flex-shrink: 0; }
 
@@ -405,6 +413,7 @@
 .player-preview .pp-palavra-select-titulo { font-size: 16px; color: #1a1a2e; margin: 14px 0 4px; }
 .player-preview .pp-palavra-select-subtitulo { font-size: 13px; color: var(--text-sec, #6E6A7A); margin: 0 0 10px; }
 .player-preview .pp-frase-anotada { display: inline-grid; column-gap: 6px; row-gap: 4px; align-items: end; grid-template-rows: auto minmax(30px, auto) minmax(30px, auto); }
+.player-preview .pp-frase-anotada + .pp-frase-anotada { display: grid; margin-top: 12px; }
 .player-preview .pp-chip-alvo { border-color: var(--cor-primaria, #5B2BCB); background: var(--cor-clara, #f5f0ff); color: var(--cor-primaria, #5B2BCB); }
 .player-preview .pp-chip-bracket {
   position: relative; text-align: center; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em;
@@ -807,3 +816,16 @@
 .img-ampliada-previa-overlay { position: fixed; inset: 0; z-index: 5000; display: flex; align-items: center; justify-content: center; background: rgba(15, 10, 30, .92); padding: 20px; box-sizing: border-box; cursor: zoom-out; }
 .img-ampliada-previa-overlay img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; cursor: default; }
 .img-ampliada-previa-overlay button { position: absolute; top: 16px; right: 16px; width: 42px; height: 42px; border-radius: 50%; border: none; background: rgba(255, 255, 255, .18); color: #fff; font-size: 20px; cursor: pointer; }
+
+/* Copiar uma tela já existente (aba Estrutura › Tipo (Telas)) */
+.copiar-tela-box { margin-top: 16px; padding-top: 14px; border-top: 1px dashed rgba(30,27,46,0.15); }
+.copiar-tela-busca { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 9px 12px; border: 1px solid rgba(30,27,46,0.14); border-radius: 12px; background: #fff; color: var(--text-sec); }
+.copiar-tela-busca:focus-within { border-color: var(--purple); }
+.copiar-tela-busca input { flex: 1; min-width: 0; border: none; outline: none; background: transparent; font-family: inherit; font-size: 13.5px; color: var(--text-main); }
+.copiar-tela-lista { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; max-height: 260px; overflow-y: auto; }
+.copiar-tela-item { position: relative; display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 10px 76px 10px 12px; border: 1px solid rgba(30,27,46,0.12); border-radius: 12px; background: #fff; font-family: inherit; cursor: pointer; }
+.copiar-tela-item:hover { border-color: var(--purple); background: #faf7ff; }
+.copiar-tela-item-topo { font-size: 13px; color: var(--text-main); }
+.copiar-tela-item-trecho { font-size: 12px; color: var(--text-sec); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.copiar-tela-item-acao { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; font-weight: 700; color: var(--purple); }
+.copiar-tela-vazio { margin: 4px 2px; font-size: 12.5px; color: var(--text-sec); }

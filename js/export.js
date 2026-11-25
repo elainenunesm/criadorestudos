@@ -433,6 +433,8 @@ function pdfRenderExemplo(item) {
   });
   if (item.palavraSelecionavel) {
     const ps = item.palavraSelecionavel;
+    if (ps.titulo) html += `<p><strong>${escaparHtml(ps.titulo)}</strong></p>`;
+    if (ps.subtitulo) html += `<p>${escaparHtml(ps.subtitulo)}</p>`;
     if (ps.instrucao) html += `<p>${escaparHtml(ps.instrucao)}</p>`;
     if ((ps.sentenca || []).length) html += `<p>${pdfRenderSentencaComCorreta(ps.sentenca, ps.correta)}</p>`;
   }

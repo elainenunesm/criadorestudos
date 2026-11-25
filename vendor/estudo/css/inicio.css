@@ -44,6 +44,7 @@ body { background: #fff; min-height: 100vh; }
 }
 .pasta-progresso-badge:hover { background: #ececf5; }
 .pasta-progresso-badge.conectado { background: #e8f9ee; border-color: #b8ecc9; color: #1a9d52; }
+.pasta-progresso-grupo { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; flex-shrink: 0; }
 .pasta-progresso-badge-icone { flex-shrink: 0; }
 .pasta-progresso-badge-texto { max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
 
@@ -177,6 +178,7 @@ body { background: #fff; min-height: 100vh; }
 .erros-empty { text-align: center; padding: 60px 20px; color: #6b7280; }
 .erros-empty-emoji { font-size: 40px; margin-bottom: 10px; }
 .erros-empty p { font-size: 15px; margin-bottom: 4px; }
+.revisao-geral-item { margin: 8px 6px 0; font-size: 13px; color: #6b7280; }
 .erros-empty-sub { font-size: 14px; max-width: 280px; margin: 6px auto 0; line-height: 1.5; color: #9ca3af; }
 
 /* ESTUDOS (visão geral por nível/ciclo) */

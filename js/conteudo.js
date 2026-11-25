@@ -486,6 +486,7 @@ function mostrarPreviewNovaTela(tipo, modo) {
   ligarTabelaAnimadaPreview(body);
   ligarMapaConceitualPreview(body);
   ligarMapaInterativoPreview(body);
+  quebrarFrasesDoPreview(body);
 
   // Cabeçalho com a mesma cor de marca das outras prévias — só pra mostrar como vai ficar,
   // por isso o "passo" é fictício (essa tela ainda nem foi adicionada de verdade).
@@ -495,6 +496,122 @@ function mostrarPreviewNovaTela(tipo, modo) {
   ).join('');
 
   document.getElementById('previewNovaTelaWrap').style.display = '';
+  const busca = document.getElementById('copiarTelaBusca');
+  if (busca) busca.value = '';
+  atualizarCopiarTela();
+}
+
+/* ---------------------------------------------------------------------- */
+/* Copiar uma tela que já existe (em qualquer aula) ao criar uma nova      */
+/* ---------------------------------------------------------------------- */
+const TIPOS_TELA_LISTA = ['exemplo', 'checagem', 'lista', 'timeline', 'jogoSinais', 'agrupamento', 'distribuicao', 'mapaMental', 'tabelaAnimada', 'mapaConceitual', 'mapaInterativo'];
+
+function varianteDaChecagem(item) {
+  if (item.multiplosRotulos) return 'multiplosRotulos';
+  if (Array.isArray(item.sentenca)) return 'palavra';
+  return item.certoErrado ? 'certoErrado' : 'multipla';
+}
+
+function textoSimples(v) {
+  return String(v == null ? '' : v).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/** Primeiro texto que dê uma ideia do conteúdo da tela (título, enunciado, frente do flashcard…). */
+function trechoDaTela(item) {
+  const aninhados = ['cardImagem', 'cardLink', 'flashcard', 'audio', 'gravacao', 'gravacaoAluno', 'palavraSelecionavel', 'palavraSelecionavelMultipla', 'palavraPointLabelExemplo', 'palavraMultiplosRotulos']
+    .map(k => item[k]).filter(Boolean);
+  const fontes = [item, ...aninhados];
+  for (const campo of ['titulo', 'frente', 'texto', 'instrucao', 'subtitulo', 'conceito']) {
+    for (const f of fontes) {
+      const t = textoSimples(f[campo]);
+      if (t) return t.length > 80 ? t.slice(0, 77) + '…' : t;
+    }
+  }
+  return '';
+}
+
+function conteudoUsavel(c) {
+  return c && Array.isArray(c.exemplo) && Array.isArray(c.checagem);
+}
+
+/** Telas do mesmo tipo (e mesma variante, no caso de exemplo/checagem) já criadas em todas as aulas. */
+function candidatosCopiaTela(tipo, modo) {
+  const lista = [];
+  listarTodasAulas().forEach(({ ciclo, materia, aula }) => {
+    const c = aula.conteudo;
+    if (!conteudoUsavel(c)) return;
+    const caminho = `${ciclo.titulo} › ${materia.titulo}`;
+    if (tipo === 'resumo' || tipo === 'licao') {
+      const dados = c[tipo];
+      const tem = dados && (textoSimples(dados.titulo) || (tipo === 'resumo' ? (dados.itens || []).length : textoSimples(dados.html)));
+      if (tem && !(aula === conteudoAulaAtual())) {
+        lista.push({ aula, caminho, tipo, dados, titulo: TITULO_TELA_FIXO[tipo], trecho: textoSimples(dados.titulo) });
+      }
+      return;
+    }
+    if (!TIPOS_TELA_LISTA.includes(tipo) || !Array.isArray(c[tipo])) return;
+    let passos = [];
+    try { passos = montarPassos(c); } catch (e) { /* aula incompleta: segue sem os títulos numerados */ }
+    c[tipo].forEach(item => {
+      if (tipo === 'exemplo' && varianteDoExemplo(item) !== (modo || 'padrao')) return;
+      if (tipo === 'checagem' && varianteDaChecagem(item) !== (modo || 'multipla')) return;
+      const passo = passos.find(p => p.tipo === tipo && p.id === item._id);
+      lista.push({ aula, caminho, tipo, dados: item, titulo: passo ? passo.titulo : NOME_TELA_ADICIONAR[tipo] || tipo, trecho: trechoDaTela(item) });
+    });
+  });
+  return lista;
+}
+
+function atualizarCopiarTela() {
+  const box = document.getElementById('copiarTelaBox');
+  const listaEl = document.getElementById('copiarTelaLista');
+  if (!box || !listaEl) return;
+  if (!tipoTelaPendente) { box.style.display = 'none'; return; }
+  const q = textoSimples(document.getElementById('copiarTelaBusca').value).toLowerCase();
+  const todos = candidatosCopiaTela(tipoTelaPendente, modoTelaPendente);
+  box.style.display = '';
+  if (!todos.length) {
+    listaEl.innerHTML = '<p class="copiar-tela-vazio">Ainda não há nenhuma tela desse tipo para copiar.</p>';
+    return;
+  }
+  const filtrados = todos.filter(c => !q || `${c.aula.titulo} ${c.caminho} ${c.titulo} ${c.trecho}`.toLowerCase().includes(q));
+  const atual = conteudoAulaAtual();
+  const MAX = 40;
+  listaEl.innerHTML = filtrados.length
+    ? filtrados.slice(0, MAX).map((c, i) => `
+      <button type="button" class="copiar-tela-item" data-i="${i}">
+        <span class="copiar-tela-item-topo"><strong>${escaparHtml(c.aula.titulo)}${c.aula === atual ? ' (esta aula)' : ''}</strong> › ${escaparHtml(c.titulo)}</span>
+        <span class="copiar-tela-item-trecho">${escaparHtml(c.trecho || c.caminho)}</span>
+        <span class="copiar-tela-item-acao">Copiar</span>
+      </button>`).join('') + (filtrados.length > MAX ? `<p class="copiar-tela-vazio">Mostrando ${MAX} de ${filtrados.length} — refine a pesquisa.</p>` : '')
+    : '<p class="copiar-tela-vazio">Nada encontrado para essa pesquisa.</p>';
+  listaEl.querySelectorAll('.copiar-tela-item').forEach(btn => {
+    btn.addEventListener('click', () => copiarTelaExistente(filtrados[Number(btn.dataset.i)]));
+  });
+}
+
+/** Duplica a tela escolhida (tudo, inclusive textos, mídia e respostas) para dentro da aula atual. */
+function copiarTelaExistente(origem) {
+  const aula = conteudoAulaAtual();
+  if (!aula || !origem) return;
+  const conteudo = aula.conteudo;
+  garantirOrdem(conteudo);
+  const copia = JSON.parse(JSON.stringify(origem.dados));
+  if (origem.tipo === 'resumo' || origem.tipo === 'licao') {
+    conteudo[origem.tipo] = copia;
+    conteudo[`${origem.tipo}Removido`] = false;
+    garantirOrdem(conteudo);
+    conteudoEstado.passoIndex = conteudo.ordem.findIndex(t => t.tipo === origem.tipo);
+  } else {
+    const id = proximoIdItem(conteudo);
+    copia._id = id;
+    conteudo[origem.tipo].push(copia);
+    inserirNaOrdemAntesDoResumo(conteudo, { tipo: origem.tipo, id });
+    conteudoEstado.passoIndex = conteudo.ordem.findIndex(t => t.tipo === origem.tipo && t.id === id);
+  }
+  salvarAutomaticamente();
+  renderizarConteudo();
+  irParaSubtabEditor();
 }
 
 function renderEstruturaTelas() {
@@ -679,6 +796,7 @@ function renderEstruturaTelas() {
     };
   }
   document.getElementById('btnCancelarAddTela').onclick = () => esconderPreviewNovaTela();
+  document.getElementById('copiarTelaBusca').addEventListener('input', atualizarCopiarTela);
   document.getElementById('btnConfirmarAddTela').onclick = () => {
     if (!tipoTelaPendente) return;
     adicionarItemPasso(tipoTelaPendente, modoTelaPendente);
@@ -798,7 +916,7 @@ function adicionarItemPasso(tipoLista, variante) {
   if (tipoLista === 'exemplo') {
     const novoExemplo = { _id: id, tipo: 'acao', texto: '', conclusao: '', obs: '', pontos: [] };
     if (variante === 'palavraSelecionavel') {
-      novoExemplo.palavraSelecionavel = { instrucao: '', sentenca: [], correta: 0, rotulo: '' };
+      novoExemplo.palavraSelecionavel = { titulo: '', subtitulo: '', instrucao: '', sentenca: [], correta: 0, rotulo: '' };
     } else if (variante === 'palavraSelecionavelMultipla') {
       novoExemplo.palavraSelecionavelMultipla = { instrucao: '', sentenca: [], corretas: [], rotulo: '' };
     } else if (variante === 'palavraPointLabelExemplo') {
@@ -1433,6 +1551,8 @@ function renderBlocoPalavraSelecionavel(bloco, item) {
   bloco.innerHTML = `
     <div class="item-card">
       <div class="item-card-topo"><strong>Palavra selecionável</strong></div>
+      <div class="campo">${htmlLabelComEstilo('Título (opcional)', 'titulo')}<input type="text" data-psf="titulo" placeholder="Ex: Identifique o verbo"></div>
+      <div class="campo">${htmlLabelComEstilo('Subtítulo (opcional)', 'subtitulo')}<input type="text" data-psf="subtitulo" placeholder="Ex: Leia a frase com atenção"></div>
       <div class="campo">${htmlLabelComEstilo('Instrução (opcional)', 'instrucao')}<input type="text" data-psf="instrucao" placeholder="Ex: Selecione o verbo abaixo:"></div>
       <div class="campo"><label>Frase (edite e clique fora para gerar as palavras)</label><textarea id="psFraseTexto" placeholder="Ex: A Maria estudou muito."></textarea></div>
       <div class="secao-titulo-editor">Marque a palavra certa</div>
@@ -1444,9 +1564,13 @@ function renderBlocoPalavraSelecionavel(bloco, item) {
 
   ligarBotoesEstiloTexto(bloco, ps);
   const renderDestaquesPS = montarDestaqueFrases(bloco.querySelector('#listaDestaquePS'), ps, [
+    { rotulo: 'Título', campo: 'titulo' },
+    { rotulo: 'Subtítulo', campo: 'subtitulo' },
     { rotulo: 'Instrução', campo: 'instrucao' },
   ]);
-  bloco.querySelector('[data-psf="instrucao"]').addEventListener('blur', () => { podarDestaque(ps, 'instrucao'); renderDestaquesPS(); });
+  ['titulo', 'subtitulo', 'instrucao'].forEach(campo => {
+    bloco.querySelector(`[data-psf="${campo}"]`).addEventListener('blur', () => { podarDestaque(ps, campo); renderDestaquesPS(); });
+  });
 
   bloco.querySelectorAll('[data-psf]').forEach(input => {
     input.value = ps[input.dataset.psf] || '';
@@ -3628,7 +3752,7 @@ function renderFormMapaInterativo(el, conteudo, passo) {
           <div class="mi-alternativas" data-alts></div>
           <button class="btn-add-item" type="button" data-acao="addAlt">+ Adicionar alternativa</button>
         </div>
-        <div class="campo"><label>Dica ou explicação (aparece depois de um erro e ao acertar)</label><textarea data-nf="dica" rows="2" placeholder="Ex: A composição do Conselho Técnico é formada pelo Presidente e por 12 Conselheiros."></textarea></div>`
+        <div class="campo"><label>Dica (aparece antes de responder, assim que o nó fica ativo)</label><textarea data-nf="dica" rows="2" placeholder="Ex: A composição do Conselho Técnico é formada pelo Presidente e por 12 Conselheiros."></textarea></div>`
       : `<div class="campo"><label>Texto (dentro do nó)</label><input type="text" data-nf="texto" placeholder="Ex: composição"></div>`}`;
 
     card.querySelector('[data-nf="lacuna"]').addEventListener('change', e => {
@@ -3804,6 +3928,7 @@ function preencherCaixaPreview(prefixo, aula, passos, indice, resp) {
   ligarTabelaAnimadaPreview(bodyEl);
   ligarMapaConceitualPreview(bodyEl);
   ligarMapaInterativoPreview(bodyEl);
+  quebrarFrasesDoPreview(bodyEl);
 
   const feedbackEl = document.getElementById(`${prefixo}Feedback`);
   feedbackEl.className = 'pp-feedback';
@@ -4127,6 +4252,8 @@ function previewPalavraSelecionavel(ps, instrucaoPadrao) {
     ? `<div class="pp-chip-bracket" style="grid-column:${ps.correta + 1}/span 1;grid-row:2">${escaparHtml(ps.rotulo)}</div>`
     : `<div class="pp-chip-bracket pp-chip-bracket-vazio" style="grid-column:${ps.correta + 1}/span 1;grid-row:2">Rótulo</div>`;
   return `
+    ${ps.titulo ? `<p class="pp-palavra-select-titulo"${estiloTextoInline(ps, 'titulo')}>${renderFraseComDestaque(ps.titulo, ps.tituloDestaque, ps.tituloDestaqueNegrito)}</p>` : ''}
+    ${ps.subtitulo ? `<p class="pp-palavra-select-subtitulo"${estiloTextoInline(ps, 'subtitulo')}>${renderFraseComDestaque(ps.subtitulo, ps.subtituloDestaque, ps.subtituloDestaqueNegrito)}</p>` : ''}
     <div class="pp-palavra-select">
       <div class="pp-palavra-select-cabecalho">
         <div class="pp-palavra-select-icone">${iconeTipo('tarefa', '#4A80F0')}</div>
@@ -4772,6 +4899,134 @@ function previewMapaInterativo(mi) {
 /** Posiciona os nós da prévia (árvore na horizontal: profundidade → eixo X, folhas → eixo Y)
  * e desenha as setas pai → filho. Mesmo algoritmo de layoutArvoreMapaConceitual do player,
  * duplicado aqui pelo mesmo motivo do Mapa Conceitual (a prévia é um DOM separado). */
+
+/* ── QUEBRA DE LINHA DA FRASE ANOTADA ────────────────────────────────────────
+ * A frase é um grid de uma coluna por palavra (colchetes/rótulos ficam nas linhas de baixo, ligados à
+ * coluna da palavra). Frase larga não cabia e saía da caixa. Aqui, quando a soma das colunas passa da
+ * largura disponível, as palavras são distribuídas em várias "linhas": cada uma é um grid próprio
+ * (mesma classe) com as palavras, colchetes e rótulos daquele trecho. Um colchete que cruza a quebra é
+ * repartido (cópia decorativa na linha seguinte). Roda de novo ao redimensionar e quando algo é
+ * acrescentado depois (ex.: colchete aparece após acertar). Sempre parte das posições ORIGINAIS,
+ * guardadas em data-qc / data-qs / data-qr na primeira passada. */
+function ajustarQuebraFrase(caixa, seletorGrid) {
+  const grids = [...caixa.querySelectorAll(seletorGrid)];
+  const base = grids[0];
+  if (!base) return;
+  if (base.dataset.qt === undefined) base.dataset.qt = base.style.gridTemplateColumns || '';
+
+  // Re-render: o grid base foi recriado do zero (nenhum filho com posição guardada) — descarta as linhas velhas.
+  const baseTemAntigos = [...base.children].some(el => el.dataset.qc !== undefined);
+  if (!baseTemAntigos && grids.length > 1) { grids.slice(1).forEach(g => g.remove()); grids.length = 1; }
+
+  // 1) Junta tudo de volta no grid base, na posição original.
+  const filhos = [];
+  grids.forEach(g => [...g.children].forEach(el => {
+    if (el.dataset.qclone) { el.remove(); return; }
+    if (el.dataset.qc === undefined) {
+      const m = (el.style.gridColumn || '').match(/^\s*(\d+)(?:\s*\/\s*span\s*(\d+))?/);
+      if (!m) { filhos.push({ el, livre: true }); return; }
+      el.dataset.qc = m[1]; el.dataset.qs = m[2] || '1'; el.dataset.qr = el.style.gridRow || '1';
+    }
+    filhos.push({ el, c: +el.dataset.qc, s: +el.dataset.qs, r: el.dataset.qr });
+  }));
+  grids.slice(1).forEach(g => g.remove());
+  filhos.forEach(f => {
+    if (!f.livre) {
+      f.el.style.gridColumn = f.s > 1 ? `${f.c}/span ${f.s}` : String(f.c);
+      f.el.style.gridRow = f.r;
+    }
+    base.appendChild(f.el);
+  });
+  base.style.gridTemplateColumns = base.dataset.qt;
+  base.style.marginTop = '';
+
+  // 2) Mede a largura de cada coluna (a palavra, linha 1) e vê se cabe.
+  const pai = base.parentElement;
+  const cs = getComputedStyle(pai);
+  const disp = pai.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+  if (disp <= 0) return; // oculto no momento — roda de novo quando aparecer
+  const gap = parseFloat(getComputedStyle(base).columnGap) || 8;
+  const larguras = [];
+  filhos.forEach(f => { if (!f.livre && f.s === 1 && f.r === '1') larguras[f.c] = f.el.getBoundingClientRect().width; });
+  const n = Math.max(0, ...filhos.filter(f => !f.livre).map(f => f.c + f.s - 1));
+  const total = larguras.reduce((a, w) => a + (w || 0), 0) + gap * Math.max(0, n - 1);
+  if (total <= disp + 1) return;
+
+  // 3) Distribui as palavras em linhas (guloso).
+  const linhas = [];
+  let ini = 1, acc = 0;
+  for (let c = 1; c <= n; c++) {
+    const w = larguras[c] || 0;
+    const novo = acc === 0 ? w : acc + gap + w;
+    if (acc > 0 && novo > disp) { linhas.push([ini, c - 1]); ini = c; acc = w; }
+    else acc = novo;
+  }
+  linhas.push([ini, n]);
+  if (linhas.length < 2) return;
+
+  // 4) Um grid por linha; cada item vai pra linha(s) que cobre (colchete que cruza a quebra é repartido).
+  const gridsLinha = linhas.map((_, k) => {
+    if (k === 0) return base;
+    const g = base.cloneNode(false);
+    g.removeAttribute('id');
+    g.style.marginTop = '12px';
+    g.style.justifyContent = 'start'; // colunas com a largura da palavra, sem esticar até a borda
+    return g;
+  });
+  gridsLinha.forEach((g, k) => {
+    const [a, b] = linhas[k];
+    g.style.gridTemplateColumns = `repeat(${b - a + 1},auto)`;
+    if (k > 0) gridsLinha[k - 1].insertAdjacentElement('afterend', g);
+  });
+  filhos.forEach(f => {
+    if (f.livre) return;
+    let usouOriginal = false;
+    linhas.forEach(([a, b], k) => {
+      const lo = Math.max(f.c, a), hi = Math.min(f.c + f.s - 1, b);
+      if (lo > hi) return;
+      let el = f.el;
+      if (usouOriginal) { el = f.el.cloneNode(true); el.dataset.qclone = '1'; delete el.dataset.qc; }
+      usouOriginal = true;
+      el.style.gridColumn = hi > lo ? `${lo - a + 1}/span ${hi - lo + 1}` : String(lo - a + 1);
+      el.style.gridRow = f.r;
+      gridsLinha[k].appendChild(el);
+    });
+  });
+  // Linha sem colchete/rótulo não reserva espaço pras linhas de baixo (senão fica um vão enorme entre as linhas).
+  gridsLinha.forEach(g => {
+    let maxLinha = 1;
+    [...g.children].forEach(el => { maxLinha = Math.max(maxLinha, parseInt(el.style.gridRow, 10) || 1); });
+    g.style.gridTemplateRows = ['auto', 'minmax(30px, auto)', 'minmax(30px, auto)'].slice(0, Math.min(3, maxLinha)).join(' ');
+  });
+}
+
+/** Liga a quebra numa caixa (e a refaz quando filhos são acrescentados ou a tela é redimensionada). */
+function ligarQuebraFrase(caixa, seletorGrid) {
+  ajustarQuebraFrase(caixa, seletorGrid);
+  if (caixa._quebraObs) return;
+  let agendado = false;
+  const obs = new MutationObserver(() => {
+    if (agendado) return;
+    agendado = true;
+    requestAnimationFrame(() => {
+      agendado = false;
+      obs.disconnect();
+      try { ajustarQuebraFrase(caixa, seletorGrid); } finally { obs.observe(caixa, { childList: true, subtree: true }); }
+    });
+  });
+  obs.observe(caixa, { childList: true, subtree: true });
+  caixa._quebraObs = obs;
+  window.addEventListener('resize', () => { if (caixa.isConnected) ajustarQuebraFrase(caixa, seletorGrid); });
+}
+
+/** Prévia do Construtor: cada caixa de frase (palavra selecionável etc.) quebra em linhas se não couber. */
+function quebrarFrasesDoPreview(raiz) {
+  raiz.querySelectorAll('.pp-frase-anotada').forEach(g => {
+    const pai = g.parentElement;
+    if (pai && !g.dataset.qt && pai.querySelectorAll('.pp-frase-anotada').length === 1) ligarQuebraFrase(pai, '.pp-frase-anotada');
+  });
+}
+
 function ligarMapaInterativoPreview(container) {
   const mapaEl = container && container.querySelector('.mi-mapa');
   if (!mapaEl) return;
