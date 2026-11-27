@@ -168,6 +168,20 @@ const ICONES_AULA = {
   padrao:    ICONE_PADRAO,
 };
 
+/** Ícone da disciplina no card do módulo. Não existe campo de ícone por matéria nos dados, então o
+ * desenho é escolhido pelo NOME da matéria (palavras-chave) e cai num livro aberto quando não reconhece. */
+const ICONES_DISCIPLINA = {
+  balanca: ICONES_AULA.balanca,
+  calculadora: '<rect x="5" y="2" width="14" height="20" rx="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="8" y1="11" x2="8.01" y2="11"></line><line x1="12" y1="11" x2="12.01" y2="11"></line><line x1="16" y1="11" x2="16.01" y2="11"></line><line x1="8" y1="15" x2="8.01" y2="15"></line><line x1="12" y1="15" x2="12.01" y2="15"></line><line x1="16" y1="15" x2="16.01" y2="15"></line><line x1="8" y1="19" x2="16" y2="19"></line>',
+  livro: '<path d="M2 4h7a3 3 0 0 1 3 3v14a2 2 0 0 0-2-2H2z"></path><path d="M22 4h-7a3 3 0 0 0-3 3v14a2 2 0 0 1 2-2h8z"></path>',
+};
+function iconeDaDisciplina(nome) {
+  const n = String(nome || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (/direito|juridic|lei|constitu|legisla/.test(n)) return ICONES_DISCIPLINA.balanca;
+  if (/contab|financ|econom|orcament|auditor|matemat|calcul/.test(n)) return ICONES_DISCIPLINA.calculadora;
+  return ICONES_DISCIPLINA.livro;
+}
+
 function escaparHtml(s) {
   return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -191,14 +205,18 @@ function montarEtapas() {
     div.dataset.etapa = etapa.id;
     div.innerHTML = `
       <div class="hero-card">
-        <div class="nivel-selector"><span></span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        <div class="hero-textos">
+          <div class="nivel-selector"><span></span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </div>
+          <h2 class="hero-title">${escaparHtml(etapa.materia || etapa.titulo || '')}</h2>
+          <p class="hero-etapa"></p>
         </div>
-        <div class="hero-content">
-          <span class="hero-materia">${escaparHtml(etapa.materia || '')}</span>
-          <h2 class="hero-title"></h2>
-          <div class="progress-segments"></div>
-        </div>
+        <svg class="hero-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconeDaDisciplina(etapa.materia || etapa.titulo)}</svg>
+      </div>
+      <div class="modulo-progresso">
+        <div class="modulo-progresso-topo"><span>Progresso do módulo</span><strong class="modulo-progresso-pct">0%</strong></div>
+        <div class="progress-segments"></div>
       </div>
       <div class="path-container">
         <div class="path-line"></div>
@@ -207,13 +225,15 @@ function montarEtapas() {
           <div class="aula-node" data-aula="${aula.id}">
             <div class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span></div>
             <div class="icon-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></svg></div>
+            <p class="aula-node-titulo">${escaparHtml(aula.titulo)}</p>
             <div class="aula-card">
               <button type="button" class="btn-favoritar" title="Marcar como favorita">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"></path></svg>
               </button>
               <h3>${escaparHtml(aula.titulo)}</h3>
+              <div class="aula-meta"><span class="aula-etapa"></span><span class="aula-posicao"></span></div>
               <p class="status"></p>
-              <div class="progress-bar"><div class="progress-bar-fill" style="width:0%"></div></div>
+              <div class="aula-segmentos"></div>
               <button type="button" class="btn-acao"></button>
             </div>
           </div>`).join('')}
@@ -235,7 +255,7 @@ function renderAulas() {
     const iconSvg    = iconCircle.querySelector('svg');
     const card       = node.querySelector('.aula-card');
     const statusEl   = node.querySelector('.status');
-    const barFill    = node.querySelector('.progress-bar-fill');
+    const segsEl     = node.querySelector('.aula-segmentos');
     const btn        = node.querySelector('.btn-acao');
     const stars      = node.querySelectorAll('.star');
     const btnFav     = node.querySelector('.btn-favoritar');
@@ -246,19 +266,31 @@ function renderAulas() {
 
     node.classList.toggle('locked', aula.status === 'locked');
     card.classList.toggle('locked', aula.status === 'locked');
+    // A aula em andamento/não iniciada (a "atual") é o card roxo em destaque; concluída fica neutra.
+    card.classList.toggle('atual', aula.status === 'active');
+
+    // Posição da aula no módulo ("1 de 4") e a etapa (ciclo) a que o módulo pertence.
+    const etapaInfo = (MODULOS || []).find(m => m.aulas.some(a => a.id === aula.id));
+    const total = etapaInfo ? etapaInfo.aulas.length : 0;
+    const pos = etapaInfo ? etapaInfo.aulas.findIndex(a => a.id === aula.id) : -1;
+    const nivel = etapaInfo && typeof NIVEIS !== 'undefined' ? (NIVEIS || []).find(n => n.etapas.includes(etapaInfo.id)) : null;
+    const etapaEl = node.querySelector('.aula-etapa');
+    const posEl = node.querySelector('.aula-posicao');
+    if (etapaEl) etapaEl.textContent = nivel ? nivel.titulo : '';
+    if (posEl) posEl.textContent = pos >= 0 ? `${pos + 1} de ${total}` : '';
+    // Barra segmentada: um segmento por aula do módulo, preenchida até a aula atual.
+    if (segsEl) segsEl.innerHTML = Array.from({ length: total }, (_, j) => `<div class="seg${j <= pos && aula.status !== 'locked' ? ' cheio' : ''}"></div>`).join('');
 
     if (aula.status === 'locked') {
       iconCircle.className = 'icon-circle locked';
       statusEl.textContent = 'Bloqueada';
-      barFill.style.width  = '0%';
       btn.textContent = '🔒 Bloqueada';
       btn.disabled    = true;
       btn.className   = 'btn-acao bloqueada';
       stars.forEach(s => { s.style.color = '#e5e7eb'; });
     } else if (aula.status === 'active') {
       iconCircle.className = 'icon-circle active';
-      statusEl.textContent = aula.progress > 0 ? 'Em andamento' : 'Não iniciada';
-      barFill.style.width  = `${aula.progress}%`;
+      statusEl.textContent = aula.progress > 0 ? `Em andamento · ${aula.progress}%` : 'Não iniciada';
       btn.textContent = aula.progress > 0 ? 'Continuar' : 'Começar';
       btn.disabled    = false;
       btn.className   = 'btn-acao ativa';
@@ -266,7 +298,6 @@ function renderAulas() {
     } else {
       iconCircle.className = 'icon-circle active';
       statusEl.textContent = 'Concluída';
-      barFill.style.width  = '100%';
       btn.textContent = 'Recomeçar';
       btn.disabled    = false;
       btn.className   = 'btn-acao ativa';
@@ -314,7 +345,12 @@ function atualizarProgressoEtapas() {
     const concluidas = aulasDaEtapa.filter(a => a.status === 'completed').length;
 
     segmentsWrap.innerHTML = aulasDaEtapa.map((_, i) => `<div class="segment${i < concluidas ? ' filled' : ''}"></div>`).join('');
-    heroCard.classList.toggle('etapa-completa', aulasDaEtapa.length > 0 && concluidas === aulasDaEtapa.length);
+    const pct = aulasDaEtapa.length ? Math.round((concluidas / aulasDaEtapa.length) * 100) : 0;
+    const pctEl = etapaView.querySelector('.modulo-progresso-pct');
+    if (pctEl) pctEl.textContent = `${pct}%`;
+    const completa = aulasDaEtapa.length > 0 && concluidas === aulasDaEtapa.length;
+    heroCard.classList.toggle('etapa-completa', completa);
+    etapaView.classList.toggle('etapa-completa', completa);
   });
 }
 
@@ -329,10 +365,11 @@ function atualizarSeletoresDeNivel() {
     // de verdade (o nome do ciclo) é o título grande abaixo da matéria, pra
     // não repetir o mesmo texto duas vezes.
     const span = etapaEl.querySelector('.nivel-selector span');
-    if (span) span.textContent = posicao === -1 ? 'Etapa' : `Nível ${posicao + 1}`;
+    if (span) span.textContent = posicao === -1 ? 'Módulo' : `Módulo ${posicao + 1}`;
 
-    const tituloEl = etapaEl.querySelector('.hero-title');
-    if (tituloEl) tituloEl.textContent = nivel ? nivel.titulo : '';
+    // Título grande = disciplina (já escrito em montarEtapas); abaixo vem a etapa (nome do ciclo).
+    const etapaTxt = etapaEl.querySelector('.hero-etapa');
+    if (etapaTxt) etapaTxt.textContent = nivel ? nivel.titulo : '';
   });
 }
 
