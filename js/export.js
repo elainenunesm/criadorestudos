@@ -59,6 +59,8 @@ function construirPlano(ciclos, trilhas) {
         id: materia.id,
         titulo: materia.titulo,
         materia: materia.titulo,
+        icone: materia.icone || '',
+        iconeUrl: materia.iconeUrl || '',
         aulas: materia.aulas,
       });
       etapaIds.push(materia.id);
@@ -92,11 +94,19 @@ function gerarModulosJs(plano) {
         icone:   'padrao',
       }`).join(',\n');
 
+    // Ícone escolhido no Construtor (menu da matéria): vai pronto como markup SVG (ou link de imagem), pra o
+    // player não precisar conhecer a lista de ícones. Sem escolha, o player decide pelo nome da matéria.
+    let iconeLinhas = '';
+    if (etapa.icone === 'externo' && etapa.iconeUrl) {
+      iconeLinhas = `    iconeUrl: ${formatarValorJs(etapa.iconeUrl)},\n`;
+    } else if (etapa.icone && typeof ICONES_TIPO !== 'undefined' && ICONES_TIPO[etapa.icone]) {
+      iconeLinhas = `    iconeSvg: ${formatarValorJs(ICONES_TIPO[etapa.icone]('currentColor'))},\n`;
+    }
     return `  {
     id:      ${etapa.id},
     titulo:  ${formatarValorJs(etapa.titulo)},
     materia: ${formatarValorJs(etapa.materia)},
-    aulas: [
+${iconeLinhas}    aulas: [
 ${aulasTexto}
     ],
   }`;
@@ -403,12 +413,13 @@ function pdfRenderSentencaComRotulos(sentenca, rotulos) {
 
 function pdfRenderExemplo(item) {
   let html = '';
-  if (item.texto) html += `<p>${renderFraseComDestaque(item.texto, item.textoDestaque, item.textoDestaqueNegrito)}</p>`;
+  if (item.texto) html += `<div class="pdf-item-icone">${pdfIcone(item.tipo, '#4A80F0', item.iconeUrl, '#eef2ff')}<span>${renderFraseComDestaque(item.texto, item.textoDestaque, item.textoDestaqueNegrito)}</span></div>`;
   if (item.conclusao) html += `<p>${renderFraseComDestaque(item.conclusao, item.conclusaoDestaque, item.conclusaoDestaqueNegrito)}</p>`;
   if (item.obs) html += `<p class="pdf-obs">${renderFraseComDestaque(item.obs, item.obsDestaque, item.obsDestaqueNegrito)}</p>`;
-  (item.pontos || []).forEach(p => { if (p.texto) html += `<p>• ${renderFraseComDestaque(p.texto, p.textoDestaque, p.textoDestaqueNegrito)}</p>`; });
+  (item.pontos || []).forEach(p => { if (p.texto) html += `<div class="pdf-item-icone">${pdfIcone(p.tipo, '#4A80F0', p.iconeUrl, '#eef2ff') || '•'}<span>${renderFraseComDestaque(p.texto, p.textoDestaque, p.textoDestaqueNegrito)}</span></div>`; });
   if (item.cardImagem) {
     const ci = item.cardImagem;
+    if (ci.imagemUrl) html += `<img class="pdf-img" src="${escaparHtml(ci.imagemUrl)}" alt="">`;
     if (ci.titulo) html += `<p><strong>${escaparHtml(ci.titulo)}</strong></p>`;
     if (ci.subtitulo) html += `<p>${escaparHtml(ci.subtitulo)}</p>`;
     if (ci.texto) html += `<p>${escaparHtml(ci.texto)}</p>`;
@@ -436,12 +447,12 @@ function pdfRenderExemplo(item) {
     if (ps.titulo) html += `<p><strong>${escaparHtml(ps.titulo)}</strong></p>`;
     if (ps.subtitulo) html += `<p>${escaparHtml(ps.subtitulo)}</p>`;
     if (ps.instrucao) html += `<p>${escaparHtml(ps.instrucao)}</p>`;
-    if ((ps.sentenca || []).length) html += `<p>${pdfRenderSentencaComCorreta(ps.sentenca, ps.correta)}</p>`;
+    if ((ps.sentenca || []).length) html += `<p>${pdfRenderSentencaComCorreta(ps.sentenca, ps.correta)}${ps.rotulo ? ` <em>(${escaparHtml(ps.rotulo)})</em>` : ''}</p>`;
   }
   if (item.palavraSelecionavelMultipla) {
     const psm = item.palavraSelecionavelMultipla;
     if (psm.instrucao) html += `<p>${escaparHtml(psm.instrucao)}</p>`;
-    if ((psm.sentenca || []).length) html += `<p>${pdfRenderSentencaComCorreta(psm.sentenca, psm.corretas || [])}</p>`;
+    if ((psm.sentenca || []).length) html += `<p>${pdfRenderSentencaComCorreta(psm.sentenca, psm.corretas || [])}${psm.rotulo ? ` <em>(${escaparHtml(psm.rotulo)})</em>` : ''}</p>`;
   }
   if (item.palavraPointLabelExemplo) {
     const pl = item.palavraPointLabelExemplo;
@@ -473,6 +484,8 @@ function pdfRenderChecagem(item) {
       `<li${i === item.correta ? ' class="pdf-certo"' : ''}>${letras[i] || i + 1}) ${escaparHtml(op)}${i === item.correta ? ' ✓' : ''}</li>`
     ).join('') + '</ul>';
   }
+  if (item.feedbackCorreto) html += `<p class="pdf-fb pdf-fb-ok">✓ ${escaparHtml(item.feedbackCorreto)}</p>`;
+  if (item.feedbackErrado) html += `<p class="pdf-fb pdf-fb-erro">✗ ${escaparHtml(item.feedbackErrado)}</p>`;
   return html || '<p class="pdf-vazio">(sem conteúdo)</p>';
 }
 
@@ -487,137 +500,261 @@ function pdfSecao(rotulo, corTipo, corpoHtml) {
   </div>`;
 }
 
-function pdfRenderAula(aula) {
-  const c = aula.conteudo || {};
-  let secoes = '';
+/* ── Peças visuais do PDF: ícones, imagens e mapas desenhados em SVG (autocontido, com as cores da aula) ── */
 
-  const ac = c.antesComecar || {};
-  if (ac.titulo || ac.descricao || ac.aprender || ac.importancia) {
-    let corpo = '';
-    if (ac.titulo) corpo += `<p class="pdf-destaque">${renderFraseComDestaque(ac.titulo, ac.tituloDestaque, ac.tituloDestaqueNegrito)}</p>`;
-    if (ac.descricao) corpo += `<p>${renderFraseComDestaque(ac.descricao, ac.descricaoDestaque, ac.descricaoDestaqueNegrito)}</p>`;
+/** Ícone redondo/quadrado com o desenho do "tipo" (mesmos ícones do editor), na cor e fundo escolhidos. */
+function pdfIcone(tipo, cor, iconeUrl, fundo) {
+  if (!tipo || tipo === 'nenhum') return '';
+  return `<span class="pdf-ico" style="background:${fundo || '#f0eaff'}">${iconeTipo(tipo, cor || '#5B2BCB', iconeUrl)}</span>`;
+}
+
+/** Quebra um texto em linhas de até `max` caracteres (pra caber dentro de uma caixa do SVG). */
+function pdfQuebra(texto, max) {
+  const palavras = String(texto || '').split(/\s+/).filter(Boolean);
+  const linhas = [];
+  let atual = '';
+  palavras.forEach(p => {
+    if (atual && (atual + ' ' + p).length > max) { linhas.push(atual); atual = p; }
+    else atual = atual ? `${atual} ${p}` : p;
+  });
+  if (atual) linhas.push(atual);
+  return linhas.length ? linhas : [''];
+}
+
+/** Caixa arredondada com texto centralizado (cada item de `linhas` é uma linha; `negritoAte` deixa as N primeiras em negrito). */
+function pdfSvgCaixa(x, y, w, h, o) {
+  const fonte = o.fonte || 12, passo = fonte + 3;
+  const cx = x + w / 2;
+  const ini = y + h / 2 - ((o.linhas.length - 1) * passo) / 2 + fonte * 0.35;
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" fill="${o.fundo}" stroke="${o.borda}" stroke-width="1.5"${o.tracejado ? ' stroke-dasharray="5 3"' : ''}/>`
+    + o.linhas.map((l, i) => `<text x="${cx}" y="${ini + i * passo}" text-anchor="middle" font-size="${fonte}" font-weight="${i < (o.negritoAte || 0) ? 700 : 500}" fill="${o.cor}">${escaparHtml(l)}</text>`).join('');
+}
+
+/** Mesmo layout de árvore do player (profundidade + ordem das folhas). */
+function pdfLayoutArvore(nos) {
+  const filhosDe = new Map();
+  nos.forEach(n => { if (n.paiId) { if (!filhosDe.has(n.paiId)) filhosDe.set(n.paiId, []); filhosDe.get(n.paiId).push(n.id); } });
+  let folha = 0;
+  const ordem = new Map(), prof = new Map();
+  const visitar = (id, d) => {
+    prof.set(id, d);
+    const fs = filhosDe.get(id) || [];
+    if (!fs.length) { ordem.set(id, folha++); return; }
+    fs.forEach(f => visitar(f, d + 1));
+    const xs = fs.map(f => ordem.get(f));
+    ordem.set(id, (Math.min(...xs) + Math.max(...xs)) / 2);
+  };
+  nos.filter(n => !n.paiId).forEach(n => visitar(n.id, 0));
+  return { ordem, prof };
+}
+
+/** Desenha uma árvore de nós em SVG. `info(no, i)` devolve { linhas, fundo, borda, cor, tracejado, negritoAte }.
+ * Testa a árvore deitada e em pé e fica com a que melhor aproveita a largura da página. */
+function pdfSvgArvore(nos, info) {
+  if (!nos.length) return '';
+  const L = pdfLayoutArvore(nos);
+  const W = 160, M = 14;
+  const infos = nos.map((no, i) => info(no, i));
+  const alturas = infos.map(inf => Math.max(40, inf.linhas.length * 15 + 18));
+  const H = Math.max(...alturas);
+  const montar = vertical => {
+    const pos = new Map();
+    let maxX = 0, maxY = 0;
+    nos.forEach((no, i) => {
+      const d = L.prof.get(no.id) || 0, o = L.ordem.get(no.id) || 0;
+      const x = (vertical ? o * (W + 28) : d * (W + 64)) + M;
+      const y = (vertical ? d * (H + 46) : o * (H + 22)) + M;
+      pos.set(no.id, { x, y, h: alturas[i] });
+      maxX = Math.max(maxX, x + W); maxY = Math.max(maxY, y + H);
+    });
+    return { pos, w: maxX + M, h: maxY + M, vertical };
+  };
+  const a = montar(false), b = montar(true);
+  const escala = m => Math.min(700 / m.w, 880 / m.h);
+  const m = escala(b) > escala(a) * 1.05 ? b : a;
+
+  let linhas = '', caixas = '';
+  nos.forEach((no, i) => {
+    const p = m.pos.get(no.id);
+    caixas += pdfSvgCaixa(p.x, p.y + (H - p.h) / 2, W, p.h, infos[i]);
+    const pai = no.paiId && m.pos.get(no.paiId);
+    if (pai) {
+      const cor = infos[i].borda;
+      if (m.vertical) {
+        const x0 = pai.x + W / 2, y0 = pai.y + H / 2 + pai.h / 2 - (H - pai.h) / 2, x1 = p.x + W / 2, y1 = p.y + (H - p.h) / 2, my = (y0 + y1) / 2;
+        linhas += `<path d="M${x0},${y0} C${x0},${my} ${x1},${my} ${x1},${y1 - 2}" fill="none" stroke="${cor}" stroke-width="1.8" marker-end="url(#pdfSeta)"/>`;
+      } else {
+        const x0 = pai.x + W, y0 = pai.y + H / 2, x1 = p.x, y1 = p.y + H / 2, mx = (x0 + x1) / 2;
+        linhas += `<path d="M${x0},${y0} C${mx},${y0} ${mx},${y1} ${x1 - 2},${y1}" fill="none" stroke="${cor}" stroke-width="1.8" marker-end="url(#pdfSeta)"/>`;
+      }
+    }
+  });
+  return `<svg class="pdf-mapa-svg" viewBox="0 0 ${m.w} ${m.h}" style="max-width:${Math.round(Math.min(m.w * 1.5, 720))}px" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+    <defs><marker id="pdfSeta" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#5724D6"/></marker></defs>
+    ${linhas}${caixas}</svg>`;
+}
+
+/** Mapa Mental: conceito no centro e os tópicos em volta, com a cor de cada tópico e as setas coloridas. */
+function pdfSvgMapaMental(mm) {
+  const topicos = mm.topicos || [];
+  const cores = ['#3B82F6', '#F97316', '#EAB308', '#16A34A', '#EF4444', '#7C3AED', '#0891B2', '#DB2777'];
+  const BW = 190;
+  const caixas = topicos.map(t => {
+    const linhas = [...pdfQuebra(t.titulo || '', 24), ...String(t.texto || '').split('\n').flatMap(l => l.trim() ? pdfQuebra('• ' + l.trim(), 27) : [])].slice(0, 9);
+    return { t, linhas, negritoAte: pdfQuebra(t.titulo || '', 24).length, h: Math.max(46, linhas.length * 15 + 18) };
+  });
+  const maxH = Math.max(46, ...caixas.map(c => c.h));
+  const rx = topicos.length > 2 ? 290 : 230, ry = topicos.length > 1 ? Math.max(150, maxH * 1.3 + 40) : 0;
+  const cx = rx + BW / 2 + 12, cy = ry + maxH / 2 + 12;
+  const W = cx * 2, H = cy * 2;
+  let setas = '', corpo = '';
+  const nCentro = pdfQuebra(mm.conceito || '', 18);
+  caixas.forEach((c, i) => {
+    const ang = (2 * Math.PI * i) / caixas.length;
+    const bx = cx + (topicos.length === 1 ? 0 : rx * Math.sin(ang)), by = cy - (topicos.length === 1 ? -ry - maxH : ry * Math.cos(ang));
+    const seta = cores[i % cores.length];
+    setas += `<line x1="${cx}" y1="${cy}" x2="${bx}" y2="${by}" stroke="${seta}" stroke-width="2.2"/>`;
+    corpo += pdfSvgCaixa(bx - BW / 2, by - c.h / 2, BW, c.h, { linhas: c.linhas, negritoAte: c.negritoAte, fundo: c.t.cor || '#DFF3FC', borda: seta, cor: '#1a1a2e' });
+  });
+  const centro = pdfSvgCaixa(cx - 80, cy - Math.max(26, nCentro.length * 9 + 12), 160, Math.max(52, nCentro.length * 18 + 24), { linhas: nCentro, negritoAte: 99, fundo: '#5B2BCB', borda: '#4a22a8', cor: '#fff', fonte: 13 });
+  const altFinal = topicos.length === 1 ? H + ry + maxH : H;
+  return `<svg class="pdf-mapa-svg" viewBox="0 0 ${W} ${altFinal}" style="max-width:${Math.round(Math.min(W, 720))}px" font-family="Segoe UI, Helvetica, Arial, sans-serif">${setas}${corpo}${centro}</svg>`;
+}
+
+/** Seção de uma tela da aula — gerada na MESMA ordem em que as telas aparecem na aula (conteudo.ordem). */
+function pdfSecaoDoPasso(passo, c) {
+  const titulo = (campo, o) => o[campo] ? `<p class="pdf-destaque">${renderFraseComDestaque(o[campo], o[campo + 'Destaque'], o[campo + 'DestaqueNegrito'])}</p>` : '';
+  const frase = (campo, o) => o[campo] ? `<p>${renderFraseComDestaque(o[campo], o[campo + 'Destaque'], o[campo + 'DestaqueNegrito'])}</p>` : '';
+  const rotulo = passo.titulo;
+
+  if (passo.tipo === 'antesComecar') {
+    const ac = c.antesComecar || {};
+    let corpo = titulo('titulo', ac) + frase('descricao', ac);
     if (ac.aprender) corpo += `<p><em>O que você vai aprender:</em> ${renderFraseComDestaque(ac.aprender, ac.aprenderDestaque, ac.aprenderDestaqueNegrito)}</p>`;
     if (ac.importancia) corpo += `<p><em>Por que isso é importante:</em> ${renderFraseComDestaque(ac.importancia, ac.importanciaDestaque, ac.importanciaDestaqueNegrito)}</p>`;
-    secoes += pdfSecao('Antes de começar', '#7B3FF2', corpo);
+    return pdfSecao(rotulo, '#7B3FF2', corpo);
+  }
+  if (passo.tipo === 'exemplo') return pdfSecao(rotulo, '#4A80F0', pdfRenderExemplo((c.exemplo || [])[passo.idx] || {}));
+  if (passo.tipo === 'checagem') return pdfSecao(rotulo, '#0D9488', pdfRenderChecagem((c.checagem || [])[passo.idx] || {}));
+
+  if (passo.tipo === 'lista') {
+    const li = (c.lista || [])[passo.idx];
+    if (!li || !(li.titulo || li.textoAntes || (li.itens || []).length || li.descricao)) return '';
+    let corpo = '';
+    if (li.icone) corpo += `<div class="pdf-linha-icone">${pdfIcone(li.icone.tipo, li.icone.cor, li.icone.iconeUrl, li.icone.corFundo)}${titulo('titulo', li)}</div>`;
+    else corpo += titulo('titulo', li);
+    corpo += frase('textoAntes', li);
+    if ((li.itens || []).length) corpo += '<div class="pdf-itens">' + li.itens.map(it =>
+      `<div class="pdf-item-icone">${pdfIcone(it.tipo, it.cor, it.iconeUrl, it.corFundo)}<span>${renderFraseComDestaque(it.texto || '', it.textoDestaque, it.textoDestaqueNegrito)}</span></div>`).join('') + '</div>';
+    corpo += frase('descricao', li);
+    return pdfSecao(rotulo, '#DB2777', corpo);
   }
 
-  (c.exemplo || []).forEach((item, i) => {
-    secoes += pdfSecao(`Exemplo ${i + 1}`, '#4A80F0', pdfRenderExemplo(item));
-  });
+  if (passo.tipo === 'timeline') {
+    const tl = (c.timeline || [])[passo.idx];
+    if (!tl || !(tl.titulo || tl.instrucao || (tl.eventos || []).length)) return '';
+    let corpo = titulo('titulo', tl) + frase('instrucao', tl);
+    corpo += '<div class="pdf-timeline">' + (tl.eventos || []).map(ev => `
+      <div class="pdf-ev"><span class="pdf-ev-ponto" style="background:${ev.cor || '#5B2BCB'}"></span>
+        <div class="pdf-ev-corpo">
+          <p class="pdf-ev-topo">${ev.ano ? `<span class="pdf-ev-ano" style="background:${ev.cor || '#5B2BCB'}">${escaparHtml(ev.ano)}</span>` : ''}<strong>${escaparHtml(ev.titulo || '')}</strong></p>
+          ${ev.descricao ? `<p>${escaparHtml(ev.descricao)}</p>` : ''}
+          ${ev.caracteristicas ? `<p class="pdf-sub">${escaparHtml(ev.caracteristicas)}</p>` : ''}
+        </div></div>`).join('') + '</div>';
+    return pdfSecao(rotulo, '#DB2777', corpo);
+  }
 
-  (c.checagem || []).forEach((item, i) => {
-    secoes += pdfSecao(`Checagem ${i + 1}`, '#0D9488', pdfRenderChecagem(item));
-  });
+  if (passo.tipo === 'jogoSinais' || passo.tipo === 'agrupamento' || passo.tipo === 'distribuicao') {
+    const o = (c[passo.tipo] || [])[passo.idx];
+    if (!o || !(o.titulo || o.instrucao)) return '';
+    const cores = { jogoSinais: '#2563EB', agrupamento: '#EA580C', distribuicao: '#0891B2' };
+    // Os números/grupos desses jogos são digitados pela aluna no player — o PDF mostra título e instrução.
+    return pdfSecao(rotulo, cores[passo.tipo], titulo('titulo', o) + frase('instrucao', o));
+  }
 
-  const listas = (c.lista || []).filter(li => li.titulo || li.textoAntes || (li.itens || []).length || li.descricao);
-  listas.forEach((li, i) => {
-    let corpo = '';
-    if (li.titulo) corpo += `<p class="pdf-destaque">${renderFraseComDestaque(li.titulo, li.tituloDestaque, li.tituloDestaqueNegrito)}</p>`;
-    if (li.textoAntes) corpo += `<p>${renderFraseComDestaque(li.textoAntes, li.textoAntesDestaque, li.textoAntesDestaqueNegrito)}</p>`;
-    if ((li.itens || []).length) corpo += '<ul>' + li.itens.map(it => `<li>${renderFraseComDestaque(it.texto || '', it.textoDestaque, it.textoDestaqueNegrito)}</li>`).join('') + '</ul>';
-    if (li.descricao) corpo += `<p>${renderFraseComDestaque(li.descricao, li.descricaoDestaque, li.descricaoDestaqueNegrito)}</p>`;
-    secoes += pdfSecao(`Lista${listas.length > 1 ? ` ${i + 1}` : ''}`, '#DB2777', corpo);
-  });
+  if (passo.tipo === 'mapaMental') {
+    const mm = (c.mapaMental || [])[passo.idx];
+    if (!mm || !(mm.conceito || (mm.topicos || []).length)) return '';
+    let corpo = titulo('titulo', mm);
+    corpo += `<div class="pdf-mapa">${pdfSvgMapaMental(mm)}</div>`;
+    return pdfSecao(rotulo, '#5724D6', corpo);
+  }
 
-  // Ponto inicial/movimento são digitados pela aluna no player, não existem aqui no
-  // conteúdo salvo — o PDF só mostra o título/instrução (igual ao Card de gravação do
-  // aluno em pdfRenderExemplo, que também é preenchido pela aluna ao estudar).
-  const jogosSinais = (c.jogoSinais || []).filter(jg => jg.titulo || jg.instrucao);
-  jogosSinais.forEach((jg, i) => {
-    let corpo = '';
-    if (jg.titulo) corpo += `<p class="pdf-destaque">${renderFraseComDestaque(jg.titulo, jg.tituloDestaque, jg.tituloDestaqueNegrito)}</p>`;
-    if (jg.instrucao) corpo += `<p>${renderFraseComDestaque(jg.instrucao, jg.instrucaoDestaque, jg.instrucaoDestaqueNegrito)}</p>`;
-    secoes += pdfSecao(`Reta Numérica${jogosSinais.length > 1 ? ` ${i + 1}` : ''}`, '#2563EB', corpo);
-  });
-
-  // Idem: quantidade de grupos/elementos são digitados pela aluna no player.
-  const agrupamentos = (c.agrupamento || []).filter(ag => ag.titulo || ag.instrucao);
-  agrupamentos.forEach((ag, i) => {
-    let corpo = '';
-    if (ag.titulo) corpo += `<p class="pdf-destaque">${renderFraseComDestaque(ag.titulo, ag.tituloDestaque, ag.tituloDestaqueNegrito)}</p>`;
-    if (ag.instrucao) corpo += `<p>${renderFraseComDestaque(ag.instrucao, ag.instrucaoDestaque, ag.instrucaoDestaqueNegrito)}</p>`;
-    secoes += pdfSecao(`Agrupamento${agrupamentos.length > 1 ? ` ${i + 1}` : ''}`, '#EA580C', corpo);
-  });
-
-  // Idem: quantidade de elementos/grupos são digitados pela aluna no player.
-  const distribuicoes = (c.distribuicao || []).filter(dv => dv.titulo || dv.instrucao);
-  distribuicoes.forEach((dv, i) => {
-    let corpo = '';
-    if (dv.titulo) corpo += `<p class="pdf-destaque">${renderFraseComDestaque(dv.titulo, dv.tituloDestaque, dv.tituloDestaqueNegrito)}</p>`;
-    if (dv.instrucao) corpo += `<p>${renderFraseComDestaque(dv.instrucao, dv.instrucaoDestaque, dv.instrucaoDestaqueNegrito)}</p>`;
-    secoes += pdfSecao(`Distribuição${distribuicoes.length > 1 ? ` ${i + 1}` : ''}`, '#0891B2', corpo);
-  });
-
-  const mapasMentais = (c.mapaMental || []).filter(mm => mm.conceito || (mm.topicos || []).length);
-  mapasMentais.forEach((mm, i) => {
-    let corpo = '';
-    if (mm.titulo) corpo += `<p class="pdf-destaque">${renderFraseComDestaque(mm.titulo, mm.tituloDestaque, mm.tituloDestaqueNegrito)}</p>`;
-    if (mm.conceito) corpo += `<p><strong>${escaparHtml(mm.conceito)}</strong></p>`;
-    if ((mm.topicos || []).length) corpo += '<ul>' + mm.topicos.map(t =>
-      `<li><strong>${renderFraseComDestaque(t.titulo || '', t.tituloDestaque, t.tituloDestaqueNegrito)}</strong>${t.texto ? ' — ' + renderFraseComDestaque(t.texto, t.textoDestaque, t.textoDestaqueNegrito) : ''}</li>`
-    ).join('') + '</ul>';
-    secoes += pdfSecao(`Mapa Mental${mapasMentais.length > 1 ? ` ${i + 1}` : ''}`, '#5724D6', corpo);
-  });
-
-  const tabelasAnimadas = (c.tabelaAnimada || []).filter(ta => (ta.itens || []).length || ((ta.tabela || {}).linhas || []).length);
-  tabelasAnimadas.forEach((ta, i) => {
-    let corpo = '';
-    if (ta.titulo) corpo += `<p class="pdf-destaque">${renderFraseComDestaque(ta.titulo, ta.tituloDestaque, ta.tituloDestaqueNegrito)}</p>`;
+  if (passo.tipo === 'tabelaAnimada') {
+    const ta = (c.tabelaAnimada || [])[passo.idx];
+    if (!ta || !((ta.itens || []).length || ((ta.tabela || {}).linhas || []).length)) return '';
+    let corpo = titulo('titulo', ta);
     const tabela = ta.tabela || { colunas: [], linhas: [] };
     if ((tabela.colunas || []).length) {
       corpo += '<table class="pdf-tabela"><thead><tr>' + tabela.colunas.map(col => `<th>${escaparHtml(col || '')}</th>`).join('') + '</tr></thead><tbody>'
         + (tabela.linhas || []).map(linha => '<tr>' + (linha.celulas || []).map(cel => `<td>${escaparHtml(cel || '')}</td>`).join('') + '</tr>').join('')
         + '</tbody></table>';
     }
-    if ((ta.itens || []).length) corpo += '<ul>' + ta.itens.map(it =>
-      `<li><strong>${renderFraseComDestaque(it.titulo || '', it.tituloDestaque, it.tituloDestaqueNegrito)}</strong>${it.texto ? ' — ' + renderFraseComDestaque(it.texto, it.textoDestaque, it.textoDestaqueNegrito) : ''}</li>`
-    ).join('') + '</ul>';
-    secoes += pdfSecao(`Tabela${tabelasAnimadas.length > 1 ? ` ${i + 1}` : ''}`, '#0D6EFD', corpo);
-  });
-
-  const mapasConceituais = (c.mapaConceitual || []).filter(mc => (mc.nos || []).length);
-  mapasConceituais.forEach((mc, i) => {
-    let corpo = '';
-    if (mc.titulo) corpo += `<p class="pdf-destaque">${renderFraseComDestaque(mc.titulo, mc.tituloDestaque, mc.tituloDestaqueNegrito)}</p>`;
-    const nos = mc.nos || [];
-    if (nos.length) {
-      corpo += `<p><strong>${escaparHtml(nos[0].texto || '')}</strong>${nos[0].cartaoTexto ? ' — ' + renderFraseComDestaque(nos[0].cartaoTexto, nos[0].cartaoTextoDestaque, nos[0].cartaoTextoDestaqueNegrito) : ''}</p>`;
-      corpo += '<ul>' + nos.slice(1).map(no =>
-        `<li><strong>${renderFraseComDestaque(no.texto || '', no.textoDestaque, no.textoDestaqueNegrito)}</strong>${no.cartaoTexto ? ' — ' + renderFraseComDestaque(no.cartaoTexto, no.cartaoTextoDestaque, no.cartaoTextoDestaqueNegrito) : ''}</li>`
-      ).join('') + '</ul>';
-    }
-    secoes += pdfSecao(`Mapa Conceitual${mapasConceituais.length > 1 ? ` ${i + 1}` : ''}`, '#7C3AED', corpo);
-  });
-
-  const mapasInterativos = (c.mapaInterativo || []).filter(mi => (mi.nos || []).length);
-  mapasInterativos.forEach((mi, i) => {
-    let corpo = '';
-    if (mi.titulo) corpo += `<p class="pdf-destaque">${renderFraseComDestaque(mi.titulo, mi.tituloDestaque, mi.tituloDestaqueNegrito)}</p>`;
-    corpo += '<ul>' + (mi.nos || []).map(no => {
-      const resposta = no.lacuna ? (no.alternativas || [])[no.correta] : '';
-      return `<li><strong>${escaparHtml(no.lacuna ? (resposta || '(lacuna)') : (no.texto || ''))}</strong>${no.lacuna && no.dica ? ' — ' + escaparHtml(no.dica) : ''}</li>`;
-    }).join('') + '</ul>';
-    secoes += pdfSecao(`Mapa Mental Interativo${mapasInterativos.length > 1 ? ` ${i + 1}` : ''}`, '#6D28D9', corpo);
-  });
-
-  const res = c.resumo || {};
-  if (res.titulo || (res.itens || []).length) {
-    let corpo = '';
-    if (res.titulo) corpo += `<p class="pdf-destaque">${renderFraseComDestaque(res.titulo, res.tituloDestaque, res.tituloDestaqueNegrito)}</p>`;
-    if ((res.itens || []).length) corpo += '<ul>' + res.itens.map(it =>
-      `<li><strong>${renderFraseComDestaque(it.titulo || '', it.tituloDestaque, it.tituloDestaqueNegrito)}</strong>${it.exemplos ? ' — ' + renderFraseComDestaque(it.exemplos, it.exemplosDestaque, it.exemplosDestaqueNegrito) : ''}</li>`
-    ).join('') + '</ul>';
-    secoes += pdfSecao('Resumo', '#F59E0B', corpo);
+    if ((ta.itens || []).length) corpo += '<div class="pdf-itens">' + ta.itens.map(it =>
+      `<div class="pdf-item-icone">${pdfIcone(it.tipo, '#0D6EFD', it.iconeUrl, '#e8f0ff')}<span><strong>${renderFraseComDestaque(it.titulo || '', it.tituloDestaque, it.tituloDestaqueNegrito)}</strong>${it.texto ? ' — ' + renderFraseComDestaque(it.texto, it.textoDestaque, it.textoDestaqueNegrito) : ''}</span></div>`).join('') + '</div>';
+    return pdfSecao(rotulo, '#0D6EFD', corpo);
   }
 
-  const lic = c.licao || {};
-  if (lic.titulo || lic.html) {
-    let corpo = '';
-    if (lic.titulo) corpo += `<p class="pdf-destaque">${renderFraseComDestaque(lic.titulo, lic.tituloDestaque, lic.tituloDestaqueNegrito)}</p>`;
-    if (lic.html) corpo += `<div class="pdf-licao-corpo">${lic.html}</div>`;
-    secoes += pdfSecao('Lição', '#16A34A', corpo);
+  if (passo.tipo === 'mapaConceitual') {
+    const mc = (c.mapaConceitual || [])[passo.idx];
+    const nos = (mc && mc.nos) || [];
+    if (!nos.length) return '';
+    let corpo = titulo('titulo', mc);
+    corpo += `<div class="pdf-mapa">${pdfSvgArvore(nos, (no, i) => ({
+      linhas: pdfQuebra(no.texto || (i === 0 ? 'Conceito central' : '(sem texto)'), 21),
+      fundo: i === 0 ? '#5B2BCB' : (no.cor || '#F1EBFF'), borda: i === 0 ? '#4a22a8' : '#5724D6',
+      cor: i === 0 ? '#fff' : (no.corTexto || '#1a1a2e'), negritoAte: 99,
+    }))}</div>`;
+    const detalhes = nos.filter(no => no.cartaoTexto);
+    if (detalhes.length) corpo += '<div class="pdf-itens">' + detalhes.map(no =>
+      `<div class="pdf-item-icone">${pdfIcone(no.tipo, '#5724D6', no.iconeUrl, no.cor || '#F1EBFF')}<span><strong>${escaparHtml(no.texto || '')}</strong> — ${renderFraseComDestaque(no.cartaoTexto, no.cartaoTextoDestaque, no.cartaoTextoDestaqueNegrito)}</span></div>`).join('') + '</div>';
+    return pdfSecao(rotulo, '#7C3AED', corpo);
   }
 
+  if (passo.tipo === 'mapaInterativo') {
+    const mi = (c.mapaInterativo || [])[passo.idx];
+    const nos = (mi && mi.nos) || [];
+    if (!nos.length) return '';
+    let corpo = titulo('titulo', mi) + (mi.instrucao ? `<p>${escaparHtml(mi.instrucao)}</p>` : '');
+    const texto = no => (no.lacuna ? ((no.alternativas || [])[no.correta] || '(lacuna)') : (no.texto || ''));
+    corpo += `<div class="pdf-mapa">${pdfSvgArvore(nos, (no, i) => ({
+      linhas: pdfQuebra(texto(no), 21),
+      fundo: i === 0 ? '#5B2BCB' : (no.lacuna ? '#EAFAF0' : '#F1EBFF'),
+      borda: i === 0 ? '#4a22a8' : (no.lacuna ? '#16A34A' : '#5724D6'),
+      cor: i === 0 ? '#fff' : '#1a1a2e', negritoAte: 99, tracejado: false,
+    }))}</div>`;
+    const lacunas = nos.filter(no => no.lacuna);
+    if (lacunas.length) corpo += '<div class="pdf-itens">' + lacunas.map(no => {
+      const alts = (no.alternativas || []).filter(a => a);
+      return `<div class="pdf-item-icone"><span class="pdf-ico" style="background:#EAFAF0;color:#16A34A">✓</span><span><strong>${escaparHtml(texto(no))}</strong>`
+        + (alts.length ? `<br><span class="pdf-sub">Alternativas: ${alts.map((a, k) => k === no.correta ? `<b class="pdf-certo">${escaparHtml(a)}</b>` : escaparHtml(a)).join(' · ')}</span>` : '')
+        + (no.dica ? `<br><span class="pdf-sub">Dica: ${escaparHtml(no.dica)}</span>` : '') + '</span></div>';
+    }).join('') + '</div>';
+    return pdfSecao(rotulo, '#6D28D9', corpo);
+  }
+
+  if (passo.tipo === 'resumo') {
+    const res = c.resumo || {};
+    if (!(res.titulo || (res.itens || []).length)) return '';
+    let corpo = titulo('titulo', res);
+    if ((res.itens || []).length) corpo += '<div class="pdf-itens">' + res.itens.map(it =>
+      `<div class="pdf-item-icone">${pdfIcone(it.tipo, it.cor, it.iconeUrl, it.corFundo)}<span><strong>${renderFraseComDestaque(it.titulo || '', it.tituloDestaque, it.tituloDestaqueNegrito)}</strong>${it.exemplos ? ' — ' + renderFraseComDestaque(it.exemplos, it.exemplosDestaque, it.exemplosDestaqueNegrito) : ''}</span></div>`).join('') + '</div>';
+    return pdfSecao(rotulo, '#F59E0B', corpo);
+  }
+
+  if (passo.tipo === 'licao') {
+    const lic = c.licao || {};
+    if (!(lic.titulo || lic.html)) return '';
+    return pdfSecao(rotulo, '#16A34A', titulo('titulo', lic) + (lic.html ? `<div class="pdf-licao-corpo">${lic.html}</div>` : ''));
+  }
+  return '';
+}
+
+function pdfRenderAula(aula) {
+  const c = aula.conteudo || {};
+  let passos = [];
+  try { passos = montarPassos(c); } catch (e) { passos = []; }
+  const secoes = passos.map(p => pdfSecaoDoPasso(p, c)).join('');
   return `<div class="pdf-aula">
     <h4 class="pdf-aula-titulo">${escaparHtml(aula.titulo)}</h4>
     ${secoes || '<p class="pdf-vazio">Esta aula ainda não tem conteúdo.</p>'}
@@ -650,10 +787,10 @@ function gerarHtmlEstudoPdf() {
 <meta charset="UTF-8">
 <title>${tituloCurso}</title>
 <style>
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body {
     font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
-    color: #1a1a2e; max-width: 760px; margin: 0 auto; padding: 56px 32px 80px;
+    background: #fff; color: #1a1a2e; max-width: 760px; margin: 0 auto; padding: 56px 32px 80px;
     line-height: 1.65; font-size: 15px;
   }
 
@@ -680,13 +817,12 @@ function gerarHtmlEstudoPdf() {
   .pdf-aula {
     margin: 22px 0; padding: 22px 24px; border: 1px solid #e7e5ef; border-radius: 14px;
     background: #fff; box-shadow: 0 1px 3px rgba(30,27,46,0.06);
-    page-break-inside: avoid;
   }
   h4.pdf-aula-titulo { font-size: 17px; font-weight: 700; color: #1a1a2e; margin: 0 0 18px; }
 
   .pdf-secao {
     border-left: 4px solid #ccc; background: #fafafa; border-radius: 0 10px 10px 0;
-    padding: 14px 18px; margin: 16px 0;
+    padding: 14px 18px; margin: 16px 0; page-break-inside: avoid;
   }
   .pdf-secao:first-of-type { margin-top: 0; }
   .pdf-secao:last-child { margin-bottom: 0; }
@@ -713,13 +849,33 @@ function gerarHtmlEstudoPdf() {
 
   .pdf-licao-corpo p { text-align: justify; margin: 8px 0; }
 
+  .pdf-ico { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0; vertical-align: middle; overflow: hidden; }
+  .pdf-ico svg { width: 22px; height: 22px; }
+  .pdf-ico img { width: 60%; height: 60%; object-fit: contain; }
+  .pdf-linha-icone { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; }
+  .pdf-linha-icone p { margin: 0 !important; }
+  .pdf-itens { margin: 10px 0; }
+  .pdf-item-icone { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+  .pdf-item-icone > span:not(.pdf-ico) { flex: 1; min-width: 0; }
+  .pdf-img { display: block; max-width: 100%; max-height: 420px; border-radius: 10px; margin: 8px 0; }
+  .pdf-fb { margin: 6px 0; padding: 8px 12px; border-radius: 8px; font-size: 13px; }
+  .pdf-fb-ok { background: #eafaf0; color: #15803d; }
+  .pdf-fb-erro { background: #fef2f2; color: #b91c1c; }
+  .pdf-mapa { margin: 10px 0; text-align: center; page-break-inside: avoid; }
+  .pdf-mapa-svg { width: 100%; height: auto; }
+  .pdf-timeline { margin: 10px 0; border-left: 3px solid #ece3fd; padding-left: 4px; }
+  .pdf-ev { position: relative; padding: 4px 0 10px 18px; page-break-inside: avoid; }
+  .pdf-ev-ponto { position: absolute; left: -11px; top: 9px; width: 16px; height: 16px; border-radius: 50%; border: 3px solid #fff; }
+  .pdf-ev p { margin: 3px 0 !important; }
+  .pdf-ev-ano { display: inline-block; color: #fff; font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px; margin-right: 8px; }
+
   .pdf-tabela { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px; }
   .pdf-tabela th, .pdf-tabela td { border: 1px solid #e7e5ef; padding: 6px 8px; text-align: left; }
   .pdf-tabela th { background: #f5f3fb; font-weight: 700; }
 
   @media print {
     body { padding: 24px 28px 40px; }
-    .pdf-aula { page-break-inside: avoid; box-shadow: none; }
+    .pdf-aula { box-shadow: none; }
     h1.pdf-ciclo { margin: 0 -28px 32px; }
   }
 </style>

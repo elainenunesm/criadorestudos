@@ -60,6 +60,7 @@ body { background: #fff; min-height: 100vh; overflow-x: hidden; }
 .hero-card:hover { box-shadow: 0 6px 24px rgba(var(--cor-primaria-rgb),0.12); }
 .hero-textos { min-width: 0; flex: 1; }
 .hero-icone { width: 64px; height: 64px; flex-shrink: 0; color: var(--cor-primaria); opacity: .35; }
+.hero-icone-img { object-fit: contain; }
 
 .nivel-selector {
   display: inline-flex; align-items: center; gap: 6px; color: var(--cor-primaria);

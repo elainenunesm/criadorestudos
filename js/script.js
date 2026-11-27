@@ -380,8 +380,44 @@ function abrirModalEditarTrilha(trilha) {
 function abrirMenuMateria(event, cicloId, materiaId) {
   abrirMenu(event, [
     { acao: 'renomear', label: '✏️ Renomear', onClick: () => renomearMateria(cicloId, materiaId) },
+    { acao: 'icone', label: '🎨 Escolher ícone', onClick: () => escolherIconeMateria(cicloId, materiaId) },
     { acao: 'excluir', label: '🗑 Excluir matéria', onClick: () => excluirMateria(cicloId, materiaId) },
   ]);
+}
+
+/** Ícone do card do módulo na tela inicial do aluno. Sem escolha (materia.icone vazio) o player usa um ícone
+ * automático pelo nome da matéria. Mesma lista de ícones (com pesquisa) dos cards; "externo" pede o link da imagem. */
+function escolherIconeMateria(cicloId, materiaId) {
+  const info = buscarMateria(cicloId, materiaId);
+  if (!info) return;
+  const m = info.materia;
+  const cor = '#5B2BCB';
+  const aplicar = (tipo, url) => {
+    if (!tipo) { delete m.icone; delete m.iconeUrl; } else { m.icone = tipo; if (tipo === 'externo') m.iconeUrl = url; else delete m.iconeUrl; }
+    salvarAutomaticamente();
+  };
+  const itens = [{
+    label: 'Automático',
+    sublabel: 'O player escolhe pelo nome da matéria',
+    iconeHtml: badgeIcone('<span style="font-size:18px">✨</span>', '#f5f5fa'),
+    onClick: () => aplicar(null),
+  }];
+  TIPOS_ICONE.forEach(t => itens.push({
+    label: NOME_TIPO_ICONE[t] || t,
+    sublabel: DESC_TIPO_ICONE[t] || '',
+    iconeHtml: badgeIcone(iconeTipo(t, cor), '#f5f5fa'),
+    onClick: () => aplicar(t),
+  }));
+  itens.push({
+    label: 'Ícone externo (link)',
+    sublabel: 'Envie o link de uma imagem em vez de escolher um ícone pronto',
+    iconeHtml: badgeIcone(iconeTipo('externo', cor), '#f5f5fa'),
+    onClick: () => {
+      const url = window.prompt('Cole o link (https://…) da imagem do ícone:', m.iconeUrl || '');
+      if (url && url.trim()) aplicar('externo', url.trim());
+    },
+  });
+  abrirEscolha(`Ícone do módulo — ${m.titulo}`, itens);
 }
 
 function renomearMateria(cicloId, materiaId) {

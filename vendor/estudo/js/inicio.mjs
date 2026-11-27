@@ -173,12 +173,20 @@ const ICONES_AULA = {
 const ICONES_DISCIPLINA = {
   balanca: ICONES_AULA.balanca,
   calculadora: '<rect x="5" y="2" width="14" height="20" rx="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="8" y1="11" x2="8.01" y2="11"></line><line x1="12" y1="11" x2="12.01" y2="11"></line><line x1="16" y1="11" x2="16.01" y2="11"></line><line x1="8" y1="15" x2="8.01" y2="15"></line><line x1="12" y1="15" x2="12.01" y2="15"></line><line x1="16" y1="15" x2="16.01" y2="15"></line><line x1="8" y1="19" x2="16" y2="19"></line>',
+  matematica: '<path d="M6 3.5v7M2.5 7h7M14.5 7h7"></path><path d="M3.5 14.5l6 6M9.5 14.5l-6 6"></path><path d="M14.5 17.5h7"></path><circle cx="18" cy="14" r="1.1" fill="currentColor"></circle><circle cx="18" cy="21" r="1.1" fill="currentColor"></circle>',
+  raciocinio: '<rect x="9" y="3" width="6" height="5" rx="1"></rect><rect x="3" y="16" width="6" height="5" rx="1"></rect><rect x="15" y="16" width="6" height="5" rx="1"></rect><path d="M12 8v4M6 16v-4h12v4"></path>',
+  ingles: '<circle cx="12" cy="12" r="9"></circle><path d="M3 12h18"></path><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18z"></path>',
+  administrativo: '<path d="M2.5 10 12 3.5 21.5 10z"></path><path d="M5 10v9M9.7 10v9M14.3 10v9M19 10v9M3 21h18"></path>',
   livro: '<path d="M2 4h7a3 3 0 0 1 3 3v14a2 2 0 0 0-2-2H2z"></path><path d="M22 4h-7a3 3 0 0 0-3 3v14a2 2 0 0 1 2-2h8z"></path>',
 };
 function iconeDaDisciplina(nome) {
   const n = String(nome || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (/administrativ|administracao publica/.test(n)) return ICONES_DISCIPLINA.administrativo;
   if (/direito|juridic|lei|constitu|legisla/.test(n)) return ICONES_DISCIPLINA.balanca;
-  if (/contab|financ|econom|orcament|auditor|matemat|calcul/.test(n)) return ICONES_DISCIPLINA.calculadora;
+  if (/matemat/.test(n)) return ICONES_DISCIPLINA.matematica;
+  if (/raciocinio|logic/.test(n)) return ICONES_DISCIPLINA.raciocinio;
+  if (/ingles|english|lingua estrangeira/.test(n)) return ICONES_DISCIPLINA.ingles;
+  if (/contab|financ|econom|orcament|auditor|calcul/.test(n)) return ICONES_DISCIPLINA.calculadora;
   return ICONES_DISCIPLINA.livro;
 }
 
@@ -212,7 +220,9 @@ function montarEtapas() {
           <h2 class="hero-title">${escaparHtml(etapa.materia || etapa.titulo || '')}</h2>
           <p class="hero-etapa"></p>
         </div>
-        <svg class="hero-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconeDaDisciplina(etapa.materia || etapa.titulo)}</svg>
+        ${etapa.iconeUrl
+          ? `<img class="hero-icone hero-icone-img" src="${escaparHtml(etapa.iconeUrl)}" alt="">`
+          : `<svg class="hero-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${etapa.iconeSvg || iconeDaDisciplina(etapa.materia || etapa.titulo)}</svg>`}
       </div>
       <div class="modulo-progresso">
         <div class="modulo-progresso-topo"><span>Progresso do módulo</span><strong class="modulo-progresso-pct">0%</strong></div>
