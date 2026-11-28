@@ -829,3 +829,11 @@
 .copiar-tela-item-trecho { font-size: 12px; color: var(--text-sec); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .copiar-tela-item-acao { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; font-weight: 700; color: var(--purple); }
 .copiar-tela-vazio { margin: 4px 2px; font-size: 12.5px; color: var(--text-sec); }
+
+/* Card de imagem — aviso de que a imagem abre ampliada */
+.player-preview .pp-card-imagem-zoom { position: relative; }
+.player-preview .pp-card-imagem-dica {
+  position: absolute; right: 10px; bottom: 10px; display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 11px; border-radius: 999px; background: rgba(26, 26, 46, .72); color: #fff;
+  font-size: 12px; font-weight: 600; line-height: 1; pointer-events: none;
+}

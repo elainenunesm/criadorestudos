@@ -1236,7 +1236,7 @@ function mostrarExemplo(aula, introIdx, i) {
       </div>` : ''}
       ${ex.cardImagem ? `
       <div class="card-imagem">
-        ${ex.cardImagem.imagemUrl ? `<img class="card-imagem-img" src="${ex.cardImagem.imagemUrl}" alt="">` : ''}
+        ${ex.cardImagem.imagemUrl ? `<div class="card-imagem-zoom"><img class="card-imagem-img" src="${ex.cardImagem.imagemUrl}" alt=""><span class="card-imagem-dica"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg> Toque para ampliar</span></div>` : ''}
         ${(ex.cardImagem.titulo || ex.cardImagem.subtitulo || ex.cardImagem.texto) ? `<div class="card-imagem-corpo">
           ${ex.cardImagem.titulo ? `<p class="card-imagem-titulo"${estiloTextoInline(ex.cardImagem, 'titulo')}>${renderFraseComDestaque(ex.cardImagem.titulo, ex.cardImagem.tituloDestaque, ex.cardImagem.tituloDestaqueNegrito)}</p>` : ''}
           ${ex.cardImagem.subtitulo ? `<p class="card-imagem-subtitulo"${estiloTextoInline(ex.cardImagem, 'subtitulo')}>${renderFraseComDestaque(ex.cardImagem.subtitulo, ex.cardImagem.subtituloDestaque, ex.cardImagem.subtituloDestaqueNegrito)}</p>` : ''}

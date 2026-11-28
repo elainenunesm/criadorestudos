@@ -2436,3 +2436,11 @@ body {
 
 /* Frase anotada quebrada em várias linhas (ver ajustarQuebraFrase) */
 .frase-anotada-wrap .frase-anotada + .frase-anotada { display: grid; margin-top: 12px; }
+
+/* Card de imagem — aviso de que a imagem abre ampliada */
+.card-imagem-zoom { position: relative; }
+.card-imagem-dica {
+  position: absolute; right: 10px; bottom: 10px; display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 11px; border-radius: 999px; background: rgba(26, 26, 46, .72); color: #fff;
+  font-size: 12px; font-weight: 600; line-height: 1; pointer-events: none; backdrop-filter: blur(2px);
+}
