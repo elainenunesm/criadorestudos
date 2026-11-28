@@ -2448,3 +2448,10 @@ body {
 .marc-linha { display: block; position: relative; padding-left: 1.3em; }
 .marc-linha + .marc-linha { margin-top: 3px; }
 .marc-linha::before { content: '•'; position: absolute; left: .3em; font-weight: 700; }
+
+/* Mapa Conceitual — "Mapa completo" (depois do último nó): mapa inteiro numa tela só */
+.mc-completo-titulo { display: none; margin: 4px 0 10px; font-size: 15px; font-weight: 800; color: #16a34a; }
+.mc-tela-cheia .mc-completo-titulo { display: block; }
+.mc-tela-cheia .mc-cartao { display: none; }
+.mc-tela-cheia .mc-mapa-scroll { overflow: hidden; max-width: 100%; max-height: none; border: none; margin: 0 auto; }
+.mc-tela-cheia .mc-mapa { min-height: 0; min-width: 0; }

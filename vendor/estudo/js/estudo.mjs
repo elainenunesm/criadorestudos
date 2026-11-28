@@ -2869,22 +2869,23 @@ function iconeMapaConceitualSvg(no, cor) {
  * Chamada uma única vez ao montar a tela — as posições nunca mudam depois, só a aparência de
  * cada nó (revelado ou "fantasma") conforme a etapa atual (ver atualizarRevelacao, dentro de
  * mostrarMapaConceitual). */
-function posicionarNosMapaConceitual(mapaEl, nos) {
+function posicionarNosMapaConceitual(mapaEl, nos, { horizontal = false } = {}) {
   const { posX, profundidade } = layoutArvoreMapaConceitual(nos);
-  const ESPACO_X = 150, ESPACO_Y = 112, MARGEM = 90, MARGEM_Y = 24;
+  // Padrão: em pé (nível -> Y, folhas -> X). Horizontal (mapa completo, quando rende mais): nível -> X, folhas -> Y.
+  const ESPACO_X = horizontal ? 180 : 150, ESPACO_Y = horizontal ? 84 : 112, MARGEM = horizontal ? 104 : 90, MARGEM_Y = 24;
   let maxX = 0, maxY = 0;
   nos.forEach(no => {
     const el = mapaEl.querySelector(`.mc-no[data-id="${no.id}"]`);
     if (!el) return;
-    const x = posX.get(no.id) * ESPACO_X + MARGEM;
-    const y = profundidade.get(no.id) * ESPACO_Y + MARGEM_Y;
+    const x = horizontal ? profundidade.get(no.id) * ESPACO_X + MARGEM : posX.get(no.id) * ESPACO_X + MARGEM;
+    const y = horizontal ? posX.get(no.id) * ESPACO_Y + MARGEM_Y : profundidade.get(no.id) * ESPACO_Y + MARGEM_Y;
     el.style.left = `${x}px`;
     el.style.top = `${y}px`;
     maxX = Math.max(maxX, x);
     maxY = Math.max(maxY, y);
   });
-  mapaEl.style.width = `${maxX + MARGEM + 90}px`;
-  mapaEl.style.height = `${maxY + MARGEM_Y + 60}px`;
+  mapaEl.style.width = `${maxX + MARGEM + (horizontal ? 80 : 90)}px`;
+  mapaEl.style.height = `${maxY + MARGEM_Y + (horizontal ? 70 : 60)}px`;
 }
 
 /** Desenha (ou redesenha) as linhas de conexão entre cada nó e seu "nó pai" — sólida e roxa
@@ -2892,14 +2893,17 @@ function posicionarNosMapaConceitual(mapaEl, nos) {
  * primeira vez que aparece), tracejada e cinza quando ainda aponta pra um nó "fantasma"
  * (ainda não revelado) — mostra o esqueleto da árvore completa sem entregar o conteúdo, igual
  * às caixinhas "Próximo item" do mock de referência. */
-function desenharLinhasMapaConceitual(mapaEl, nos, noIdxAtual, { animarNovas = false } = {}) {
+function desenharLinhasMapaConceitual(mapaEl, nos, noIdxAtual, { animarNovas = false, horizontal = false } = {}) {
   const svg = mapaEl.querySelector('.mc-linhas');
   if (!svg) return;
   const rectMapa = mapaEl.getBoundingClientRect();
   if (!rectMapa.width || !rectMapa.height) return;
-  svg.setAttribute('width', rectMapa.width);
-  svg.setAttribute('height', rectMapa.height);
-  svg.setAttribute('viewBox', `0 0 ${rectMapa.width} ${rectMapa.height}`);
+  // No mapa completo o mapa está reduzido por transform: converte as medidas de volta pro espaço natural.
+  const esc = (mapaEl.offsetWidth ? rectMapa.width / mapaEl.offsetWidth : 1) || 1;
+  const larg = rectMapa.width / esc, alt = rectMapa.height / esc;
+  svg.setAttribute('width', larg);
+  svg.setAttribute('height', alt);
+  svg.setAttribute('viewBox', `0 0 ${larg} ${alt}`);
 
   let defs = '<defs>';
   let paths = '';
@@ -2909,10 +2913,18 @@ function desenharLinhasMapaConceitual(mapaEl, nos, noIdxAtual, { animarNovas = f
     const noEl = mapaEl.querySelector(`.mc-no[data-id="${no.id}"]`);
     if (!paiEl || !noEl) return;
     const r1 = paiEl.getBoundingClientRect(), r2 = noEl.getBoundingClientRect();
-    const p0 = { x: r1.left + r1.width / 2 - rectMapa.left, y: r1.bottom - rectMapa.top };
-    const p1 = { x: r2.left + r2.width / 2 - rectMapa.left, y: r2.top - rectMapa.top };
-    const my = (p0.y + p1.y) / 2;
-    const d = `M${p0.x},${p0.y} C${p0.x},${my} ${p1.x},${my} ${p1.x},${p1.y}`;
+    let d;
+    if (horizontal) {
+      const a = { x: (r1.right - rectMapa.left) / esc, y: (r1.top + r1.height / 2 - rectMapa.top) / esc };
+      const b = { x: (r2.left - rectMapa.left) / esc, y: (r2.top + r2.height / 2 - rectMapa.top) / esc };
+      const mx = (a.x + b.x) / 2;
+      d = `M${a.x},${a.y} C${mx},${a.y} ${mx},${b.y} ${b.x},${b.y}`;
+    } else {
+      const p0 = { x: (r1.left + r1.width / 2 - rectMapa.left) / esc, y: (r1.bottom - rectMapa.top) / esc };
+      const p1 = { x: (r2.left + r2.width / 2 - rectMapa.left) / esc, y: (r2.top - rectMapa.top) / esc };
+      const my = (p0.y + p1.y) / 2;
+      d = `M${p0.x},${p0.y} C${p0.x},${my} ${p1.x},${my} ${p1.x},${p1.y}`;
+    }
     const revelada = ni <= noIdxAtual;
     const cor = revelada ? '#5724D6' : '#c9bdf0';
     const markerId = `mcSetaPonta_${no.id}`;
@@ -2941,8 +2953,18 @@ function desenharLinhasMapaConceitual(mapaEl, nos, noIdxAtual, { animarNovas = f
  * área da tela em si. Usada ao revelar um nó novo no Mapa Conceitual, pra garantir que a
  * animação aconteça visível, mesmo que a aluna tenha mexido no scroll antes de clicar em
  * "Próximo" — mas sem ser um pulo abrupto, pra dar tempo dela acompanhar. */
+/** Altura que sobra na tela, a partir do topo do mapa, até o fim da área visível (descontando o que vem acima:
+ * título, instrução, "Mapa completo"…). Assim o mapa inteiro cabe sem passar da barra de baixo. */
+function alturaDisponivelParaMapa(scrollEl) {
+  questaoArea.scrollTop = 0;
+  const topo = scrollEl.getBoundingClientRect().top - questaoArea.getBoundingClientRect().top;
+  return Math.max(160, questaoArea.clientHeight - topo - 20);
+}
+
+let _rolagemId = 0; // cada rolagem nova (ou cancelamento) invalida a animação anterior
 function rolarAteElemento(el, { duracao = 700 } = {}) {
   if (!el) return;
+  const meuId = ++_rolagemId;
   const containers = [];
   let node = el.parentElement;
   while (node) {
@@ -2956,6 +2978,7 @@ function rolarAteElemento(el, { duracao = 700 } = {}) {
     if (Math.abs(distancia) < 1) return;
     const t0 = performance.now();
     function passo(agora) {
+      if (meuId !== _rolagemId) return; // cancelada (ex.: entrou no mapa completo no meio da rolagem)
       const p = Math.min(1, (agora - t0) / duracao);
       const facil = 1 - Math.pow(1 - p, 3); // ease-out cúbico
       container[propriedade] = inicio + distancia * facil;
@@ -3004,6 +3027,7 @@ function mostrarMapaConceitual(aula, introIdx, i) {
     <div class="resumo-card">
       ${montarAudioTelaHtml(mc.audioUrl)}
       ${mc.titulo ? `<p class="resumo-titulo"${estiloTextoInline(mc, 'titulo')}>${renderFraseComDestaque(mc.titulo || '', mc.tituloDestaque, mc.tituloDestaqueNegrito, sincroniaDoCampo(mc, 'titulo'))}</p>` : ''}
+      <p class="mc-completo-titulo">✓ Mapa completo</p>
       <div class="mc-cartao" id="mcCartao${i}">
         <span class="mc-cartao-contagem" id="mcContagem${i}"></span>
         <div class="mc-cartao-cabecalho">
@@ -3038,6 +3062,10 @@ function mostrarMapaConceitual(aula, introIdx, i) {
   const cartaoTexto  = document.getElementById(`mcCartaoTexto${i}`);
 
   posicionarNosMapaConceitual(mapaEl, nos);
+  let horizontal = false;   // orientação atual do mapa (só vira true no "Mapa completo", quando rende mais)
+  let telaCheia = false;    // "Mapa completo": depois do último nó, mostra o mapa inteiro numa tela só
+  const cardEl = mapaEl.closest('.resumo-card');
+  const scrollEl = document.getElementById(`mcMapaScroll${i}`);
 
   function atualizarRevelacao({ animar = false } = {}) {
     nos.forEach((no, ni) => {
@@ -3055,8 +3083,51 @@ function mostrarMapaConceitual(aula, introIdx, i) {
         el.classList.add('mc-entrando');
       }
     });
-    desenharLinhasMapaConceitual(mapaEl, nos, noIdx, { animarNovas: animar });
+    desenharLinhasMapaConceitual(mapaEl, nos, noIdx, { animarNovas: animar, horizontal });
   }
+
+  /** Mapa completo: com todos os nós já revelados, escolhe a orientação (em pé ou deitado) e a escala que
+   * deixam o mapa INTEIRO na tela, sem rolar e sem ficar nem gigante nem minúsculo. */
+  function ajustarMapaCompleto() {
+    if (!telaCheia || !mapaEl.isConnected) return;
+    mapaEl.style.transform = 'none';
+    const dispL = cardEl.clientWidth;
+    const dispA = alturaDisponivelParaMapa(scrollEl);
+    let melhor = null;
+    [false, true].forEach(h => {
+      horizontal = h;
+      posicionarNosMapaConceitual(mapaEl, nos, { horizontal: h });
+      const lw = mapaEl.offsetWidth, la = mapaEl.offsetHeight;
+      const e = Math.min(1.3, dispL / lw, dispA / la);
+      if (!melhor || e > melhor.e * 1.05) melhor = { h, e, lw, la }; // empate: mantém em pé
+    });
+    horizontal = melhor.h;
+    posicionarNosMapaConceitual(mapaEl, nos, { horizontal });
+    mapaEl.style.transformOrigin = 'top left';
+    mapaEl.style.transform = `scale(${melhor.e})`;
+    scrollEl.style.width = `${melhor.lw * melhor.e}px`;
+    scrollEl.style.height = `${melhor.la * melhor.e}px`;
+    scrollEl.scrollLeft = 0; scrollEl.scrollTop = 0;
+    desenharLinhasMapaConceitual(mapaEl, nos, nos.length - 1, { horizontal });
+  }
+  function entrarMapaCompleto() {
+    telaCheia = true;
+    _rolagemId++; // se o último nó ainda está rolando, cancela: senão a rolagem empurra o mapa reduzido pra fora
+    noIdx = nos.length - 1;
+    cardEl.classList.add('mc-tela-cheia');
+    requestAnimationFrame(() => { ajustarMapaCompleto(); questaoArea.scrollTop = 0; });
+  }
+  function sairMapaCompleto() {
+    telaCheia = false;
+    horizontal = false;
+    cardEl.classList.remove('mc-tela-cheia');
+    mapaEl.style.transform = '';
+    scrollEl.style.width = '';
+    scrollEl.style.height = '';
+    posicionarNosMapaConceitual(mapaEl, nos);
+    mostrarNo(nos.length - 1, { animar: false });
+  }
+  window.addEventListener('resize', ajustarMapaCompleto);
 
   function mostrarNo(idx, { comRolagem = true, animar = true } = {}) {
     noIdx = Math.max(0, Math.min(nos.length - 1, idx));
@@ -3087,10 +3158,13 @@ function mostrarMapaConceitual(aula, introIdx, i) {
   mostrarNo(0, { comRolagem: false, animar: false });
 
   navInterceptorProximo = () => {
+    if (telaCheia) return false; // já está no mapa completo: "Próximo" segue pra próxima tela
     if (noIdx < nos.length - 1) { mostrarNo(noIdx + 1); return true; }
+    if (nos.length > 1) { entrarMapaCompleto(); return true; } // acabaram os nós: mostra o mapa inteiro
     return false;
   };
   navInterceptorAnterior = () => {
+    if (telaCheia) { sairMapaCompleto(); return true; }
     if (noIdx > 0) { mostrarNo(noIdx - 1, { animar: false }); return true; }
     return false;
   };
@@ -3100,7 +3174,7 @@ function mostrarMapaConceitual(aula, introIdx, i) {
       const t = audioTelaAtual.currentTime;
       let alvo = -1;
       nos.forEach((n, idx) => { if (n.audioInicio != null && t >= n.audioInicio) alvo = idx; });
-      if (alvo !== -1 && alvo !== noIdx) mostrarNo(alvo);
+      if (!telaCheia && alvo !== -1 && alvo !== noIdx) mostrarNo(alvo);
     };
     audioTelaAtual.addEventListener('timeupdate', atualizarPorAudio);
   }
@@ -3363,7 +3437,7 @@ function mostrarMapaInterativo(aula, introIdx, i) {
     mapaEl.style.transform = 'none';
     const larguraDisp = cardEl.clientWidth;
     // Sobra pouco além do título "Mapa completo": o mapa inteiro tem que caber numa tela só, sem rolar.
-    const alturaDisp = Math.max(160, questaoArea.clientHeight - 90);
+    const alturaDisp = alturaDisponivelParaMapa(scrollEl);
     // Testa árvore deitada/em pé e várias larguras de nó: fica com a que rende o texto mais legível,
     // sem passar de ESCALA_MAX (nem gigante); em empate de escala, a que ocupa mais da tela.
     const ESCALA_MAX = 1.3;
