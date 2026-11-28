@@ -3070,6 +3070,16 @@ function mostrarMapaConceitual(aula, introIdx, i) {
       if (comRolagem) {
         const elNovo = mapaEl.querySelector(`.mc-no[data-id="${no.id}"]`);
         if (elNovo) rolarAteElemento(elNovo);
+      } else {
+        // Abertura da tela: mesmo com o mapa grande (mais largo que a tela), começa com o conceito central
+        // à vista — centraliza nele na horizontal e fica no topo — em vez de abrir no canto esquerdo.
+        const scrollEl = document.getElementById(`mcMapaScroll${i}`);
+        const raiz = mapaEl.querySelector(`.mc-no[data-id="${nos[0].id}"]`);
+        if (scrollEl && raiz) {
+          const centroX = parseFloat(raiz.style.left) || raiz.offsetLeft;
+          scrollEl.scrollLeft = Math.max(0, centroX - scrollEl.clientWidth / 2);
+          scrollEl.scrollTop = 0;
+        }
       }
     }));
   }

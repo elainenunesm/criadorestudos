@@ -545,7 +545,7 @@ function candidatosCopiaTela(tipo, modo) {
       const dados = c[tipo];
       const tem = dados && (textoSimples(dados.titulo) || (tipo === 'resumo' ? (dados.itens || []).length : textoSimples(dados.html)));
       if (tem && !(aula === conteudoAulaAtual())) {
-        lista.push({ aula, caminho, tipo, dados, titulo: TITULO_TELA_FIXO[tipo], trecho: textoSimples(dados.titulo) });
+        lista.push({ aula, caminho, tipo, dados, chave: `${aula.id}:${tipo}:`, titulo: TITULO_TELA_FIXO[tipo], trecho: textoSimples(dados.titulo) });
       }
       return;
     }
@@ -553,10 +553,11 @@ function candidatosCopiaTela(tipo, modo) {
     let passos = [];
     try { passos = montarPassos(c); } catch (e) { /* aula incompleta: segue sem os títulos numerados */ }
     c[tipo].forEach(item => {
+      if (item._copiaDe && aula === conteudoAulaAtual()) return; // cópia já feita nesta aula: não vira "origem" de nada
       if (tipo === 'exemplo' && varianteDoExemplo(item) !== (modo || 'padrao')) return;
       if (tipo === 'checagem' && varianteDaChecagem(item) !== (modo || 'multipla')) return;
       const passo = passos.find(p => p.tipo === tipo && p.id === item._id);
-      lista.push({ aula, caminho, tipo, dados: item, titulo: passo ? passo.titulo : NOME_TELA_ADICIONAR[tipo] || tipo, trecho: trechoDaTela(item) });
+      lista.push({ aula, caminho, tipo, dados: item, chave: `${aula.id}:${tipo}:${item._id == null ? '' : item._id}`, titulo: passo ? passo.titulo : NOME_TELA_ADICIONAR[tipo] || tipo, trecho: trechoDaTela(item) });
     });
   });
   return lista;
@@ -574,19 +575,30 @@ function atualizarCopiarTela() {
     listaEl.innerHTML = '<p class="copiar-tela-vazio">Ainda não há nenhuma tela desse tipo para copiar.</p>';
     return;
   }
-  const filtrados = todos.filter(c => !q || `${c.aula.titulo} ${c.caminho} ${c.titulo} ${c.trecho}`.toLowerCase().includes(q));
   const atual = conteudoAulaAtual();
+  // Telas desta aula que já são cópia de alguma outra (guardam _copiaDe) — essas aparecem como "Copiado".
+  const jaCopiadas = new Set();
+  const cAtual = atual && atual.conteudo;
+  if (cAtual) {
+    TIPOS_TELA_LISTA.forEach(t => (Array.isArray(cAtual[t]) ? cAtual[t] : []).forEach(it => { if (it && it._copiaDe) jaCopiadas.add(it._copiaDe); }));
+    ['resumo', 'licao'].forEach(t => { if (cAtual[t] && cAtual[t]._copiaDe) jaCopiadas.add(cAtual[t]._copiaDe); });
+  }
+  todos.forEach(c => { c.copiado = jaCopiadas.has(c.chave); });
+  // Quem ainda não foi copiado primeiro; os já copiados vão pro fim, marcados.
+  const filtrados = todos
+    .filter(c => !q || `${c.aula.titulo} ${c.caminho} ${c.titulo} ${c.trecho}`.toLowerCase().includes(q))
+    .sort((a, b) => Number(a.copiado) - Number(b.copiado));
   const MAX = 40;
   listaEl.innerHTML = filtrados.length
     ? filtrados.slice(0, MAX).map((c, i) => `
-      <button type="button" class="copiar-tela-item" data-i="${i}">
+      <button type="button" class="copiar-tela-item${c.copiado ? ' copiado' : ''}" data-i="${i}"${c.copiado ? ' disabled title="Esta tela já foi copiada para esta aula"' : ''}>
         <span class="copiar-tela-item-topo"><strong>${escaparHtml(c.aula.titulo)}${c.aula === atual ? ' (esta aula)' : ''}</strong> › ${escaparHtml(c.titulo)}</span>
         <span class="copiar-tela-item-trecho">${escaparHtml(c.trecho || c.caminho)}</span>
-        <span class="copiar-tela-item-acao">Copiar</span>
+        <span class="copiar-tela-item-acao">${c.copiado ? '✓ Copiado' : 'Copiar'}</span>
       </button>`).join('') + (filtrados.length > MAX ? `<p class="copiar-tela-vazio">Mostrando ${MAX} de ${filtrados.length} — refine a pesquisa.</p>` : '')
     : '<p class="copiar-tela-vazio">Nada encontrado para essa pesquisa.</p>';
   listaEl.querySelectorAll('.copiar-tela-item').forEach(btn => {
-    btn.addEventListener('click', () => copiarTelaExistente(filtrados[Number(btn.dataset.i)]));
+    btn.addEventListener('click', () => { const c = filtrados[Number(btn.dataset.i)]; if (c && !c.copiado) copiarTelaExistente(c); });
   });
 }
 
@@ -597,6 +609,7 @@ function copiarTelaExistente(origem) {
   const conteudo = aula.conteudo;
   garantirOrdem(conteudo);
   const copia = JSON.parse(JSON.stringify(origem.dados));
+  copia._copiaDe = origem.chave; // lembra de onde veio: a lista de cópia marca essa tela como "Copiado" nesta aula
   if (origem.tipo === 'resumo' || origem.tipo === 'licao') {
     conteudo[origem.tipo] = copia;
     conteudo[`${origem.tipo}Removido`] = false;
