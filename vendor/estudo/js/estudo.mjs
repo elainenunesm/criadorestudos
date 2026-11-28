@@ -717,11 +717,33 @@ function estiloTextoInline(obj, campo, extraCss) {
   if (extraCss) partes.push(extraCss);
   if (obj[`${campo}Negrito`]) partes.push('font-weight:700');
   if (obj[`${campo}Italico`]) partes.push('font-style:italic');
+  if (obj[`${campo}Marcador`]) partes.push('--marcador:1');
   const alinhamento = obj[`${campo}Alinhamento`];
   if (alinhamento === 'centro') partes.push('text-align:center');
   else if (alinhamento === 'direita') partes.push('text-align:right');
   return partes.length ? ` style="${partes.join(';')}"` : '';
 }
+
+
+/** "Marcador (•)": cada LINHA do texto vira um item com bolinha e recuo (a linha que quebra volta alinhada ao texto,
+ * não à bolinha). Os campos com o botão ligado trazem `--marcador` no style; aqui as linhas (separadas por <br>) viram
+ * itens. Roda sobre o que foi renderizado e é idempotente (data-marc). */
+function aplicarMarcadoresLinha(raiz) {
+  (raiz || document).querySelectorAll('[style*="--marcador"]:not([data-marc])').forEach(el => {
+    el.dataset.marc = '1';
+    const partes = el.innerHTML.split(/<br\s*\/?>/i).filter(p => p.replace(/&nbsp;|\s/g, ''));
+    el.innerHTML = partes.map(p => `<span class="marc-linha">${p}</span>`).join('');
+  });
+}
+
+// A tela é remontada a cada passo: observa o corpo e aplica o marcador no que acabou de ser renderizado.
+(function ligarMarcadoresLinha() {
+  let agendado = false;
+  const rodar = () => { agendado = false; aplicarMarcadoresLinha(document); };
+  new MutationObserver(() => { if (!agendado) { agendado = true; requestAnimationFrame(rodar); } })
+    .observe(document.body, { childList: true, subtree: true });
+  rodar();
+})();
 
 /** "Card de áudio"/"Card de gravação" (Construtor de Aulas) — mesmo layout pros dois: player de
  * áudio nativo em cima, título/subtítulo/texto opcionais embaixo. A diferença entre eles é só
@@ -1236,10 +1258,12 @@ function mostrarExemplo(aula, introIdx, i) {
       </div>` : ''}
       ${ex.cardImagem ? `
       <div class="card-imagem">
-        ${ex.cardImagem.imagemUrl ? `<div class="card-imagem-zoom"><img class="card-imagem-img" src="${ex.cardImagem.imagemUrl}" alt=""><span class="card-imagem-dica"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg> Toque para ampliar</span></div>` : ''}
-        ${(ex.cardImagem.titulo || ex.cardImagem.subtitulo || ex.cardImagem.texto) ? `<div class="card-imagem-corpo">
+        ${(ex.cardImagem.titulo || ex.cardImagem.subtitulo) ? `<div class="card-imagem-corpo card-imagem-topo">
           ${ex.cardImagem.titulo ? `<p class="card-imagem-titulo"${estiloTextoInline(ex.cardImagem, 'titulo')}>${renderFraseComDestaque(ex.cardImagem.titulo, ex.cardImagem.tituloDestaque, ex.cardImagem.tituloDestaqueNegrito)}</p>` : ''}
           ${ex.cardImagem.subtitulo ? `<p class="card-imagem-subtitulo"${estiloTextoInline(ex.cardImagem, 'subtitulo')}>${renderFraseComDestaque(ex.cardImagem.subtitulo, ex.cardImagem.subtituloDestaque, ex.cardImagem.subtituloDestaqueNegrito)}</p>` : ''}
+        </div>` : ''}
+        ${ex.cardImagem.imagemUrl ? `<div class="card-imagem-zoom"><img class="card-imagem-img" src="${ex.cardImagem.imagemUrl}" alt=""><span class="card-imagem-dica"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg> Toque para ampliar</span></div>` : ''}
+        ${ex.cardImagem.texto ? `<div class="card-imagem-corpo">
           ${ex.cardImagem.texto ? `<p class="card-imagem-texto"${estiloTextoInline(ex.cardImagem, 'texto')}>${renderFraseComDestaque(ex.cardImagem.texto, ex.cardImagem.textoDestaque, ex.cardImagem.textoDestaqueNegrito)}</p>` : ''}
         </div>` : ''}
       </div>` : ''}

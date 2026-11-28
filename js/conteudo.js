@@ -487,6 +487,7 @@ function mostrarPreviewNovaTela(tipo, modo) {
   ligarMapaConceitualPreview(body);
   ligarMapaInterativoPreview(body);
   quebrarFrasesDoPreview(body);
+  aplicarMarcadoresLinha(body);
 
   // Cabeçalho com a mesma cor de marca das outras prévias — só pra mostrar como vai ficar,
   // por isso o "passo" é fictício (essa tela ainda nem foi adicionada de verdade).
@@ -1132,6 +1133,7 @@ function htmlLabelComEstilo(label, campo) {
     <div class="campo-estilo-botoes">
       <button type="button" class="btn-estilo-texto" data-estilo-campo="${campo}" data-estilo-tipo="Negrito" title="Negrito"><strong>B</strong></button>
       <button type="button" class="btn-estilo-texto" data-estilo-campo="${campo}" data-estilo-tipo="Italico" title="Itálico"><em>I</em></button>
+      <button type="button" class="btn-estilo-texto" data-estilo-campo="${campo}" data-estilo-tipo="Marcador" title="Marcadores — uma bolinha (•) com recuo em cada linha">•</button>
       <div class="campo-alinhamento-wrap">
         <button type="button" class="btn-estilo-texto btn-alinhamento" data-alinhamento-campo="${campo}" title="Alinhamento do texto">${ICONES_ALINHAMENTO.esquerda}</button>
         <div class="menu-alinhamento" hidden>
@@ -1204,10 +1206,22 @@ function estiloTextoInline(obj, campo, extraCss) {
   if (extraCss) partes.push(extraCss);
   if (obj[`${campo}Negrito`]) partes.push('font-weight:700');
   if (obj[`${campo}Italico`]) partes.push('font-style:italic');
+  if (obj[`${campo}Marcador`]) partes.push('--marcador:1');
   const alinhamento = obj[`${campo}Alinhamento`];
   if (alinhamento === 'centro') partes.push('text-align:center');
   else if (alinhamento === 'direita') partes.push('text-align:right');
   return partes.length ? ` style="${partes.join(';')}"` : '';
+}
+
+/** "Marcadores (•)": cada LINHA do texto vira um item com bolinha e recuo (a linha que quebra volta alinhada ao texto,
+ * não à bolinha). Os campos com o botão ligado trazem `--marcador` no style; aqui as linhas (separadas por <br>) viram
+ * itens. Roda sobre o que foi renderizado e é idempotente (data-marc). */
+function aplicarMarcadoresLinha(raiz) {
+  (raiz || document).querySelectorAll('[style*="--marcador"]:not([data-marc])').forEach(el => {
+    el.dataset.marc = '1';
+    const partes = el.innerHTML.split(/<br\s*\/?>/i).filter(p => p.replace(/&nbsp;|\s/g, ''));
+    el.innerHTML = partes.map(p => `<span class="marc-linha">${p}</span>`).join('');
+  });
 }
 
 function escaparHtml(s) {
@@ -3933,6 +3947,7 @@ function preencherCaixaPreview(prefixo, aula, passos, indice, resp) {
   ligarMapaConceitualPreview(bodyEl);
   ligarMapaInterativoPreview(bodyEl);
   quebrarFrasesDoPreview(bodyEl);
+  aplicarMarcadoresLinha(bodyEl);
 
   const feedbackEl = document.getElementById(`${prefixo}Feedback`);
   feedbackEl.className = 'pp-feedback';
@@ -4063,10 +4078,12 @@ function previewCardImagem(ci) {
   const temCorpo = ci.titulo || ci.subtitulo || ci.texto;
   return `
     <div class="pp-card-imagem">
-      ${ci.imagemUrl ? `<div class="pp-card-imagem-zoom"><img class="pp-card-imagem-img" src="${escaparHtml(ci.imagemUrl)}" alt=""><span class="pp-card-imagem-dica"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg> Toque para ampliar</span></div>` : ''}
-      ${temCorpo ? `<div class="pp-card-imagem-corpo">
+      ${(ci.titulo || ci.subtitulo) ? `<div class="pp-card-imagem-corpo pp-card-imagem-topo">
         ${ci.titulo ? `<p class="pp-card-imagem-titulo"${estiloTextoInline(ci, 'titulo')}>${renderFraseComDestaque(ci.titulo, ci.tituloDestaque, ci.tituloDestaqueNegrito)}</p>` : ''}
         ${ci.subtitulo ? `<p class="pp-card-imagem-subtitulo"${estiloTextoInline(ci, 'subtitulo')}>${renderFraseComDestaque(ci.subtitulo, ci.subtituloDestaque, ci.subtituloDestaqueNegrito)}</p>` : ''}
+      </div>` : ''}
+      ${ci.imagemUrl ? `<div class="pp-card-imagem-zoom"><img class="pp-card-imagem-img" src="${escaparHtml(ci.imagemUrl)}" alt=""><span class="pp-card-imagem-dica"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg> Toque para ampliar</span></div>` : ''}
+      ${ci.texto ? `<div class="pp-card-imagem-corpo">
         ${ci.texto ? `<p class="pp-card-imagem-texto"${estiloTextoInline(ci, 'texto')}>${renderFraseComDestaque(ci.texto, ci.textoDestaque, ci.textoDestaqueNegrito)}</p>` : ''}
       </div>` : ''}
     </div>`;
