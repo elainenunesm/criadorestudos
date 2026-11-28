@@ -660,7 +660,8 @@ function agruparIndicesContiguos(indices) {
 }
 
 function tokenizarFraseSimples(frase) {
-  const bruta = frase.trim().split(/\s+/).filter(Boolean);
+  // O "* " no começo de uma linha é só o marcador de lista (ver renderFraseComDestaque): não é palavra.
+  const bruta = frase.split('\n').map(l => l.replace(/^\s*[*•]\s+/, '')).join(' ').trim().split(/\s+/).filter(Boolean);
   const tokens = [];
   bruta.forEach(palavra => {
     const m = palavra.match(/^(.+?)([.,!?;:]+)$/);
@@ -692,7 +693,8 @@ function renderFraseComDestaque(texto, indices, indicesNegrito, sincronia) {
   const sincroniaPorPalavra = new Map();
   (sincronia || []).forEach(s => { s.palavras.forEach(i => sincroniaPorPalavra.set(i, s)); });
   let contador = 0;
-  return texto.split('\n').map(linha => {
+  const linhasHtml = texto.split('\n').map(linha => {
+    const marcador = /^\s*[*•]\s+/.test(linha); // linha começando com "* " vira item com bolinha e recuo
     const partes = tokenizarFraseSimples(linha).map(tok => {
       const i = contador++;
       if (/^[.,!?;:]+$/.test(tok)) return tok;
@@ -705,8 +707,11 @@ function renderFraseComDestaque(texto, indices, indicesNegrito, sincronia) {
       const dataAttrs = trecho ? ` data-tempo-inicio="${trecho.tempoInicio}" data-tempo-fim="${trecho.tempoFim}"` : '';
       return `<span${classes ? ` class="${classes}"` : ''}${estilo}${dataAttrs}>${tok}</span>`;
     });
-    return partes.join(' ').replace(/ ([.,!?;:]+)/g, '$1');
-  }).join('<br>');
+    const html = partes.join(' ').replace(/ ([.,!?;:]+)/g, '$1');
+    return { html: marcador ? `<span class="marc-linha">${html}</span>` : html, bloco: marcador };
+  });
+  // <br> só entre duas linhas comuns: o item com bolinha já é um bloco e quebra a linha sozinho.
+  return linhasHtml.map((l, i) => (i > 0 && !l.bloco && !linhasHtml[i - 1].bloco ? '<br>' : '') + l.html).join('');
 }
 
 /** Monta o atributo style="..." (negrito/itálico/alinhamento) pro texto inteiro de um campo, a
@@ -717,33 +722,12 @@ function estiloTextoInline(obj, campo, extraCss) {
   if (extraCss) partes.push(extraCss);
   if (obj[`${campo}Negrito`]) partes.push('font-weight:700');
   if (obj[`${campo}Italico`]) partes.push('font-style:italic');
-  if (obj[`${campo}Marcador`]) partes.push('--marcador:1');
   const alinhamento = obj[`${campo}Alinhamento`];
   if (alinhamento === 'centro') partes.push('text-align:center');
   else if (alinhamento === 'direita') partes.push('text-align:right');
   return partes.length ? ` style="${partes.join(';')}"` : '';
 }
 
-
-/** "Marcador (•)": cada LINHA do texto vira um item com bolinha e recuo (a linha que quebra volta alinhada ao texto,
- * não à bolinha). Os campos com o botão ligado trazem `--marcador` no style; aqui as linhas (separadas por <br>) viram
- * itens. Roda sobre o que foi renderizado e é idempotente (data-marc). */
-function aplicarMarcadoresLinha(raiz) {
-  (raiz || document).querySelectorAll('[style*="--marcador"]:not([data-marc])').forEach(el => {
-    el.dataset.marc = '1';
-    const partes = el.innerHTML.split(/<br\s*\/?>/i).filter(p => p.replace(/&nbsp;|\s/g, ''));
-    el.innerHTML = partes.map(p => `<span class="marc-linha">${p}</span>`).join('');
-  });
-}
-
-// A tela é remontada a cada passo: observa o corpo e aplica o marcador no que acabou de ser renderizado.
-(function ligarMarcadoresLinha() {
-  let agendado = false;
-  const rodar = () => { agendado = false; aplicarMarcadoresLinha(document); };
-  new MutationObserver(() => { if (!agendado) { agendado = true; requestAnimationFrame(rodar); } })
-    .observe(document.body, { childList: true, subtree: true });
-  rodar();
-})();
 
 /** "Card de áudio"/"Card de gravação" (Construtor de Aulas) — mesmo layout pros dois: player de
  * áudio nativo em cima, título/subtítulo/texto opcionais embaixo. A diferença entre eles é só

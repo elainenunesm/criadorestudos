@@ -487,7 +487,6 @@ function mostrarPreviewNovaTela(tipo, modo) {
   ligarMapaConceitualPreview(body);
   ligarMapaInterativoPreview(body);
   quebrarFrasesDoPreview(body);
-  aplicarMarcadoresLinha(body);
 
   // Cabeçalho com a mesma cor de marca das outras prévias — só pra mostrar como vai ficar,
   // por isso o "passo" é fictício (essa tela ainda nem foi adicionada de verdade).
@@ -1021,7 +1020,8 @@ function removerPassoAtual() {
 }
 
 function tokenizarFrase(frase) {
-  const bruta = frase.trim().split(/\s+/).filter(Boolean);
+  // O "* " no começo de uma linha é só o marcador de lista (ver renderFraseComDestaque): não é palavra.
+  const bruta = frase.split('\n').map(l => l.replace(/^\s*[*•]\s+/, '')).join(' ').trim().split(/\s+/).filter(Boolean);
   const tokens = [];
   bruta.forEach(palavra => {
     const m = palavra.match(/^(.+?)([.,!?;:]+)$/);
@@ -1133,7 +1133,7 @@ function htmlLabelComEstilo(label, campo) {
     <div class="campo-estilo-botoes">
       <button type="button" class="btn-estilo-texto" data-estilo-campo="${campo}" data-estilo-tipo="Negrito" title="Negrito"><strong>B</strong></button>
       <button type="button" class="btn-estilo-texto" data-estilo-campo="${campo}" data-estilo-tipo="Italico" title="Itálico"><em>I</em></button>
-      <button type="button" class="btn-estilo-texto" data-estilo-campo="${campo}" data-estilo-tipo="Marcador" title="Marcadores — uma bolinha (•) com recuo em cada linha">•</button>
+      <button type="button" class="btn-estilo-texto" data-marcadores-campo="${campo}" title="Marcadores — põe (ou tira) a bolinha com recuo nas linhas selecionadas">•</button>
       <div class="campo-alinhamento-wrap">
         <button type="button" class="btn-estilo-texto btn-alinhamento" data-alinhamento-campo="${campo}" title="Alinhamento do texto">${ICONES_ALINHAMENTO.esquerda}</button>
         <div class="menu-alinhamento" hidden>
@@ -1158,6 +1158,32 @@ function ligarBotoesEstiloTexto(container, obj) {
       obj[flagCampo] = !obj[flagCampo];
       btn.classList.toggle('ativo', obj[flagCampo]);
       renderPreviewAtual();
+    });
+  });
+
+  // Marcadores: escreve/tira "* " no começo das LINHAS selecionadas do campo (a linha onde está o cursor, se
+  // nada estiver selecionado). Só as linhas indicadas viram item com bolinha e recuo (ver renderFraseComDestaque).
+  container.querySelectorAll('[data-marcadores-campo]').forEach(btn => {
+    btn.addEventListener('mousedown', ev => ev.preventDefault()); // não tira o foco/seleção do campo
+    btn.addEventListener('click', () => {
+      const campoEl = btn.closest('.campo');
+      const el = campoEl && campoEl.querySelector('textarea, input[type="text"]');
+      if (!el) return;
+      const v = el.value;
+      const a = el.selectionStart == null ? 0 : el.selectionStart;
+      let b = el.selectionEnd == null ? a : el.selectionEnd;
+      if (b > a && v[b - 1] === '\n') b--;
+      const ini = v.lastIndexOf('\n', a - 1) + 1;
+      let fim = v.indexOf('\n', b);
+      if (fim === -1) fim = v.length;
+      const MARC = /^(\s*)[*•]\s+/;
+      const linhas = v.slice(ini, fim).split('\n');
+      const todas = linhas.filter(l => l.trim()).every(l => MARC.test(l));
+      const novas = linhas.map(l => (!l.trim() ? l : (todas ? l.replace(MARC, '$1') : (MARC.test(l) ? l : '* ' + l.trimStart()))));
+      const bloco = novas.join('\n');
+      el.value = v.slice(0, ini) + bloco + v.slice(fim);
+      el.setSelectionRange(ini, ini + bloco.length);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
     });
   });
 
@@ -1206,22 +1232,10 @@ function estiloTextoInline(obj, campo, extraCss) {
   if (extraCss) partes.push(extraCss);
   if (obj[`${campo}Negrito`]) partes.push('font-weight:700');
   if (obj[`${campo}Italico`]) partes.push('font-style:italic');
-  if (obj[`${campo}Marcador`]) partes.push('--marcador:1');
   const alinhamento = obj[`${campo}Alinhamento`];
   if (alinhamento === 'centro') partes.push('text-align:center');
   else if (alinhamento === 'direita') partes.push('text-align:right');
   return partes.length ? ` style="${partes.join(';')}"` : '';
-}
-
-/** "Marcadores (•)": cada LINHA do texto vira um item com bolinha e recuo (a linha que quebra volta alinhada ao texto,
- * não à bolinha). Os campos com o botão ligado trazem `--marcador` no style; aqui as linhas (separadas por <br>) viram
- * itens. Roda sobre o que foi renderizado e é idempotente (data-marc). */
-function aplicarMarcadoresLinha(raiz) {
-  (raiz || document).querySelectorAll('[style*="--marcador"]:not([data-marc])').forEach(el => {
-    el.dataset.marc = '1';
-    const partes = el.innerHTML.split(/<br\s*\/?>/i).filter(p => p.replace(/&nbsp;|\s/g, ''));
-    el.innerHTML = partes.map(p => `<span class="marc-linha">${p}</span>`).join('');
-  });
 }
 
 function escaparHtml(s) {
@@ -3947,7 +3961,6 @@ function preencherCaixaPreview(prefixo, aula, passos, indice, resp) {
   ligarMapaConceitualPreview(bodyEl);
   ligarMapaInterativoPreview(bodyEl);
   quebrarFrasesDoPreview(bodyEl);
-  aplicarMarcadoresLinha(bodyEl);
 
   const feedbackEl = document.getElementById(`${prefixo}Feedback`);
   feedbackEl.className = 'pp-feedback';
@@ -4245,7 +4258,8 @@ function renderFraseComDestaque(texto, indices, indicesNegrito) {
   const destacadas = new Set(indices || []);
   const negritos = new Set(indicesNegrito || []);
   let contador = 0;
-  return texto.split('\n').map(linha => {
+  const linhasHtml = texto.split('\n').map(linha => {
+    const marcador = /^\s*[*•]\s+/.test(linha); // linha começando com "* " vira item com bolinha e recuo
     const partes = tokenizarFrase(linha).map(tok => {
       const i = contador++;
       if (ehPontuacao(tok)) return escaparHtml(tok);
@@ -4256,8 +4270,10 @@ function renderFraseComDestaque(texto, indices, indicesNegrito) {
       const estilo = negrito ? ' style="font-weight:700"' : '';
       return `<span${classe}${estilo}>${escaparHtml(tok)}</span>`;
     });
-    return partes.join(' ').replace(/ ([.,!?;:]+)/g, '$1');
-  }).join('<br>');
+    const html = partes.join(' ').replace(/ ([.,!?;:]+)/g, '$1');
+    return { html: marcador ? `<span class="marc-linha">${html}</span>` : html, bloco: marcador };
+  });
+  return linhasHtml.map((l, i) => (i > 0 && !l.bloco && !linhasHtml[i - 1].bloco ? '<br>' : '') + l.html).join('');
 }
 
 /** Prévia da "palavra selecionável" — mostra a palavra certa já destacada com o rótulo em
