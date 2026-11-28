@@ -6,7 +6,7 @@
  * Para criar uma nova aula, basta criar js/data/questoes/aula-N.mjs
  */
 
-const LETRAS = ['A', 'B', 'C', 'D'];
+const LETRAS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']; // até 10 alternativas; antes só tinha A–D e a 5ª aparecia como "undefined"
 const params   = new URLSearchParams(window.location.search);
 const aulaId   = params.get('aula') || '1';
 const modoErros   = params.get('modo') === 'erros';
